@@ -929,7 +929,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         match_key = None
         match_snippet = ""
         for key, val in dic.items():
-            match = re.search(r"[\s]"+key+"$",text)
+            match = re.search(r"[\s.]"+key+"$",text)
             if match or text == key:
                 if len(key) > longest:
                     longest = len(key)
@@ -939,9 +939,22 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             return False
         return match_key, match_snippet
 
+    def placeholderToEnd(self,text,placeholder):
+        '''Returns distance (int) from the first ocurrence of the placeholder, to the end of the string with placeholders removed'''
+        from_start = text.find(placeholder)
+        if from_start < 0:
+            return -1
+        #print("from_start="+str(from_start))
+        total = len(text.replace(placeholder,""))
+        #print("total="+str(total))
+        to_end = total-from_start
+        #print("to_end="+str(to_end))
+        return to_end
+
     def keyPressEvent(self,event):
         if type(event) == QtGui.QKeyEvent:
             if event.key()==Qt.Key_Tab:
+                self.placeholder = "$$"
                 # 1. Set the cursor
                 self.cursor = self.textCursor()
 
@@ -949,14 +962,18 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 cpos = self.cursor.position()
                 text_before_cursor = self.toPlainText()[:cpos]
                 text_after_cursor = self.toPlainText()[cpos:]
-                print self.findLongestEndingMatch(text_before_cursor, self.knobScripter.snippets)
 
                 # 3. Check coincidences in snippets dicts
                 try:
                     match_key, match_snippet = self.findLongestEndingMatch(text_before_cursor, self.knobScripter.snippets)
                     for i in range(len(match_key)):
                         self.cursor.deletePreviousChar()
-                    self.cursor.insertText(match_snippet)
+                    placeholder_to_end = self.placeholderToEnd(match_snippet,self.placeholder)
+                    self.cursor.insertText(match_snippet.replace(self.placeholder,""))
+                    if placeholder_to_end >= 0:
+                        for i in range(placeholder_to_end):
+                            self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
+                        self.setTextCursor(self.cursor)
                 except:
                     KnobScripterTextEdit.keyPressEvent(self,event)
             else:
@@ -1220,8 +1237,14 @@ class SnippetsPanel(QtWidgets.QDialog):
 
         self.apply_btn = QtWidgets.QPushButton('Apply')
         self.apply_btn.setToolTip("Save the snippets into a json file.")
+        self.apply_btn.setShortcut('Ctrl+S')
         self.apply_btn.clicked.connect(self.saveSnippets)
         self.btn_layout.addWidget(self.apply_btn)
+
+        self.help_btn = QtWidgets.QPushButton('Help')
+        self.help_btn.setShortcut('F1')
+        self.help_btn.clicked.connect(self.showHelp)
+        self.btn_layout.addWidget(self.help_btn)
 
 
         self.layout.addLayout(self.btn_layout)
@@ -1251,10 +1274,19 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.mainWidget.loadSnippets()
         self.accept()
 
-    def addSnippet(self):
-        self.scroll_layout.insertWidget(0, SnippetEdit())
+    def addSnippet(self, key="", val=""):
+        se = SnippetEdit(key, val)
+        self.scroll_layout.insertWidget(0, se)
         self.show()
-        return
+        return se
+
+    def showHelp(self):
+        ''' Create a new snippet, auto-completed with the help '''
+        help_key = "help"
+        help_val = """Snippets are a convenient way to have code blocks that you can call through a shortcut.\n\n1. Simply write a shortcut on the text input field on the left. You can see this one is set to "test".\n\n2. Then, write a code or whatever in this script editor. You can include $$ as the placeholder for where you'll want the mouse cursor to appear.\n\n3. Finally, click OK or Apply to save the snippets. On the main script editor, you'll be able to call any snippet by writing the shortcut (in this example: help) and pressing the Tab key.\n\nIn order to remove a snippet, simply leave the shortcut and contents blank, and save the snippets."""
+        help_se = self.addSnippet(help_key,help_val)
+        help_se.snippet_editor.resize(160,160)
+
 
 class SnippetEdit(QtWidgets.QWidget):
     ''' Simple widget containing two fields, for the snippet shortcut and content '''
