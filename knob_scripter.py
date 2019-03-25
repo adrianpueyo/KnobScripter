@@ -14,7 +14,7 @@ import nuke
 import re
 
 try:
-    from PySide import QtCore, QtGui as QtWidgets
+    from PySide import QtCore, QtGui, QtGui as QtWidgets
 except ImportError:
     from PySide2 import QtWidgets, QtGui, QtCore
     from PySide2.QtCore import Qt
