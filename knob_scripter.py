@@ -95,7 +95,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.scriptEditorScript.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.scriptEditorFont).width(' '))
 
         # FindReplace widget
-        self.frw = FindReplaceWidget(self.scriptEditorScript)
+        self.frw = FindReplaceWidget(self)
         self.frw.setVisible(self.frw_open)
 
         # Lower Buttons
@@ -476,7 +476,6 @@ class KnobScripterPane(KnobScripter):
     def deleteCloseButton(self):
         b = self.btn_layout.takeAt(2)
         b.widget().deleteLater()
-
 
 
 #------------------------------------------------------------------------------------------------------
@@ -1015,16 +1014,26 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                         self.setTextCursor(self.cursor)
                 except:
                     KnobScripterTextEdit.keyPressEvent(self,event)
+            elif event.key() in [Qt.Key_Enter, Qt.Key_Return]:
+                modifiers = QtWidgets.QApplication.keyboardModifiers()
+                if modifiers == QtCore.Qt.ControlModifier:
+                    cursor = self.textCursor()
+                    if not cursor.hasSelection():
+                        KnobScripterTextEdit.keyPressEvent(self,event)
+                    else:
+                        code = cursor.selectedText()
+                        exec(code)
+                else:
+                    KnobScripterTextEdit.keyPressEvent(self,event)
             else:
                 KnobScripterTextEdit.keyPressEvent(self,event)
-
 
 #---------------------------------------------------------------------
 # Preferences Panel
 #---------------------------------------------------------------------
 class KnobScripterPrefs(QtWidgets.QDialog):
     def __init__(self, knobScripter):
-        super(KnobScripterPrefs, self).__init__()
+        super(KnobScripterPrefs, self).__init__(knobScripter)
 
         # Vars
         self.knobScripter = knobScripter
@@ -1204,16 +1213,15 @@ def updateContext():
     knobScripterSelectedNodes = nuke.selectedNodes()
     return
 
-
 #--------------------------------
 # FindReplace
 #--------------------------------
 class FindReplaceWidget(QtWidgets.QWidget):
     ''' SearchReplace Widget for the knobscripter. FindReplaceWidget(editor = QPlainTextEdit) '''
-    def __init__(self, editor):
-        super(FindReplaceWidget,self).__init__()
+    def __init__(self, parent):
+        super(FindReplaceWidget,self).__init__(parent)
 
-        self.editor = editor
+        self.editor = parent.scriptEditorScript
 
         self.initUI()
 
@@ -1233,6 +1241,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.find_next_button.clicked.connect(self.find)
         self.find_prev_button = QtWidgets.QPushButton("Previous")
         self.find_prev_button.clicked.connect(self.findBack)
+        self.find_lineEdit.returnPressed.connect(self.find_next_button.click)
 
         # Layout
         self.find_layout = QtWidgets.QHBoxLayout()
@@ -1256,6 +1265,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.replace_button.clicked.connect(self.replace)
         self.replace_all_button = QtWidgets.QPushButton("Replace All")
         self.replace_all_button.clicked.connect(lambda: self.replace(rep_all = True))
+        self.replace_lineEdit.returnPressed.connect(self.replace_button.click)
 
         # Layout
         self.replace_layout = QtWidgets.QHBoxLayout()
@@ -1299,6 +1309,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.layout.addSpacing(4)
         self.layout.addWidget(line)
         self.setLayout(self.layout)
+        self.setTabOrder(self.find_lineEdit, self.replace_lineEdit)
         #self.adjustSize()
         #self.setMaximumHeight(180)
 
@@ -1411,20 +1422,16 @@ class FindReplaceWidget(QtWidgets.QWidget):
                 self.editor.find(rep_str,flags|QtGui.QTextDocument.FindBackward)
 
         cursor.endEditBlock()
-        self.editor.setFocus()
+        self.replace_lineEdit.setFocus()
         return
-
-
-
-
 
 #--------------------------------
 # Snippets
 #--------------------------------
 class SnippetsPanel(QtWidgets.QDialog):
-    def __init__(self, mainWidget):
-        super(SnippetsPanel, self).__init__()
-        self.mainWidget = mainWidget
+    def __init__(self, parent):
+        super(SnippetsPanel, self).__init__(parent)
+        self.mainWidget = parent
 
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Snippet editor")
@@ -1540,7 +1547,6 @@ class SnippetsPanel(QtWidgets.QDialog):
         help_val = """Snippets are a convenient way to have code blocks that you can call through a shortcut.\n\n1. Simply write a shortcut on the text input field on the left. You can see this one is set to "test".\n\n2. Then, write a code or whatever in this script editor. You can include $$ as the placeholder for where you'll want the mouse cursor to appear.\n\n3. Finally, click OK or Apply to save the snippets. On the main script editor, you'll be able to call any snippet by writing the shortcut (in this example: help) and pressing the Tab key.\n\nIn order to remove a snippet, simply leave the shortcut and contents blank, and save the snippets."""
         help_se = self.addSnippet(help_key,help_val)
         help_se.snippet_editor.resize(160,160)
-
 
 class SnippetEdit(QtWidgets.QWidget):
     ''' Simple widget containing two fields, for the snippet shortcut and content '''
