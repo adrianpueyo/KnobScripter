@@ -1190,6 +1190,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
     def closeEvent(self,event):
         self.cancelPrefs()
         self.close()
+
 def updateContext():
     ''' 
     Get the current selection of nodes with their appropiate context
@@ -1198,7 +1199,6 @@ def updateContext():
     global knobScripterSelectedNodes
     knobScripterSelectedNodes = nuke.selectedNodes()
     return
-
 
 
 #--------------------------------
@@ -1261,17 +1261,36 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.replace_layout.addWidget(self.replace_all_button)
 
 
+        # Info text
+        self.info_text = QtWidgets.QLabel("")
+        self.info_text.setVisible(False)
+        self.info_text.mousePressEvent = lambda x:self.info_text.setVisible(False)
+        #f = self.info_text.font()
+        #f.setItalic(True)
+        #self.info_text.setFont(f)
+        #self.info_text.clicked.connect(lambda:self.info_text.setVisible(False))
+
+        # Divider line
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        line.setLineWidth(0)
+        line.setMidLineWidth(1)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+
         #--------------
         # Main Layout
         #--------------
 
         self.layout = QtWidgets.QVBoxLayout()
         self.layout.addSpacing(4)
+        self.layout.addWidget(self.info_text)
         self.layout.addLayout(self.find_layout)
         self.layout.addLayout(self.replace_layout)
         self.layout.setSpacing(4)
         self.layout.setMargin(2)
         self.layout.addSpacing(4)
+        self.layout.addWidget(line)
         self.setLayout(self.layout)
         #self.adjustSize()
         #self.setMaximumHeight(180)
@@ -1279,6 +1298,14 @@ class FindReplaceWidget(QtWidgets.QWidget):
     def find(self, find_str = "", match_case = True):
         if find_str == "":
             find_str = self.find_lineEdit.text()
+
+        matches = self.editor.toPlainText().count(find_str)
+        if not matches or matches == 0:
+            self.info_text.setText("              No more matches.")
+            self.info_text.setVisible(True)
+            return
+        else:
+            self.info_text.setVisible(False)
 
         # Beginning of undo block
         cursor = self.editor.textCursor()
@@ -1301,6 +1328,14 @@ class FindReplaceWidget(QtWidgets.QWidget):
     def findBack(self, find_str = "", match_case = True):
         if find_str == "":
             find_str = self.find_lineEdit.text()
+
+        matches = self.editor.toPlainText().count(find_str)
+        if not matches or matches == 0:
+            self.info_text.setText("              No more matches.")
+            self.info_text.setVisible(True)
+            return
+        else:
+            self.info_text.setVisible(False)
 
         # Beginning of undo block
         cursor = self.editor.textCursor()
@@ -1326,7 +1361,11 @@ class FindReplaceWidget(QtWidgets.QWidget):
 
         matches = self.editor.toPlainText().count(find_str)
         if not matches or matches == 0:
+            self.info_text.setText("              No more matches.")
+            self.info_text.setVisible(True)
             return
+        else:
+            self.info_text.setVisible(False)
 
         # Beginning of undo block
         cursor = self.editor.textCursor()
@@ -1338,7 +1377,6 @@ class FindReplaceWidget(QtWidgets.QWidget):
         flags=flags|QtGui.QTextDocument.FindCaseSensitively
 
         if rep_all == True:
-            print "about to replace all"
             cursor.movePosition(QtGui.QTextCursor.Start)
             self.editor.setTextCursor(cursor)
             cursor = self.editor.textCursor()
@@ -1352,7 +1390,8 @@ class FindReplaceWidget(QtWidgets.QWidget):
                 else:
                     cursor.insertText(rep_str)
                     rep_count += 1
-            print "Replaced "+str(rep_count)+" matches."
+            self.info_text.setText("              Replaced "+str(rep_count)+" matches.")
+            self.info_text.setVisible(True)
         else: #If not "find all"
             if not cursor.hasSelection() or cursor.selectedText() != find_str:
                 self.editor.find(find_str,flags) # Find next
