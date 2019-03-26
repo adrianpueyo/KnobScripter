@@ -72,8 +72,16 @@ class TPanel(QtWidgets.QDialog):
         self.setWindowTitle("this is a test")
         self.snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/apSnippets.txt"))
         self.editor = QtWidgets.QPlainTextEdit(self)
-        layout = QtWidgets.QHBoxLayout()
+        self.frw = FindReplaceWidget(self.editor)
+        self.frw_btn = QtWidgets.QPushButton("Searchreplace")
+        self.frw_btn.clicked.connect(self.toggleFrw)
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.editor)
+        layout.addWidget(self.frw)
+        layout.addWidget(self.frw_btn)
+        layout.setSpacing(0)
+        layout.setMargin(0)
+
         self.setLayout(layout)
         self.loadSnippets()
 
@@ -91,7 +99,8 @@ class TPanel(QtWidgets.QDialog):
             with open(self.snippets_txt_path, "r") as f:
                 self.snippets = json.load(f)
                 return self.snippets
-
+    def toggleFrw(self):
+        self.frw.setVisible(not self.frw.isVisible())
 
 class SnippetsPanel(QtWidgets.QDialog):
     def __init__(self, mainWidget):
@@ -217,7 +226,6 @@ class SnippetEdit(QtWidgets.QWidget):
 
         self.setLayout(self.layout)
 
-
 def seKeyPressEvent(self, event):
     if type(event) == QtGui.QKeyEvent:
         if event.key()==Qt.Key_Tab:
@@ -241,6 +249,108 @@ def seKeyPressEvent(self, event):
             self.parentWidget().openSnippets()
         else:
             QtWidgets.QPlainTextEdit.keyPressEvent(self,event)
+
+# SearchReplace
+class FindReplaceWidget(QtWidgets.QWidget):
+    ''' SearchReplace Widget for the knobscripter. FindReplaceWidget(editor = QPlainTextEdit) '''
+    def __init__(self, editor):
+        super(FindReplaceWidget,self).__init__()
+
+        self.editor = editor
+
+        self.initUI()
+
+    def initUI(self):
+
+        #--------------
+        # Find Row
+        #--------------
+
+        # Widgets
+        self.find_label = QtWidgets.QLabel("Find:")
+        #self.find_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
+        self.find_label.setFixedWidth(50)
+        self.find_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.find_lineEdit = QtWidgets.QLineEdit()
+        self.find_next_button = QtWidgets.QPushButton("Next")
+        self.find_next_button.clicked.connect(self.find)
+        self.find_prev_button = QtWidgets.QPushButton("Previous")
+
+        # Layout
+        self.find_layout = QtWidgets.QHBoxLayout()
+        self.find_layout.addWidget(self.find_label)
+        self.find_layout.addWidget(self.find_lineEdit, stretch = 1)
+        self.find_layout.addWidget(self.find_next_button)
+        self.find_layout.addWidget(self.find_prev_button)
+
+
+        #--------------
+        # Replace Row
+        #--------------
+
+        # Widgets
+        self.replace_label = QtWidgets.QLabel("Replace:")
+        #self.replace_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
+        self.replace_label.setFixedWidth(50)
+        self.replace_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.replace_lineEdit = QtWidgets.QLineEdit()
+        self.replace_button = QtWidgets.QPushButton("Replace")
+        self.replace_all_button = QtWidgets.QPushButton("Replace All")
+
+        # Layout
+        self.replace_layout = QtWidgets.QHBoxLayout()
+        self.replace_layout.addWidget(self.replace_label)
+        self.replace_layout.addWidget(self.replace_lineEdit, stretch = 1)
+        self.replace_layout.addWidget(self.replace_button)
+        self.replace_layout.addWidget(self.replace_all_button)
+
+
+        #--------------
+        # Main Layout
+        #--------------
+
+        self.layout = QtWidgets.QVBoxLayout()
+
+        self.layout.addLayout(self.find_layout)
+        self.layout.addLayout(self.replace_layout)
+        self.layout.setSpacing(4)
+        self.setLayout(self.layout)
+        #self.adjustSize()
+        #self.setMaximumHeight(180)
+
+    def find(self, find_str = None, match_case = True):
+        if find_str is None:
+            find_str = self.find_lineEdit.text()
+
+        # Beginning of undo block
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+
+        # Use flags for case match
+        flags = QtGui.QTextDocument.FindFlags()
+        if match_case:
+            flags=flags|QtGui.QTextDocument.FindCaseSensitively
+
+        # Find next
+        r = self.editor.find(find_str,flags)
+
+        # If
+        print r
+        self.editor.setFocus()
+
+        return r
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Next two are useless
 def wks(self, event):
