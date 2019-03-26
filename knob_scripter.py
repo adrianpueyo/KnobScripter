@@ -34,6 +34,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.windowDefaultSize = [500, 300]
         self.pinned = 1
         self.toLoadKnob = True
+        self.frw_open = False # Find replace widget closed by default
 
         # Load prefs
         self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_prefs_"+version+".txt"))
@@ -66,11 +67,18 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_knob_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.updateKnobDropdown()
         self.current_knob_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
+        self.find_button = QtWidgets.QPushButton("Find")
+        self.find_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
+        self.find_button.setShortcut('Ctrl+F')
+        self.find_button.setMaximumWidth(self.find_button.fontMetrics().boundingRect("Find").width() + 20)
+        self.find_button.setCheckable(True)
+        self.find_button.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.find_button.clicked[bool].connect(self.toggleFRW)
+        if self.frw_open:
+            self.find_button.toggle()
         self.snippets_button = QtWidgets.QPushButton("Snippets")
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.snippets_button.clicked.connect(self.openSnippets)
-        self.current_knob_prefs_button = QtWidgets.QPushButton("Preferences")
-        self.current_knob_prefs_button.clicked.connect(self.openPrefs)
 
         # Script Editor (adapted from Wouter Gilsing's, read class definition below)
         self.scriptEditorScript = KnobScripterTextEditMain(self)
@@ -85,6 +93,10 @@ class KnobScripter(QtWidgets.QWidget):
         self.scriptEditorScript.setFont(self.scriptEditorFont)
         self.scriptEditorScript.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.scriptEditorFont).width(' '))
 
+        # FindReplace widget
+        self.frw = FindReplaceWidget(self.scriptEditorScript)
+        self.frw.setVisible(self.frw_open)
+
         # Lower Buttons
         self.get_btn = QtWidgets.QPushButton("Reload")
         self.get_btn.setToolTip("Reload the contents of the knob. Will overwrite the KnobScripter's script.")
@@ -98,6 +110,9 @@ class KnobScripter(QtWidgets.QWidget):
         self.set_btn.setToolTip("(Ctrl+S) Save the script above into the knob. It won't be saved until you click this button.")
         self.set_all_btn = QtWidgets.QPushButton("Save All")
         self.set_all_btn.setToolTip("Save all changes into the knobs.")
+        self.prefs_button = QtWidgets.QPushButton("Prefs")
+        self.prefs_button.clicked.connect(self.openPrefs)
+        self.prefs_button.setMaximumWidth(self.prefs_button.fontMetrics().boundingRect("Prefs").width() + 12)
         self.pin_btn = QtWidgets.QPushButton("PIN")
         self.pin_btn.setCheckable(True)
         if self.pinned:
@@ -114,8 +129,12 @@ class KnobScripter(QtWidgets.QWidget):
         self.pin_btn.clicked[bool].connect(self.pin)
         self.close_btn.clicked.connect(self.close)
 
+        #-------------
         # Layouts
+        #-------------
         master_layout = QtWidgets.QVBoxLayout()
+
+        # Top buttons etc
         nodeknob_layout = QtWidgets.QHBoxLayout()
         nodeknob_layout.addWidget(self.current_node_label)
         nodeknob_layout.addWidget(self.current_node_change_button)
@@ -124,8 +143,16 @@ class KnobScripter(QtWidgets.QWidget):
         nodeknob_layout.addWidget(self.current_knob_dropdown)
         nodeknob_layout.addSpacing(10)
         nodeknob_layout.addStretch()
+        nodeknob_layout.addWidget(self.find_button)
         nodeknob_layout.addWidget(self.snippets_button)
-        nodeknob_layout.addWidget(self.current_knob_prefs_button)
+
+        # ScriptEditor + FindReplaceWidget in a QVBoxLayout
+        main_edit_layout = QtWidgets.QVBoxLayout()
+        main_edit_layout.setMargin(0)
+        main_edit_layout.setSpacing(0)
+        main_edit_layout.addWidget(self.scriptEditorScript)
+        main_edit_layout.addWidget(self.frw)
+
         self.btn_layout = QtWidgets.QHBoxLayout()
         self.btn_layout.addWidget(self.get_btn)
         self.btn_layout.addWidget(self.get_all_btn)
@@ -133,10 +160,11 @@ class KnobScripter(QtWidgets.QWidget):
         self.btn_layout.addWidget(self.set_btn)
         self.btn_layout.addWidget(self.set_all_btn)
         self.btn_layout.addStretch()
+        self.btn_layout.addWidget(self.prefs_button)
         self.btn_layout.addWidget(self.pin_btn)
         self.btn_layout.addWidget(self.close_btn)
         master_layout.addLayout(nodeknob_layout)
-        master_layout.addWidget(self.scriptEditorScript)
+        master_layout.addLayout(main_edit_layout)
         master_layout.addLayout(self.btn_layout)
         self.setLayout(master_layout)
 
@@ -232,6 +260,13 @@ class KnobScripter(QtWidgets.QWidget):
             #self.current_knob_dropdown.setMinimumContentsLength(80)
         return
     
+    def toggleFRW(self, frw_pressed):
+        self.frw_open = frw_pressed
+        self.frw.setVisible(self.frw_open)
+        if self.frw_open:
+            self.frw.find_lineEdit.setFocus()
+        return
+
     def openSnippets(self):
         ''' Whenever the 'snippets' button is pressed... open the panel '''
         global snippet_panel
@@ -1163,6 +1198,179 @@ def updateContext():
     global knobScripterSelectedNodes
     knobScripterSelectedNodes = nuke.selectedNodes()
     return
+
+
+
+#--------------------------------
+# FindReplace
+#--------------------------------
+class FindReplaceWidget(QtWidgets.QWidget):
+    ''' SearchReplace Widget for the knobscripter. FindReplaceWidget(editor = QPlainTextEdit) '''
+    def __init__(self, editor):
+        super(FindReplaceWidget,self).__init__()
+
+        self.editor = editor
+
+        self.initUI()
+
+    def initUI(self):
+
+        #--------------
+        # Find Row
+        #--------------
+
+        # Widgets
+        self.find_label = QtWidgets.QLabel("Find:")
+        #self.find_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
+        self.find_label.setFixedWidth(50)
+        self.find_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.find_lineEdit = QtWidgets.QLineEdit()
+        self.find_next_button = QtWidgets.QPushButton("Next")
+        self.find_next_button.clicked.connect(self.find)
+        self.find_prev_button = QtWidgets.QPushButton("Previous")
+        self.find_prev_button.clicked.connect(self.findBack)
+
+        # Layout
+        self.find_layout = QtWidgets.QHBoxLayout()
+        self.find_layout.addWidget(self.find_label)
+        self.find_layout.addWidget(self.find_lineEdit, stretch = 1)
+        self.find_layout.addWidget(self.find_next_button)
+        self.find_layout.addWidget(self.find_prev_button)
+
+
+        #--------------
+        # Replace Row
+        #--------------
+
+        # Widgets
+        self.replace_label = QtWidgets.QLabel("Replace:")
+        #self.replace_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
+        self.replace_label.setFixedWidth(50)
+        self.replace_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.replace_lineEdit = QtWidgets.QLineEdit()
+        self.replace_button = QtWidgets.QPushButton("Replace")
+        self.replace_button.clicked.connect(self.replace)
+        self.replace_all_button = QtWidgets.QPushButton("Replace All")
+        self.replace_all_button.clicked.connect(lambda: self.replace(rep_all = True))
+
+        # Layout
+        self.replace_layout = QtWidgets.QHBoxLayout()
+        self.replace_layout.addWidget(self.replace_label)
+        self.replace_layout.addWidget(self.replace_lineEdit, stretch = 1)
+        self.replace_layout.addWidget(self.replace_button)
+        self.replace_layout.addWidget(self.replace_all_button)
+
+
+        #--------------
+        # Main Layout
+        #--------------
+
+        self.layout = QtWidgets.QVBoxLayout()
+        self.layout.addSpacing(4)
+        self.layout.addLayout(self.find_layout)
+        self.layout.addLayout(self.replace_layout)
+        self.layout.setSpacing(4)
+        self.layout.setMargin(2)
+        self.layout.addSpacing(4)
+        self.setLayout(self.layout)
+        #self.adjustSize()
+        #self.setMaximumHeight(180)
+
+    def find(self, find_str = "", match_case = True):
+        if find_str == "":
+            find_str = self.find_lineEdit.text()
+
+        # Beginning of undo block
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+
+        # Use flags for case match
+        flags = QtGui.QTextDocument.FindFlags()
+        if match_case:
+            flags=flags|QtGui.QTextDocument.FindCaseSensitively
+
+        # Find next
+        r = self.editor.find(find_str,flags)
+
+        cursor.endEditBlock()
+
+        self.editor.setFocus()
+        self.editor.show()
+        return r
+
+    def findBack(self, find_str = "", match_case = True):
+        if find_str == "":
+            find_str = self.find_lineEdit.text()
+
+        # Beginning of undo block
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+
+        # Use flags for case match
+        flags = QtGui.QTextDocument.FindFlags()
+        flags=flags|QtGui.QTextDocument.FindBackward
+        if match_case:
+            flags=flags|QtGui.QTextDocument.FindCaseSensitively
+
+        # Find prev
+        r = self.editor.find(find_str,flags)
+        cursor.endEditBlock()
+        self.editor.setFocus()
+        return r
+
+    def replace(self, find_str = "", rep_str = "", rep_all=False):
+        if find_str == "":
+            find_str = self.find_lineEdit.text()
+        if rep_str == "":
+            rep_str = self.replace_lineEdit.text()
+
+        matches = self.editor.toPlainText().count(find_str)
+        if not matches or matches == 0:
+            return
+
+        # Beginning of undo block
+        cursor = self.editor.textCursor()
+        cursor_orig_pos = cursor.position()
+        cursor.beginEditBlock()
+
+        # Use flags for case match
+        flags = QtGui.QTextDocument.FindFlags()
+        flags=flags|QtGui.QTextDocument.FindCaseSensitively
+
+        if rep_all == True:
+            print "about to replace all"
+            cursor.movePosition(QtGui.QTextCursor.Start)
+            self.editor.setTextCursor(cursor)
+            cursor = self.editor.textCursor()
+            rep_count = 0
+            while True:
+                if not cursor.hasSelection() or cursor.selectedText() != find_str:
+                    self.editor.find(find_str,flags) # Find next
+                    cursor = self.editor.textCursor()
+                    if not cursor.hasSelection():
+                        break
+                else:
+                    cursor.insertText(rep_str)
+                    rep_count += 1
+            print "Replaced "+str(rep_count)+" matches."
+        else: #If not "find all"
+            if not cursor.hasSelection() or cursor.selectedText() != find_str:
+                self.editor.find(find_str,flags) # Find next
+                if not cursor.hasSelection() and matches>0: # If not found but there are matches, start over
+                    cursor.movePosition(QtGui.QTextCursor.Start)
+                    self.editor.setTextCursor(cursor)
+                    self.editor.find(find_str,flags)
+            else:
+                cursor.insertText(rep_str)
+                self.editor.find(rep_str,flags|QtGui.QTextDocument.FindBackward)
+
+        cursor.endEditBlock()
+        self.editor.setFocus()
+        return
+
+
+
+
 
 #--------------------------------
 # Snippets
