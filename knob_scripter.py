@@ -15,6 +15,7 @@ import re
 
 try:
     from PySide import QtCore, QtGui, QtGui as QtWidgets
+    from PySide.QtCore import Qt
 except ImportError:
     from PySide2 import QtWidgets, QtGui, QtCore
     from PySide2.QtCore import Qt
@@ -143,12 +144,15 @@ class KnobScripter(QtWidgets.QWidget):
         nodeknob_layout.addWidget(self.current_knob_dropdown)
         nodeknob_layout.addSpacing(10)
         nodeknob_layout.addStretch()
-        nodeknob_layout.addWidget(self.find_button)
         nodeknob_layout.addWidget(self.snippets_button)
+        nodeknob_layout.addWidget(self.prefs_button)
 
         # ScriptEditor + FindReplaceWidget in a QVBoxLayout
         main_edit_layout = QtWidgets.QVBoxLayout()
-        main_edit_layout.setMargin(0)
+        try: #>n11
+            main_edit_layout.setMargin(0)
+        except: #<n10
+            main_edit_layout.setContentsMargins(0,0,0,0)
         main_edit_layout.setSpacing(0)
         main_edit_layout.addWidget(self.scriptEditorScript)
         main_edit_layout.addWidget(self.frw)
@@ -160,7 +164,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.btn_layout.addWidget(self.set_btn)
         self.btn_layout.addWidget(self.set_all_btn)
         self.btn_layout.addStretch()
-        self.btn_layout.addWidget(self.prefs_button)
+        self.btn_layout.addWidget(self.find_button)
         self.btn_layout.addWidget(self.pin_btn)
         self.btn_layout.addWidget(self.close_btn)
         master_layout.addLayout(nodeknob_layout)
@@ -265,6 +269,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.frw.setVisible(self.frw_open)
         if self.frw_open:
             self.frw.find_lineEdit.setFocus()
+        else:
+            self.scriptEditorScript.setFocus()
         return
 
     def openSnippets(self):
@@ -282,8 +288,6 @@ class KnobScripter(QtWidgets.QWidget):
             with open(self.snippets_txt_path, "r") as f:
                 self.snippets = json.load(f)
                 return self.snippets
-
-
 
     def messageBox(self, the_text=""):
         ''' Just a simple message box '''
@@ -1288,7 +1292,10 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.layout.addLayout(self.find_layout)
         self.layout.addLayout(self.replace_layout)
         self.layout.setSpacing(4)
-        self.layout.setMargin(2)
+        try: #>n11
+            self.layout.setMargin(2)
+        except: #<n10
+            self.layout.setContentsMargins(2,2,2,2)
         self.layout.addSpacing(4)
         self.layout.addWidget(line)
         self.setLayout(self.layout)
@@ -1563,14 +1570,15 @@ class SnippetEdit(QtWidgets.QWidget):
 
 
 
-
         self.snippet_editor.resize(90,90)
         self.snippet_editor.setPlainText(str(val))
         self.layout.addWidget(self.shortcut_editor, stretch=1, alignment = Qt.AlignTop)
         self.layout.addWidget(self.snippet_editor, stretch=2)
+        try: #>n11
+            self.layout.setMargin(0)
+        except: #<n10
+            self.layout.setContentsMargins(0,0,0,0)
 
-        self.layout.setMargin(0)
-        self.layout.setMargin(0)
 
         self.setLayout(self.layout)
 
