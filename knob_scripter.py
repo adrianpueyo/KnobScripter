@@ -1021,8 +1021,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                     if not cursor.hasSelection():
                         KnobScripterTextEdit.keyPressEvent(self,event)
                     else:
-                        code = cursor.selectedText()
-                        exec(code)
+                        exec(cursor.selection().toPlainText())
+
                 else:
                     KnobScripterTextEdit.keyPressEvent(self,event)
             else:
