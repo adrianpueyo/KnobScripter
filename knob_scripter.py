@@ -12,6 +12,8 @@ from nukescripts import panels
 import sys
 import nuke
 import re
+import traceback, string
+from StringIO import StringIO
 
 try:
     from PySide import QtCore, QtGui, QtGui as QtWidgets
@@ -56,6 +58,7 @@ class KnobScripter(QtWidgets.QWidget):
         # KnobScripter Panel
         self.resize(self.windowDefaultSize[0],self.windowDefaultSize[1])
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(),self.knob))
+        self.setObjectName( "com.adrianpueyo.knobscripter" )
         self.move(QtGui.QCursor().pos() - QtCore.QPoint(32,74))
 
         # Node/Knob Selection menu
@@ -81,8 +84,19 @@ class KnobScripter(QtWidgets.QWidget):
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.snippets_button.clicked.connect(self.openSnippets)
 
+        # Splitter
+        self.splitter = QtWidgets.QSplitter(Qt.Vertical)
+
+        # Make output widget
+        self._output = ScriptOutputWidget(parent=self)
+        self._output.setReadOnly(1)
+        self._output.setAcceptRichText(0)
+        self._output.setTabStopWidth(self._output.tabStopWidth() / 4)
+        self._output.setFocusPolicy(Qt.ClickFocus)
+        self._output.setAutoFillBackground( 0 )
+
         # Script Editor (adapted from Wouter Gilsing's, read class definition below)
-        self.scriptEditorScript = KnobScripterTextEditMain(self)
+        self.scriptEditorScript = KnobScripterTextEditMain(self, self._output)
         self.scriptEditorScript.setMinimumHeight(100)
         self.scriptEditorScript.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         KSScriptEditorHighlighter(self.scriptEditorScript.document())
@@ -94,6 +108,11 @@ class KnobScripter(QtWidgets.QWidget):
         self.scriptEditorScript.setFont(self.scriptEditorFont)
         self.scriptEditorScript.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.scriptEditorFont).width(' '))
 
+        # Add input and output to splitter
+        self.splitter.addWidget(self._output)
+        self.splitter.addWidget(self.scriptEditorScript)
+        self.splitter.setStretchFactor(0,0)
+
         # FindReplace widget
         self.frw = FindReplaceWidget(self)
         self.frw.setVisible(self.frw_open)
@@ -101,7 +120,7 @@ class KnobScripter(QtWidgets.QWidget):
         # Lower Buttons
         self.get_btn = QtWidgets.QPushButton("Reload")
         self.get_btn.setToolTip("Reload the contents of the knob. Will overwrite the KnobScripter's script.")
-        self.get_all_btn = QtWidgets.QPushButton("Reload All")
+        self.get_all_btn = QtWidgets.QPushButton("All")
         self.get_all_btn.setToolTip("Reload the contents of all knobs. Will clear the KnobScripter's memory.")
         self.arrows_label = QtWidgets.QLabel("&raquo;")
         self.arrows_label.setTextFormat(QtCore.Qt.RichText)
@@ -109,7 +128,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.set_btn = QtWidgets.QPushButton("Save")
         self.set_btn.setShortcut('Ctrl+S')
         self.set_btn.setToolTip("(Ctrl+S) Save the script above into the knob. It won't be saved until you click this button.")
-        self.set_all_btn = QtWidgets.QPushButton("Save All")
+        self.set_all_btn = QtWidgets.QPushButton("All")
         self.set_all_btn.setToolTip("Save all changes into the knobs.")
         self.prefs_button = QtWidgets.QPushButton("Prefs")
         self.prefs_button.clicked.connect(self.openPrefs)
@@ -154,7 +173,7 @@ class KnobScripter(QtWidgets.QWidget):
         except: #<n10
             main_edit_layout.setContentsMargins(0,0,0,0)
         main_edit_layout.setSpacing(0)
-        main_edit_layout.addWidget(self.scriptEditorScript)
+        main_edit_layout.addWidget(self.splitter)
         main_edit_layout.addWidget(self.frw)
 
         self.btn_layout = QtWidgets.QHBoxLayout()
@@ -269,6 +288,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.frw.setVisible(self.frw_open)
         if self.frw_open:
             self.frw.find_lineEdit.setFocus()
+            self.frw.find_lineEdit.selectAll()
         else:
             self.scriptEditorScript.setFocus()
         return
@@ -310,6 +330,7 @@ class KnobScripter(QtWidgets.QWidget):
             with open(self.prefs_txt, "r") as f:
                 prefs = json.load(f)
                 return prefs
+
     def saveScrollValue(self):
         ''' Save scroll values '''
         self.scrollPos[self.knob] = self.scriptEditorScript.verticalScrollBar().value()
@@ -605,7 +626,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         #if Shift+Tab remove indent
         elif event.key() == 16777218:
-
             self.indentation('unindent')
 
         #if BackSpace try to snap to previous indent level
@@ -615,9 +635,9 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         #if enter or return, match indent level
         elif event.key() in [16777220 ,16777221]:
-            #QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
             self.indentNewLine()
         else:
+            print event.key()
             QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
 
     #--------------------------------------------------------------------------------------------------
@@ -949,13 +969,56 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         else:
             return False
 
+#--------------------------------------------------------------------------------------
+# Script Output Widget
+# The output logger works the same way as Nuke's python script editor output window
+#--------------------------------------------------------------------------------------
+
+class ScriptOutputWidget(QtWidgets.QTextEdit) :
+    def __init__(self, parent=None):
+        super(ScriptOutputWidget, self).__init__(parent)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+
+    def paintEvent(self, event):
+        QtWidgets.QTextEdit.paintEvent(self, event)
+
+    def keyPressEvent(self, event) :
+        QtWidgets.QTextEdit.keyPressEvent(self, event)
+
+    def updateOutput(self, text) : 
+        self.moveCursor(QtGui.QTextCursor.End)
+        self.insertPlainText(text)
+        self.moveCursor(QtGui.QTextCursor.End)
+
+
 #---------------------------------------------------------------------
 # Modified KnobScripterTextEdit to include snippets etc.
 #---------------------------------------------------------------------
 class KnobScripterTextEditMain(KnobScripterTextEdit):
-    def __init__(self, knobScripter):
+    def __init__(self, knobScripter, output=None, parent=None):
         super(KnobScripterTextEditMain,self).__init__(knobScripter)
         self.knobScripter = knobScripter
+        self._output = output
+        self._completer = None
+        self._currentCompletion = None
+
+        ########
+        # FROM NUKE's SCRIPT EDITOR START
+        ########
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+
+        #Setup completer
+        self._completer = QtWidgets.QCompleter(self)
+        self._completer.setWidget(self)
+        self._completer.setCompletionMode(QtWidgets.QCompleter.UnfilteredPopupCompletion)
+        self._completer.setCaseSensitivity(Qt.CaseSensitive)
+        self._completer.setModel(QtGui.QStringListModel())
+
+        self._completer.activated.connect(self.insertCompletion)
+        self._completer.highlighted.connect(self.completerHighlightChanged)
+        ########
+        # FROM NUKE's SCRIPT EDITOR END
+        ########
 
     def findLongestEndingMatch(self, text, dic):
         '''
@@ -990,8 +1053,70 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         return to_end
 
     def keyPressEvent(self,event):
+
+        ########
+        # FROM NUKE's SCRIPT EDITOR START
+        ########
+        ctrlToggled = ((event.modifiers() and (Qt.ControlModifier)) != 0)
+        altToggled = ((event.modifiers() and (Qt.AltModifier)) != 0)
+        shiftToggled = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        keyBeingPressed = event.key()
+
+        #Get completer state
+        self._completerShowing = self._completer.popup().isVisible()
+        
+        #If the completer is showing
+        if self._completerShowing :
+            tc = self.textCursor()
+            #If we're hitting enter, do completion
+            if keyBeingPressed in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
+                if not self._currentCompletion:
+                    self._completer.setCurrentRow(0)
+                    self._currentCompletion = self._completer.currentCompletion()
+                #print str(self._completer.completionModel[0])
+                self.insertCompletion(self._currentCompletion)
+                self._completer.popup().hide()
+                self._completerShowing = False
+            #If you're hitting right or escape, hide the popup
+            elif keyBeingPressed == Qt.Key_Right or keyBeingPressed == Qt.Key_Escape:
+                self._completer.popup().hide()
+                self._completerShowing = False
+            #If you hit tab, escape or ctrl-space, hide the completer
+            elif keyBeingPressed == Qt.Key_Tab or keyBeingPressed == Qt.Key_Escape or (ctrlToggled and keyBeingPressed == Qt.Key_Space) :
+                self._currentCompletion = ""
+                self._completer.popup().hide()
+                self._completerShowing = False
+            #If none of the above, update the completion model
+            else :
+                QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+                #Edit completion model
+                colNum = tc.columnNumber()
+                posNum = tc.position()
+                inputText = self.toPlainText()
+                inputTextSplit = inputText.splitlines()
+                runningLength = 0
+                currentLine = None
+                for line in inputTextSplit :
+                    length = len(line)
+                    runningLength += length
+                    if runningLength >= posNum : 
+                        currentLine = line
+                        break
+                    runningLength += 1
+                if currentLine : 
+                    token = currentLine.split(" ")[-1]
+                    if "(" in token :
+                            token = token.split("(")[-1]
+                    self.completeTokenUnderCursor(token)
+            return
+
+        ########
+        # FROM NUKE's SCRIPT EDITOR END
+        ########
+
+
         if type(event) == QtGui.QKeyEvent:
-            if event.key()==Qt.Key_Tab:
+            if not ctrlToggled and not altToggled and not shiftToggled and event.key()==Qt.Key_Tab:
                 self.placeholder = "$$"
                 # 1. Set the cursor
                 self.cursor = self.textCursor()
@@ -1002,7 +1127,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 text_after_cursor = self.toPlainText()[cpos:]
 
                 # 3. Check coincidences in snippets dicts
-                try:
+                try: #Meaning snippet found
                     match_key, match_snippet = self.findLongestEndingMatch(text_before_cursor, self.knobScripter.snippets)
                     for i in range(len(match_key)):
                         self.cursor.deletePreviousChar()
@@ -1012,21 +1137,237 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                         for i in range(placeholder_to_end):
                             self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
                         self.setTextCursor(self.cursor)
-                except:
+                except: # Meaning snippet not found...
+                    ########
+                    # FROM NUKE's SCRIPT EDITOR START
+                    ########
+                    tc = self.textCursor()
+                    allCode = self.toPlainText()
+                    colNum = tc.columnNumber()
+                    posNum = tc.position()
+
+                    #...and if there's text in the editor
+                    if len(allCode.split()) > 0 : 
+                        #There is text in the editor
+                        currentLine = tc.block().text()
+
+                        #If you're not at the end of the line just add a tab
+                        if colNum < len(currentLine):
+                            #If there isn't a ')' directly to the right of the cursor add a tab
+                            if currentLine[colNum:colNum+1] != ')' :
+                                KnobScripterTextEdit.keyPressEvent(self,event)
+                                return
+                            #Else show the completer
+                            else: 
+                                token = currentLine[:colNum].split(" ")[-1]
+                                if "(" in token :
+                                    token = token.split("(")[-1]
+
+                                self.completeTokenUnderCursor(token)
+
+                                return
+
+                        #If you are at the end of the line, 
+                        else : 
+                            #If there's nothing to the right of you add a tab
+                            if currentLine[colNum-1:] == "" :
+                                KnobScripterTextEdit.keyPressEvent(self,event)
+                                return
+
+                            #Else update token and show the completer
+                            token = currentLine.split(" ")[-1]
+                            if "(" in token :
+                                token = token.split("(")[-1]
+
+                            self.completeTokenUnderCursor(token)
+                            return
+
+                    ########
+                    # FROM NUKE's SCRIPT EDITOR END
+                    ########
+
                     KnobScripterTextEdit.keyPressEvent(self,event)
             elif event.key() in [Qt.Key_Enter, Qt.Key_Return]:
                 modifiers = QtWidgets.QApplication.keyboardModifiers()
                 if modifiers == QtCore.Qt.ControlModifier:
-                    cursor = self.textCursor()
-                    if not cursor.hasSelection():
-                        KnobScripterTextEdit.keyPressEvent(self,event)
-                    else:
-                        exec(cursor.selection().toPlainText())
+                    #cursor = self.textCursor()
+                    self.runScript()
+                    #if not cursor.hasSelection():
+                    #    #exec(self.toPlainText())
+                    #else:
+                    #    #exec(cursor.selection().toPlainText())
 
                 else:
                     KnobScripterTextEdit.keyPressEvent(self,event)
             else:
                 KnobScripterTextEdit.keyPressEvent(self,event)
+
+    ########
+    # FROM NUKE's SCRIPT EDITOR START
+    ########
+    def completionsForToken(self, token):
+        def findModules(searchString):
+            sysModules =  sys.modules
+            globalModules = globals()
+            allModules = dict(sysModules, **globalModules)
+            allKeys = list(set(globals().keys() + sys.modules.keys()))
+            allKeysSorted = [x for x in sorted(set(allKeys))]
+
+            if searchString == '' : 
+                matching = []
+                for x in allModules :
+                    if x.startswith(searchString) :
+                        matching.append(x)
+                return matching
+            else : 
+                try : 
+                    if sys.modules.has_key(searchString) :
+                        return dir(sys.modules['%s' % searchString])
+                    elif globals().has_key(searchString): 
+                        return dir(globals()['%s' % searchString])
+                    else : 
+                        return []
+                except :
+                    return None
+
+        completerText = token
+
+        #Get text before last dot
+        moduleSearchString = '.'.join(completerText.split('.')[:-1])
+
+        #Get text after last dot
+        fragmentSearchString = completerText.split('.')[-1] if completerText.split('.')[-1] != moduleSearchString else ''
+
+        #Get all the modules that match module search string
+        allModules = findModules(moduleSearchString)
+
+        #If no modules found, do a dir
+        if not allModules :
+            if len(moduleSearchString.split('.')) == 1 :
+                matchedModules = []
+            else :
+                try : 
+                    trimmedModuleSearchString = '.'.join(moduleSearchString.split('.')[:-1])
+                    matchedModules = [x for x in dir(getattr(sys.modules[trimmedModuleSearchString], moduleSearchString.split('.')[-1])) if '__' not in x and x.startswith(fragmentSearchString)]
+                except : 
+                    matchedModules = []
+        else : 
+            matchedModules = [x for x in allModules if '__' not in x and x.startswith(fragmentSearchString)]
+
+        return matchedModules
+
+    def completeTokenUnderCursor(self, token) :
+
+        #Clean token
+        token = token.lstrip().rstrip()
+
+        completionList = self.completionsForToken(token)
+        if len(completionList) == 0 :
+            return
+
+        #Set model for _completer to completion list
+        self._completer.model().setStringList(completionList)
+
+        #Set the prefix
+        self._completer.setCompletionPrefix(token)
+
+        #Check if we need to make it visible
+        if self._completer.popup().isVisible():
+            rect = self.cursorRect()
+            rect.setWidth(self._completer.popup().sizeHintForColumn(0) + self._completer.popup().verticalScrollBar().sizeHint().width())
+            self._completer.complete(rect)
+            return
+
+        #Make it visible
+        if len(completionList) == 1 :
+            self.insertCompletion(completionList[0])
+        else :
+            rect = self.cursorRect()
+            rect.setWidth(self._completer.popup().sizeHintForColumn(0) + self._completer.popup().verticalScrollBar().sizeHint().width())
+            self._completer.complete(rect)
+
+        return 
+
+    def insertCompletion(self, completion):
+        if completion:
+            token = self._completer.completionPrefix()
+            if len(token.split('.')) == 0 : 
+                tokenFragment = token
+            else :
+                tokenFragment = token.split('.')[-1]
+
+            textToInsert = completion[len(tokenFragment):]
+            tc = self.textCursor()
+            tc.insertText(textToInsert)
+        return
+        
+    def completerHighlightChanged(self, highlighted):
+        self._currentCompletion = highlighted
+
+    def getErrorLineFromTraceback(self, tracebackStr) : 
+        finalLine = None
+        for line in tracebackStr.split('\n') :    
+            if 'File "<string>", line' in line :
+                finalLine = line
+        if finalLine == None :
+            return 0
+        try :
+            errorLine = finalLine.split(',')[1].split(' ')[2]
+            return errorLine
+        except : 
+            return 0
+
+    def runScript(self):
+
+        cursor = self.textCursor()
+        if cursor.hasSelection() :
+            code = cursor.selection().toPlainText()
+        else:
+            code = self.toPlainText()
+
+        if not code.endswith('\n') :
+            code = code + '\n'
+
+        result = None
+        compileSuccess = False
+        runError = False 
+        try : 
+            type = 'exec'
+            if code.count('\n') == 0:
+              type = 'single'
+            compiled = compile(code, '<string>', type)
+            compileSuccess = True
+        except Exception,e:
+            result = traceback.format_exc()
+            runError = True
+            compileSuccess = False
+
+        oldStdOut = sys.stdout
+        if compileSuccess:
+            buffer = StringIO() 
+            sys.stdout = buffer
+            try:
+                exec(compiled, globals())
+            except Exception,e: 
+                runError = True
+                result = traceback.format_exc()
+            else:
+                result = buffer.getvalue()
+        sys.stdout = oldStdOut
+
+        #Update output
+        self._output.updateOutput( code )
+        self._output.updateOutput( "# Result: \n" )
+        self._output.updateOutput( result )
+        self._output.updateOutput( "\n" )
+
+        if runError :
+            self._errorLine = self.getErrorLineFromTraceback(result)
+            self.highlightErrorLine()
+
+    ########
+    # FROM NUKE's SCRIPT EDITOR END
+    ########
 
 #---------------------------------------------------------------------
 # Preferences Panel
@@ -1424,6 +1765,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
         cursor.endEditBlock()
         self.replace_lineEdit.setFocus()
         return
+
 
 #--------------------------------
 # Snippets
