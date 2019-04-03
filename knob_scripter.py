@@ -22,12 +22,11 @@ except ImportError:
     from PySide2 import QtWidgets, QtGui, QtCore
     from PySide2.QtCore import Qt
 
-
 class KnobScripter(QtWidgets.QWidget):
 
-    def __init__(self,node=nuke.root(),knob="knobChanged"):
-
+    def __init__(self, node="", knob="knobChanged"):
         super(KnobScripter,self).__init__()
+        self.nodeMode = (node != "")
         self.node = node
         self.knob = knob
         self.unsavedKnobs = {}
@@ -55,23 +54,143 @@ class KnobScripter(QtWidgets.QWidget):
         self.snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/apSnippets.txt"))
         self.snippets = self.loadSnippets()
 
-        # KnobScripter Panel
+        # Init UI
+        self.initUI()
+
+        # Set default values
+        # TODO: Change/hide/... based on mode etc
+        self.setCurrentKnob(self.knob)
+        self.loadKnobValue(check = False)
+        self.script_editor.setFocus()
+
+    def initUI(self): 
+        ''' Initializes the tool UI'''
+        #-------------------
+        # 1. MAIN WINDOW
+        #-------------------
         self.resize(self.windowDefaultSize[0],self.windowDefaultSize[1])
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(),self.knob))
         self.setObjectName( "com.adrianpueyo.knobscripter" )
         self.move(QtGui.QCursor().pos() - QtCore.QPoint(32,74))
 
-        # Node/Knob Selection menu
-        self.current_node_label = QtWidgets.QLabel("Node: <b> %s </b>"%self.node.fullName())
-        self.current_node_change_button = QtWidgets.QPushButton("Change")
-        self.current_node_change_button.setToolTip("Change node to selected")
-        self.current_node_change_button.clicked.connect(self.changeNode)
+        #---------------------
+        # 2. TOP BAR
+        #---------------------
+        #TODO: Reduce margins, especially vertically
+        #TODO: Add icons to the buttons
+        # ---
+        # 2.1. Left buttons
+        self.change_btn = QtWidgets.QPushButton("Pick Node")
+        self.change_btn.setToolTip("Change to node if selected. Otherwise, change to Script Mode.")
+        self.change_btn.clicked.connect(self.changeClicked)
+
+        # ---
+        # 2.2.A. Node mode UI
+        self.exit_node_btn = QtWidgets.QPushButton("Exit Node")
+        #self.exit_node_btn.setMaximumWidth(self.exit_node_btn.fontMetrics().boundingRect("Exit").width() + 16)
+        self.exit_node_btn.setToolTip("Exit the node, and change to Script Mode.")
+        self.exit_node_btn.clicked.connect(self.changeClicked)
+        self.current_node_label = QtWidgets.QLabel(self.node.fullName()) #TODO: This will accept click, to change the name of the node on a floating lineedit.
+        self.current_node_label.setStyleSheet("font-weight: bold;");
         self.current_knob_label = QtWidgets.QLabel("Knob: ")
         self.current_knob_dropdown = QtWidgets.QComboBox()
         self.current_knob_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.updateKnobDropdown()
         self.current_knob_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
-        self.find_button = QtWidgets.QPushButton("Find")
+
+        # Layout
+        self.node_mode_bar_layout = QtWidgets.QHBoxLayout()
+        #self.node_mode_bar_layout.setContentsMargins(10,10,10,10)
+        #self.node_mode_bar_layout.setSpacing(0)
+        self.node_mode_bar_layout.addWidget(self.exit_node_btn)
+        self.node_mode_bar_layout.addWidget(self.current_node_label)
+        self.node_mode_bar_layout.addWidget(self.current_knob_dropdown)
+
+        # ---
+        # 2.2.B. Script mode UI
+
+        # Layout
+
+        # ---
+        # 2.3. Right Side buttons
+        self.snippets_button = QtWidgets.QPushButton("Snippets")
+        self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
+        self.snippets_button.clicked.connect(self.openSnippets)
+
+        self.prefs_button = QtWidgets.QPushButton("Prefs")
+        self.prefs_button.clicked.connect(self.openPrefs)
+        self.prefs_button.setMaximumWidth(self.prefs_button.fontMetrics().boundingRect("Prefs").width() + 12)
+
+        # Layout
+        self.top_right_bar_layout = QtWidgets.QHBoxLayout()
+        self.top_right_bar_layout.addWidget(self.snippets_button)
+        #self.top_right_bar_layout.addSpacing(10)
+        self.top_right_bar_layout.addWidget(self.prefs_button)
+
+        # ---
+        # Layout
+        self.top_layout = QtWidgets.QHBoxLayout()
+        self.top_layout.setContentsMargins(0,0,0,0)
+        #self.top_layout.setSpacing(0)
+        self.top_layout.addWidget(self.change_btn)
+        self.top_layout.addLayout(self.node_mode_bar_layout)
+        #TODO: Add the script mode bar layout here too, then hide one of them
+        #self.top_layout.addSpacing(10)
+        self.top_layout.addStretch()
+        self.top_layout.addLayout(self.top_right_bar_layout)
+
+
+
+        #----------------------
+        # 3. SCRIPTING SECTION
+        #----------------------
+        # Splitter
+        self.splitter = QtWidgets.QSplitter(Qt.Vertical)
+
+        # Output widget
+        self.script_output = ScriptOutputWidget(parent=self)
+        self.script_output.setReadOnly(1)
+        self.script_output.setAcceptRichText(0)
+        self.script_output.setTabStopWidth(self.script_output.tabStopWidth() / 4)
+        self.script_output.setFocusPolicy(Qt.ClickFocus)
+        self.script_output.setAutoFillBackground( 0 )
+
+        # Script Editor
+        self.script_editor = KnobScripterTextEditMain(self, self.script_output)
+        self.script_editor.setMinimumHeight(100)
+        self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
+        KSScriptEditorHighlighter(self.script_editor.document())
+        self.script_editor_font = QtGui.QFont()
+        self.script_editor_font.setFamily("Courier")
+        self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
+        self.script_editor_font.setFixedPitch(True)
+        self.script_editor_font.setPointSize(self.fontSize)
+        self.script_editor.setFont(self.script_editor_font)
+        self.script_editor.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.script_editor_font).width(' '))
+
+        # Add input and output to splitter
+        self.splitter.addWidget(self.script_output)
+        self.splitter.addWidget(self.script_editor)
+        self.splitter.setStretchFactor(0,0)
+
+        # FindReplace widget
+        self.frw = FindReplaceWidget(self)
+        self.frw.setVisible(self.frw_open)
+
+        # ---
+        # Layout
+        self.scripting_layout = QtWidgets.QVBoxLayout()
+        self.scripting_layout.setContentsMargins(0,0,0,0)
+        self.scripting_layout.setSpacing(0)
+        self.scripting_layout.addWidget(self.splitter) #TODO: Set splitter bar position based on ks mode
+        self.scripting_layout.addWidget(self.frw)
+
+
+        #----------------------
+        # 3. LOWER BAR
+        #----------------------
+        # FindReplace button
+        self.find_button = QtWidgets.QPushButton("Find") #TODO: Add magnifier icon
         self.find_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.find_button.setShortcut('Ctrl+F')
         self.find_button.setMaximumWidth(self.find_button.fontMetrics().boundingRect("Find").width() + 20)
@@ -80,60 +199,31 @@ class KnobScripter(QtWidgets.QWidget):
         self.find_button.clicked[bool].connect(self.toggleFRW)
         if self.frw_open:
             self.find_button.toggle()
-        self.snippets_button = QtWidgets.QPushButton("Snippets")
-        self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
-        self.snippets_button.clicked.connect(self.openSnippets)
 
-        # Splitter
-        self.splitter = QtWidgets.QSplitter(Qt.Vertical)
+        # Reload/All and Save/All Buttons
+        self.reload_btn = QtWidgets.QPushButton("Reload")
+        self.reload_btn.setToolTip("Reload the contents of the knob. Will overwrite the KnobScripter's script.")
+        self.reload_btn.clicked.connect(self.loadKnobValue)
 
-        # Make output widget
-        self._output = ScriptOutputWidget(parent=self)
-        self._output.setReadOnly(1)
-        self._output.setAcceptRichText(0)
-        self._output.setTabStopWidth(self._output.tabStopWidth() / 4)
-        self._output.setFocusPolicy(Qt.ClickFocus)
-        self._output.setAutoFillBackground( 0 )
+        self.reload_all_btn = QtWidgets.QPushButton("All")
+        self.reload_all_btn.setToolTip("Reload the contents of all knobs. Will clear the KnobScripter's memory.")
+        self.reload_all_btn.clicked.connect(self.loadAllKnobValues)
 
-        # Script Editor (adapted from Wouter Gilsing's, read class definition below)
-        self.scriptEditorScript = KnobScripterTextEditMain(self, self._output)
-        self.scriptEditorScript.setMinimumHeight(100)
-        self.scriptEditorScript.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
-        KSScriptEditorHighlighter(self.scriptEditorScript.document())
-        self.scriptEditorFont = QtGui.QFont()
-        self.scriptEditorFont.setFamily("Courier")
-        self.scriptEditorFont.setStyleHint(QtGui.QFont.Monospace)
-        self.scriptEditorFont.setFixedPitch(True)
-        self.scriptEditorFont.setPointSize(self.fontSize)
-        self.scriptEditorScript.setFont(self.scriptEditorFont)
-        self.scriptEditorScript.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.scriptEditorFont).width(' '))
-
-        # Add input and output to splitter
-        self.splitter.addWidget(self._output)
-        self.splitter.addWidget(self.scriptEditorScript)
-        self.splitter.setStretchFactor(0,0)
-
-        # FindReplace widget
-        self.frw = FindReplaceWidget(self)
-        self.frw.setVisible(self.frw_open)
-
-        # Lower Buttons
-        self.get_btn = QtWidgets.QPushButton("Reload")
-        self.get_btn.setToolTip("Reload the contents of the knob. Will overwrite the KnobScripter's script.")
-        self.get_all_btn = QtWidgets.QPushButton("All")
-        self.get_all_btn.setToolTip("Reload the contents of all knobs. Will clear the KnobScripter's memory.")
         self.arrows_label = QtWidgets.QLabel("&raquo;")
         self.arrows_label.setTextFormat(QtCore.Qt.RichText)
         self.arrows_label.setStyleSheet('color:#BBB')
-        self.set_btn = QtWidgets.QPushButton("Save")
-        self.set_btn.setShortcut('Ctrl+S')
-        self.set_btn.setToolTip("(Ctrl+S) Save the script above into the knob. It won't be saved until you click this button.")
-        self.set_all_btn = QtWidgets.QPushButton("All")
-        self.set_all_btn.setToolTip("Save all changes into the knobs.")
-        self.prefs_button = QtWidgets.QPushButton("Prefs")
-        self.prefs_button.clicked.connect(self.openPrefs)
-        self.prefs_button.setMaximumWidth(self.prefs_button.fontMetrics().boundingRect("Prefs").width() + 12)
-        self.pin_btn = QtWidgets.QPushButton("PIN")
+
+        self.save_btn = QtWidgets.QPushButton("Save")
+        self.save_btn.setShortcut('Ctrl+S')
+        self.save_btn.setToolTip("(Ctrl+S) Save the script above into the knob. It won't be saved until you click this button.")
+        self.save_btn.clicked.connect(lambda: self.saveKnobValue(False))
+        
+        self.save_all_btn = QtWidgets.QPushButton("All")
+        self.save_all_btn.setToolTip("Save all changes into the knobs.")
+        self.save_all_btn.clicked.connect(self.saveAllKnobValues)
+
+        # PIN Button
+        self.pin_btn = QtWidgets.QPushButton("PIN") #TODO: Add Pin icon
         self.pin_btn.setCheckable(True)
         if self.pinned:
             self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
@@ -141,60 +231,36 @@ class KnobScripter(QtWidgets.QWidget):
         self.pin_btn.setToolTip("Keep the KnobScripter on top of all other windows.")
         self.pin_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.pin_btn.setMaximumWidth(self.pin_btn.fontMetrics().boundingRect("pin").width() + 12)
-        self.close_btn = QtWidgets.QPushButton("Close")
-        self.get_btn.clicked.connect(self.loadKnobValue)
-        self.get_all_btn.clicked.connect(self.loadAllKnobValues)
-        self.set_btn.clicked.connect(lambda: self.saveKnobValue(False))
-        self.set_all_btn.clicked.connect(self.saveAllKnobValues)
         self.pin_btn.clicked[bool].connect(self.pin)
+
+        # Close Button
+        self.close_btn = QtWidgets.QPushButton("Close")
         self.close_btn.clicked.connect(self.close)
 
-        #-------------
-        # Layouts
-        #-------------
-        master_layout = QtWidgets.QVBoxLayout()
+        # ---
+        # Layout
+        self.bottom_layout = QtWidgets.QHBoxLayout()
+        self.bottom_layout.addWidget(self.reload_btn)
+        self.bottom_layout.addWidget(self.reload_all_btn)
+        self.bottom_layout.addWidget(self.arrows_label)
+        self.bottom_layout.addWidget(self.save_btn)
+        self.bottom_layout.addWidget(self.save_all_btn)
+        self.bottom_layout.addStretch()
+        self.bottom_layout.addWidget(self.find_button)
+        self.bottom_layout.addWidget(self.pin_btn)
+        self.bottom_layout.addWidget(self.close_btn)
+        
 
-        # Top buttons etc
-        nodeknob_layout = QtWidgets.QHBoxLayout()
-        nodeknob_layout.addWidget(self.current_node_label)
-        nodeknob_layout.addWidget(self.current_node_change_button)
-        nodeknob_layout.addSpacing(10)
-        nodeknob_layout.addWidget(self.current_knob_label)
-        nodeknob_layout.addWidget(self.current_knob_dropdown)
-        nodeknob_layout.addSpacing(10)
-        nodeknob_layout.addStretch()
-        nodeknob_layout.addWidget(self.snippets_button)
-        nodeknob_layout.addWidget(self.prefs_button)
-
-        # ScriptEditor + FindReplaceWidget in a QVBoxLayout
-        main_edit_layout = QtWidgets.QVBoxLayout()
-        try: #>n11
-            main_edit_layout.setMargin(0)
-        except: #<n10
-            main_edit_layout.setContentsMargins(0,0,0,0)
-        main_edit_layout.setSpacing(0)
-        main_edit_layout.addWidget(self.splitter)
-        main_edit_layout.addWidget(self.frw)
-
-        self.btn_layout = QtWidgets.QHBoxLayout()
-        self.btn_layout.addWidget(self.get_btn)
-        self.btn_layout.addWidget(self.get_all_btn)
-        self.btn_layout.addWidget(self.arrows_label)
-        self.btn_layout.addWidget(self.set_btn)
-        self.btn_layout.addWidget(self.set_all_btn)
-        self.btn_layout.addStretch()
-        self.btn_layout.addWidget(self.find_button)
-        self.btn_layout.addWidget(self.pin_btn)
-        self.btn_layout.addWidget(self.close_btn)
-        master_layout.addLayout(nodeknob_layout)
-        master_layout.addLayout(main_edit_layout)
-        master_layout.addLayout(self.btn_layout)
-        self.setLayout(master_layout)
-
-        # Set default values
-        self.setCurrentKnob(self.knob)
-        self.loadKnobValue(check = False)
-        self.scriptEditorScript.setFocus()
+        #---------------
+        # MASTER LAYOUT
+        #---------------
+        self.master_layout = QtWidgets.QVBoxLayout()
+        self.master_layout.setSpacing(6)
+        self.master_layout.setContentsMargins(6,6,6,6)
+        self.master_layout.addLayout(self.top_layout)
+        self.master_layout.addLayout(self.scripting_layout)
+        self.master_layout.addLayout(self.bottom_layout)
+        self.setLayout(self.master_layout)
 
     def updateKnobDropdown(self):
         ''' Populate knob dropdown list '''
@@ -217,6 +283,7 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_knob_dropdown.addItem(i)
                 counter += 1
         return
+
     def setCurrentKnob(self, knobToSet):
         ''' Set current knob '''
         KnobDropdownItems = [self.current_knob_dropdown.itemText(i).split(" (")[0] for i in range(self.current_knob_dropdown.count())]
@@ -225,9 +292,10 @@ class KnobScripter(QtWidgets.QWidget):
             if knobIndex >= 0:
                 self.current_knob_dropdown.setCurrentIndex(knobIndex)
         return
+
     def updateUnsavedKnobs(self):
         ''' Clear unchanged knobs from the dict and return the number of unsaved knobs '''
-        edited_knobValue = self.scriptEditorScript.toPlainText()
+        edited_knobValue = self.script_editor.toPlainText()
         self.unsavedKnobs[self.knob] = edited_knobValue
         if len(self.unsavedKnobs) > 0:
             for k in self.unsavedKnobs.copy():
@@ -237,7 +305,8 @@ class KnobScripter(QtWidgets.QWidget):
                 else:
                     del self.unsavedKnobs[k]
         return len(self.unsavedKnobs)
-    def changeNode(self, newNode=""):
+
+    def changeClicked(self, newNode=""):
         ''' Change node '''
         nuke.menu("Nuke").findItem("Edit/Node/Update KnobScripter Context").invoke()
         selection = knobScripterSelectedNodes
@@ -266,7 +335,7 @@ class KnobScripter(QtWidgets.QWidget):
                 self.messageBox("More than one node selected.\nChanging knobChanged editor to %s" % selection[0].fullName())
             # Reinitialise everything, wooo!
             self.node = selection[0]
-            self.scriptEditorScript.setPlainText("")
+            self.script_editor.setPlainText("")
             self.unsavedKnobs = {}
             self.scrollPos = {}
             self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(), self.knob))
@@ -279,7 +348,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.toLoadKnob = True
             self.setCurrentKnob(self.knob)
             self.loadKnobValue(False)
-            self.scriptEditorScript.setFocus()
+            self.script_editor.setFocus()
             #self.current_knob_dropdown.setMinimumContentsLength(80)
         return
     
@@ -290,7 +359,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.frw.find_lineEdit.setFocus()
             self.frw.find_lineEdit.selectAll()
         else:
-            self.scriptEditorScript.setFocus()
+            self.script_editor.setFocus()
         return
 
     def openSnippets(self):
@@ -333,8 +402,9 @@ class KnobScripter(QtWidgets.QWidget):
 
     def saveScrollValue(self):
         ''' Save scroll values '''
-        self.scrollPos[self.knob] = self.scriptEditorScript.verticalScrollBar().value()
+        self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
 
+    # Load
     def loadKnobValue(self, check=True, updateDict=False):
         ''' Get the content of the knob knobChanged and populate the editor '''
         if self.toLoadKnob == False:
@@ -343,7 +413,7 @@ class KnobScripter(QtWidgets.QWidget):
         try:
             obtained_knobValue = str(self.node[dropdown_value].value())
             obtained_scrollValue = 0
-            edited_knobValue = self.scriptEditorScript.toPlainText()
+            edited_knobValue = self.script_editor.toPlainText()
         except:
             error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
             error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
@@ -352,7 +422,7 @@ class KnobScripter(QtWidgets.QWidget):
         # If there were changes to the previous knob, update the dictionary
         if updateDict==True:
             self.unsavedKnobs[self.knob] = edited_knobValue
-            self.scrollPos[self.knob] = self.scriptEditorScript.verticalScrollBar().value()
+            self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
         prev_knob = self.knob
         self.knob = self.current_knob_dropdown.currentText().split(" (")[0]
         if check and obtained_knobValue != edited_knobValue:
@@ -373,36 +443,11 @@ class KnobScripter(QtWidgets.QWidget):
                 obtained_knobValue = self.unsavedKnobs[self.knob]
             if self.knob in self.scrollPos:
                 obtained_scrollValue = self.scrollPos[self.knob]
-        self.scriptEditorScript.setPlainText(obtained_knobValue)
-        self.scriptEditorScript.verticalScrollBar().setValue(obtained_scrollValue)
+        self.script_editor.setPlainText(obtained_knobValue)
+        self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.name(), self.knob))
         return
-    def saveKnobValue(self, check=True):
-        ''' Save the text from the editor to the node's knobChanged knob '''
-        dropdown_value = self.current_knob_dropdown.currentText().split(" (")[0]
-        try:
-            obtained_knobValue = str(self.node[dropdown_value].value())
-            self.knob = self.current_knob_dropdown.currentText().split(" (")[0]
-        except:
-            error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
-            error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-            error_message.exec_()
-            return
-        edited_knobValue = self.scriptEditorScript.toPlainText()
-        if check and obtained_knobValue != edited_knobValue:
-            msgBox = QtWidgets.QMessageBox()
-            msgBox.setText("Do you want to overwrite %s.%s?"%(self.node.name(),dropdown_value))
-            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-            msgBox.setIcon(QtWidgets.QMessageBox.Question)
-            msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-            msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            reply = msgBox.exec_()
-            if reply == QtWidgets.QMessageBox.No:
-                return
-        self.node[self.current_knob_dropdown.currentText().split(" (")[0]].setValue(edited_knobValue)
-        if self.knob in self.unsavedKnobs:
-            del self.unsavedKnobs[self.knob]
-        return
+
     def loadAllKnobValues(self):
         ''' Load all knobs button's function '''
         if len(self.unsavedKnobs)>=1:
@@ -418,6 +463,34 @@ class KnobScripter(QtWidgets.QWidget):
                 return
         self.unsavedKnobs = {}
         return
+
+    def saveKnobValue(self, check=True):
+        ''' Save the text from the editor to the node's knobChanged knob '''
+        dropdown_value = self.current_knob_dropdown.currentText().split(" (")[0]
+        try:
+            obtained_knobValue = str(self.node[dropdown_value].value())
+            self.knob = self.current_knob_dropdown.currentText().split(" (")[0]
+        except:
+            error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
+            error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            error_message.exec_()
+            return
+        edited_knobValue = self.script_editor.toPlainText()
+        if check and obtained_knobValue != edited_knobValue:
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("Do you want to overwrite %s.%s?"%(self.node.name(),dropdown_value))
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            msgBox.setIcon(QtWidgets.QMessageBox.Question)
+            msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
+            reply = msgBox.exec_()
+            if reply == QtWidgets.QMessageBox.No:
+                return
+        self.node[self.current_knob_dropdown.currentText().split(" (")[0]].setValue(edited_knobValue)
+        if self.knob in self.unsavedKnobs:
+            del self.unsavedKnobs[self.knob]
+        return
+
     def saveAllKnobValues(self, check=True):
         ''' Save all knobs button's function '''
         if self.updateUnsavedKnobs() > 0 and check:
@@ -459,6 +532,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowStaysOnTopHint)
             self.pinned = False
             self.show()
+
     def closeEvent(self, event):
         updatedCount = self.updateUnsavedKnobs()
         if updatedCount > 0:
@@ -478,11 +552,12 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             event.accept()
 
+
 class KnobScripterPane(KnobScripter):
     def __init__(self, node=nuke.root(), knob="knobChanged"):
         super(KnobScripterPane, self).__init__()
-        self.btn_layout.removeWidget(self.pin_btn)
-        self.btn_layout.removeWidget(self.close_btn)
+        self.bottom_layout.removeWidget(self.pin_btn)
+        self.bottom_layout.removeWidget(self.close_btn)
         self.pin_btn.deleteLater()
         self.close_btn.deleteLater()
         self.pin_btn = None
@@ -492,10 +567,10 @@ class KnobScripterPane(KnobScripter):
             '<a href="http://www.adrianpueyo.com/" style="color:#888;text-decoration:none"><b>KnobScripter </b></a>v'+version)
         ksSignature.setOpenExternalLinks(True)
         ksSignature.setStyleSheet('''color:#555;font-size:9px;''')
-        self.btn_layout.addWidget(ksSignature)
+        self.bottom_layout.addWidget(ksSignature)
 
     def deleteCloseButton(self):
-        b = self.btn_layout.takeAt(2)
+        b = self.bottom_layout.takeAt(2)
         b.widget().deleteLater()
 
 
@@ -591,7 +666,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         painterFont.setFixedPitch(True)
         if self.knobScripter != "":
             painterFont.setPointSize(self.knobScripter.fontSize)
-            painter.setFont(self.knobScripter.scriptEditorFont)
+            painter.setFont(self.knobScripter.script_editor_font)
 
         while (block.isValid() and top <= event.rect().bottom()):
 
@@ -998,7 +1073,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def __init__(self, knobScripter, output=None, parent=None):
         super(KnobScripterTextEditMain,self).__init__(knobScripter)
         self.knobScripter = knobScripter
-        self._output = output
+        self.script_output = output
         self._completer = None
         self._currentCompletion = None
 
@@ -1106,7 +1181,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 if currentLine : 
                     token = currentLine.split(" ")[-1]
                     if "(" in token :
-                            token = token.split("(")[-1]
+                        token = token.split("(")[-1]
                     self.completeTokenUnderCursor(token)
             return
 
@@ -1356,10 +1431,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         sys.stdout = oldStdOut
 
         #Update output
-        self._output.updateOutput( code )
-        self._output.updateOutput( "# Result: \n" )
-        self._output.updateOutput( result )
-        self._output.updateOutput( "\n" )
+        self.script_output.updateOutput( code )
+        self.script_output.updateOutput( "# Result: \n" )
+        self.script_output.updateOutput( result )
+        self.script_output.updateOutput( "\n" )
 
         if runError :
             self._errorLine = self.getErrorLineFromTraceback(result)
@@ -1380,7 +1455,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.knobScripter = knobScripter
         self.prefs_txt = self.knobScripter.prefs_txt
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-        self.oldFontSize = self.knobScripter.scriptEditorFont.pointSize()
+        self.oldFontSize = self.knobScripter.script_editor_font.pointSize()
         self.oldDefaultW = self.knobScripter.windowDefaultSize[0]
         self.oldDefaultH = self.knobScripter.windowDefaultSize[1]
 
@@ -1498,17 +1573,17 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         pinDefault_layout.addLayout(pinDefaultButtons_layout)
         
 
-        master_layout = QtWidgets.QVBoxLayout()
-        master_layout.addWidget(kspTitle)
-        master_layout.addWidget(kspSignature)
-        master_layout.addWidget(kspLine)
-        master_layout.addLayout(fontSize_layout)
-        master_layout.addLayout(windowW_layout)
-        master_layout.addLayout(windowH_layout)
-        master_layout.addLayout(tabSpaces_layout)
-        master_layout.addLayout(pinDefault_layout)
-        master_layout.addWidget(self.buttonBox)
-        self.setLayout(master_layout)
+        self.master_layout = QtWidgets.QVBoxLayout()
+        self.master_layout.addWidget(kspTitle)
+        self.master_layout.addWidget(kspSignature)
+        self.master_layout.addWidget(kspLine)
+        self.master_layout.addLayout(fontSize_layout)
+        self.master_layout.addLayout(windowW_layout)
+        self.master_layout.addLayout(windowH_layout)
+        self.master_layout.addLayout(tabSpaces_layout)
+        self.master_layout.addLayout(pinDefault_layout)
+        self.master_layout.addWidget(self.buttonBox)
+        self.setLayout(self.master_layout)
         self.setFixedSize(self.minimumSize())
 
     def savePrefs(self):
@@ -1519,22 +1594,22 @@ class KnobScripterPrefs(QtWidgets.QDialog):
             'tab_spaces': self.tabSpaceValue(),
             'pin_default': self.pinDefaultValue()
         }
-        self.knobScripter.scriptEditorScript.setFont(self.knobScripter.scriptEditorFont)
+        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
         self.knobScripter.tabSpaces = self.tabSpaceValue()
-        self.knobScripter.scriptEditorScript.tabSpaces = self.tabSpaceValue()
+        self.knobScripter.script_editor.tabSpaces = self.tabSpaceValue()
         with open(self.prefs_txt,"w") as f:
             prefs = json.dump(ks_prefs, f)
             self.accept()
         return prefs
 
     def cancelPrefs(self):
-        self.knobScripter.scriptEditorFont.setPointSize(self.oldFontSize)
-        self.knobScripter.scriptEditorScript.setFont(self.knobScripter.scriptEditorFont)
+        self.knobScripter.script_editor_font.setPointSize(self.oldFontSize)
+        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
         self.reject()
 
     def fontSizeChanged(self):
-        self.knobScripter.scriptEditorFont.setPointSize(self.fontSizeBox.value())
-        self.knobScripter.scriptEditorScript.setFont(self.knobScripter.scriptEditorFont)
+        self.knobScripter.script_editor_font.setPointSize(self.fontSizeBox.value())
+        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
         return
     def tabSpaceValue(self):
         return 2 if self.tabSpace2.isChecked() else 4
@@ -1562,7 +1637,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
     def __init__(self, parent):
         super(FindReplaceWidget,self).__init__(parent)
 
-        self.editor = parent.scriptEditorScript
+        self.editor = parent.script_editor
 
         self.initUI()
 
@@ -1819,38 +1894,38 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.layout.addWidget(self.scroll)
 
         # Lower buttons
-        self.btn_layout = QtWidgets.QHBoxLayout()
+        self.bottom_layout = QtWidgets.QHBoxLayout()
 
         self.add_btn = QtWidgets.QPushButton("Add snippet")
         self.add_btn.setToolTip("Create empty fields for an extra snippet.")
         self.add_btn.clicked.connect(self.addSnippet)
-        self.btn_layout.addWidget(self.add_btn)
+        self.bottom_layout.addWidget(self.add_btn)
 
-        self.btn_layout.addStretch()
+        self.bottom_layout.addStretch()
 
         self.save_btn = QtWidgets.QPushButton('OK')
         self.save_btn.setToolTip("Save the snippets into a json file and close the panel.")
         self.save_btn.clicked.connect(self.okPressed)
-        self.btn_layout.addWidget(self.save_btn)
+        self.bottom_layout.addWidget(self.save_btn)
 
         self.cancel_btn = QtWidgets.QPushButton("Cancel")
         self.cancel_btn.setToolTip("Cancel any new snippets or modifications.")
         self.cancel_btn.clicked.connect(self.close)
-        self.btn_layout.addWidget(self.cancel_btn)
+        self.bottom_layout.addWidget(self.cancel_btn)
 
         self.apply_btn = QtWidgets.QPushButton('Apply')
         self.apply_btn.setToolTip("Save the snippets into a json file.")
         self.apply_btn.setShortcut('Ctrl+S')
         self.apply_btn.clicked.connect(self.saveSnippets)
-        self.btn_layout.addWidget(self.apply_btn)
+        self.bottom_layout.addWidget(self.apply_btn)
 
         self.help_btn = QtWidgets.QPushButton('Help')
         self.help_btn.setShortcut('F1')
         self.help_btn.clicked.connect(self.showHelp)
-        self.btn_layout.addWidget(self.help_btn)
+        self.bottom_layout.addWidget(self.help_btn)
 
 
-        self.layout.addLayout(self.btn_layout)
+        self.layout.addLayout(self.bottom_layout)
 
         self.setLayout(self.layout)
 
@@ -1907,13 +1982,13 @@ class SnippetEdit(QtWidgets.QWidget):
         self.snippet_editor.setMinimumHeight(100)
         self.snippet_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         KSScriptEditorHighlighter(self.snippet_editor.document())
-        self.scriptEditorFont = QtGui.QFont()
-        self.scriptEditorFont.setFamily("Courier")
-        self.scriptEditorFont.setStyleHint(QtGui.QFont.Monospace)
-        self.scriptEditorFont.setFixedPitch(True)
-        self.scriptEditorFont.setPointSize(11)
-        self.snippet_editor.setFont(self.scriptEditorFont)
-        self.snippet_editor.setTabStopWidth(4 * QtGui.QFontMetrics(self.scriptEditorFont).width(' '))
+        self.script_editor_font = QtGui.QFont()
+        self.script_editor_font.setFamily("Courier")
+        self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
+        self.script_editor_font.setFixedPitch(True)
+        self.script_editor_font.setPointSize(11)
+        self.snippet_editor.setFont(self.script_editor_font)
+        self.snippet_editor.setTabStopWidth(4 * QtGui.QFontMetrics(self.script_editor_font).width(' '))
 
 
 
