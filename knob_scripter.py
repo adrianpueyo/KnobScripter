@@ -22,6 +22,9 @@ except ImportError:
     from PySide2 import QtWidgets, QtGui, QtCore
     from PySide2.QtCore import Qt
 
+KS_DIR = os.path.dirname(__file__)
+icons_path = KS_DIR+"/KnobScripter/icons/"
+
 class KnobScripter(QtWidgets.QWidget):
 
     def __init__(self, node="", knob="knobChanged"):
@@ -37,6 +40,10 @@ class KnobScripter(QtWidgets.QWidget):
         self.pinned = 1
         self.toLoadKnob = True
         self.frw_open = False # Find replace widget closed by default
+        self.icon_size = 17
+        self.btn_size = 24
+        self.qt_icon_size = QtCore.QSize(self.icon_size,self.icon_size)
+        self.qt_btn_size = QtCore.QSize(self.btn_size,self.btn_size)
 
         # Load prefs
         self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_prefs_"+version+".txt"))
@@ -57,10 +64,18 @@ class KnobScripter(QtWidgets.QWidget):
         # Init UI
         self.initUI()
 
-        # Set default values
-        # TODO: Change/hide/... based on mode etc
-        self.setCurrentKnob(self.knob)
-        self.loadKnobValue(check = False)
+        if self.pinned:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+
+        # Set default values based on mode
+        if self.nodeMode:
+            self.node_mode_bar.setVisible(True)
+            self.script_mode_bar.setVisible(False)
+            self.setCurrentKnob(self.knob)
+            self.loadKnobValue(check = False)
+            self.splitter.setSizes([0,1])
+        else:
+            self.exitNodeMode()
         self.script_editor.setFocus()
 
     def initUI(self): 
@@ -86,12 +101,15 @@ class KnobScripter(QtWidgets.QWidget):
 
         # ---
         # 2.2.A. Node mode UI
-        self.exit_node_btn = QtWidgets.QPushButton("Exit Node")
+        self.exit_node_btn = QtWidgets.QToolButton()
+        #self.exit_node_btn.setIcon(QtGui.QIcon(KS_DIR+"/KnobScripter/icons/icons8-delete-26.png"))
+        self.exit_node_btn.setIcon(QtGui.QIcon(icons_path+"icon_exitnode.png"))
+        self.exit_node_btn.setIconSize(self.qt_icon_size)
+        self.exit_node_btn.setFixedSize(self.qt_btn_size)
         #self.exit_node_btn.setMaximumWidth(self.exit_node_btn.fontMetrics().boundingRect("Exit").width() + 16)
         self.exit_node_btn.setToolTip("Exit the node, and change to Script Mode.")
-        self.exit_node_btn.clicked.connect(self.changeClicked)
-        self.current_node_label = QtWidgets.QLabel(self.node.fullName()) #TODO: This will accept click, to change the name of the node on a floating lineedit.
-        self.current_node_label.setStyleSheet("font-weight: bold;");
+        self.exit_node_btn.clicked.connect(self.exitNodeMode)
+        self.current_node_label = QtWidgets.QLabel(" Node: <b>%s</b> "%self.node.fullName()) #TODO: This will accept click, to change the name of the node on a floating lineedit.
         self.current_knob_label = QtWidgets.QLabel("Knob: ")
         self.current_knob_dropdown = QtWidgets.QComboBox()
         self.current_knob_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
@@ -103,26 +121,76 @@ class KnobScripter(QtWidgets.QWidget):
         #self.node_mode_bar_layout.setContentsMargins(10,10,10,10)
         #self.node_mode_bar_layout.setSpacing(0)
         self.node_mode_bar_layout.addWidget(self.exit_node_btn)
+        self.node_mode_bar_layout.addSpacing(2)
         self.node_mode_bar_layout.addWidget(self.current_node_label)
+        self.node_mode_bar_layout.addSpacing(2)
         self.node_mode_bar_layout.addWidget(self.current_knob_dropdown)
+        self.node_mode_bar = QtWidgets.QWidget()
+        self.node_mode_bar.setLayout(self.node_mode_bar_layout)
+
+        self.node_mode_bar_layout.setContentsMargins(0,0,0,0)
 
         # ---
         # 2.2.B. Script mode UI
+        self.script_label = QtWidgets.QLabel("Script: ")
+
+        self.current_folder_dropdown = QtWidgets.QComboBox()
+        self.current_folder_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.updateFoldersDropdown()
+        ##self.current_folder_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
+
+        self.current_script_dropdown = QtWidgets.QComboBox()
+        self.current_script_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.updateScriptsDropdown()
+        ##self.current_folder_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
 
         # Layout
+        self.script_mode_bar_layout = QtWidgets.QHBoxLayout()
+        self.script_mode_bar_layout.addWidget(self.script_label)
+        self.script_mode_bar_layout.addSpacing(2)
+        self.script_mode_bar_layout.addWidget(self.current_folder_dropdown)
+        self.script_mode_bar_layout.addWidget(self.current_script_dropdown)
+        self.script_mode_bar = QtWidgets.QWidget()
+        self.script_mode_bar.setLayout(self.script_mode_bar_layout)
+
+        self.script_mode_bar_layout.setContentsMargins(0,0,0,0)
 
         # ---
         # 2.3. Right Side buttons
-        self.snippets_button = QtWidgets.QPushButton("Snippets")
+        # FindReplace button
+        self.find_button = QtWidgets.QToolButton()
+        self.find_button.setIcon(QtGui.QIcon(icons_path+"icon_search.png"))
+        self.find_button.setIconSize(self.qt_icon_size)
+        self.find_button.setFixedSize(self.qt_btn_size)
+        self.find_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
+        self.find_button.setShortcut('Ctrl+F')
+        #self.find_button.setMaximumWidth(self.find_button.fontMetrics().boundingRect("Find").width() + 20)
+        self.find_button.setCheckable(True)
+        self.find_button.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.find_button.clicked[bool].connect(self.toggleFRW)
+        if self.frw_open:
+            self.find_button.toggle()
+
+        # Snippets
+        self.snippets_button = QtWidgets.QToolButton()
+        self.snippets_button.setIcon(QtGui.QIcon(icons_path+"icon_snippets.png"))
+        self.snippets_button.setIconSize(QtCore.QSize(50,50))
+        self.snippets_button.setIconSize(self.qt_icon_size)
+        self.snippets_button.setFixedSize(self.qt_btn_size)
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.snippets_button.clicked.connect(self.openSnippets)
 
-        self.prefs_button = QtWidgets.QPushButton("Prefs")
+        # Prefs
+        self.prefs_button = QtWidgets.QToolButton()
+        self.prefs_button.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
+        self.prefs_button.setIconSize(self.qt_icon_size)
+        self.prefs_button.setFixedSize(self.qt_btn_size)
         self.prefs_button.clicked.connect(self.openPrefs)
-        self.prefs_button.setMaximumWidth(self.prefs_button.fontMetrics().boundingRect("Prefs").width() + 12)
+        #self.prefs_button.setMaximumWidth(self.prefs_button.fontMetrics().boundingRect("Prefs").width() + 12)
 
         # Layout
         self.top_right_bar_layout = QtWidgets.QHBoxLayout()
+        self.top_right_bar_layout.addWidget(self.find_button)
         self.top_right_bar_layout.addWidget(self.snippets_button)
         #self.top_right_bar_layout.addSpacing(10)
         self.top_right_bar_layout.addWidget(self.prefs_button)
@@ -131,9 +199,11 @@ class KnobScripter(QtWidgets.QWidget):
         # Layout
         self.top_layout = QtWidgets.QHBoxLayout()
         self.top_layout.setContentsMargins(0,0,0,0)
-        #self.top_layout.setSpacing(0)
+        #self.top_layout.setSpacing(10)
         self.top_layout.addWidget(self.change_btn)
-        self.top_layout.addLayout(self.node_mode_bar_layout)
+        self.top_layout.addWidget(self.node_mode_bar)
+        self.top_layout.addWidget(self.script_mode_bar)
+        self.node_mode_bar.setVisible(False)
         #TODO: Add the script mode bar layout here too, then hide one of them
         #self.top_layout.addSpacing(10)
         self.top_layout.addStretch()
@@ -189,25 +259,17 @@ class KnobScripter(QtWidgets.QWidget):
         #----------------------
         # 3. LOWER BAR
         #----------------------
-        # FindReplace button
-        self.find_button = QtWidgets.QPushButton("Find") #TODO: Add magnifier icon
-        self.find_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
-        self.find_button.setShortcut('Ctrl+F')
-        self.find_button.setMaximumWidth(self.find_button.fontMetrics().boundingRect("Find").width() + 20)
-        self.find_button.setCheckable(True)
-        self.find_button.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.find_button.clicked[bool].connect(self.toggleFRW)
-        if self.frw_open:
-            self.find_button.toggle()
 
         # Reload/All and Save/All Buttons
         self.reload_btn = QtWidgets.QPushButton("Reload")
         self.reload_btn.setToolTip("Reload the contents of the knob. Will overwrite the KnobScripter's script.")
         self.reload_btn.clicked.connect(self.loadKnobValue)
+        self.reload_btn.setMaximumWidth(self.reload_btn.fontMetrics().boundingRect("Reload").width() + 24)
 
         self.reload_all_btn = QtWidgets.QPushButton("All")
         self.reload_all_btn.setToolTip("Reload the contents of all knobs. Will clear the KnobScripter's memory.")
         self.reload_all_btn.clicked.connect(self.loadAllKnobValues)
+        self.reload_all_btn.setMaximumWidth(self.reload_all_btn.fontMetrics().boundingRect("All").width() + 24)
 
         self.arrows_label = QtWidgets.QLabel("&raquo;")
         self.arrows_label.setTextFormat(QtCore.Qt.RichText)
@@ -217,21 +279,23 @@ class KnobScripter(QtWidgets.QWidget):
         self.save_btn.setShortcut('Ctrl+S')
         self.save_btn.setToolTip("(Ctrl+S) Save the script above into the knob. It won't be saved until you click this button.")
         self.save_btn.clicked.connect(lambda: self.saveKnobValue(False))
+        self.save_btn.setMaximumWidth(self.save_btn.fontMetrics().boundingRect("Save").width() + 24)
         
         self.save_all_btn = QtWidgets.QPushButton("All")
         self.save_all_btn.setToolTip("Save all changes into the knobs.")
         self.save_all_btn.clicked.connect(self.saveAllKnobValues)
+        self.save_all_btn.setMaximumWidth(self.save_all_btn.fontMetrics().boundingRect("All").width() + 24)
 
         # PIN Button
-        self.pin_btn = QtWidgets.QPushButton("PIN") #TODO: Add Pin icon
-        self.pin_btn.setCheckable(True)
-        if self.pinned:
-            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-            self.pin_btn.toggle()
-        self.pin_btn.setToolTip("Keep the KnobScripter on top of all other windows.")
-        self.pin_btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.pin_btn.setMaximumWidth(self.pin_btn.fontMetrics().boundingRect("pin").width() + 12)
-        self.pin_btn.clicked[bool].connect(self.pin)
+        ##self.pin_btn = QtWidgets.QPushButton("PIN") #TODO: Add Pin icon
+        ##self.pin_btn.setCheckable(True)
+        #if self.pinned:
+        ##    self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        ##    self.pin_btn.toggle()
+        ##self.pin_btn.setToolTip("Keep the KnobScripter on top of all other windows.")
+        ##self.pin_btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        ##self.pin_btn.setMaximumWidth(self.pin_btn.fontMetrics().boundingRect("pin").width() + 12)
+        ##self.pin_btn.clicked[bool].connect(self.pin)
 
         # Close Button
         self.close_btn = QtWidgets.QPushButton("Close")
@@ -246,17 +310,16 @@ class KnobScripter(QtWidgets.QWidget):
         self.bottom_layout.addWidget(self.save_btn)
         self.bottom_layout.addWidget(self.save_all_btn)
         self.bottom_layout.addStretch()
-        self.bottom_layout.addWidget(self.find_button)
-        self.bottom_layout.addWidget(self.pin_btn)
+        ##self.bottom_layout.addWidget(self.pin_btn)
         self.bottom_layout.addWidget(self.close_btn)
-        
+        #self.bottom_layout.setSpacing(8)
 
         #---------------
         # MASTER LAYOUT
         #---------------
         self.master_layout = QtWidgets.QVBoxLayout()
-        self.master_layout.setSpacing(6)
-        self.master_layout.setContentsMargins(6,6,6,6)
+        self.master_layout.setSpacing(5)
+        self.master_layout.setContentsMargins(8,8,8,8)
         self.master_layout.addLayout(self.top_layout)
         self.master_layout.addLayout(self.scripting_layout)
         self.master_layout.addLayout(self.bottom_layout)
@@ -314,6 +377,13 @@ class KnobScripter(QtWidgets.QWidget):
         if not len(selection):
             self.messageBox("Please select one or more nodes!")
         else:
+            # Change to node mode...
+            self.node_mode_bar.setVisible(True)
+            self.script_mode_bar.setVisible(False)
+            if not self.nodeMode:
+                self.splitter.setSizes([0,1])
+            self.nodeMode = True
+
             # If already selected, pass
             if selection[0].fullName() == self.node.fullName():
                 self.messageBox("Please select a different node first!")
@@ -352,6 +422,52 @@ class KnobScripter(QtWidgets.QWidget):
             #self.current_knob_dropdown.setMinimumContentsLength(80)
         return
     
+    def exitNodeMode(self):
+        self.nodeMode = False
+        self.node_mode_bar.setVisible(False)
+        self.script_mode_bar.setVisible(True)
+        self.node = nuke.toNode("root")
+        self.updateFoldersDropdown()
+        self.updateScriptsDropdown()
+        self.splitter.setSizes([1,1])
+
+    def updateFoldersDropdown(self):
+        ''' Populate folders dropdown list '''
+        self.current_folder_dropdown.clear() # First remove all items
+        defaultFolders = ["scripts"]
+        counter = 0
+        for i in defaultFolders:
+            self.current_folder_dropdown.addItem(i+" /")
+            counter += 1
+        if counter > 0:
+            self.current_folder_dropdown.insertSeparator(counter)
+            counter += 1
+            self.current_folder_dropdown.insertSeparator(counter)
+            counter += 1
+        self.current_folder_dropdown.addItem(" New ")
+        return
+
+    def updateScriptsDropdown(self):
+        ''' Populate py scripts dropdown list '''
+        self.current_script_dropdown.clear() # First remove all items
+        defaultScripts = ["Untitled"]
+        #TODO: Check scripts in folder...
+        found_scripts = []
+        counter = 0
+        if not len(found_scripts):
+            for i in defaultScripts:
+                self.current_script_dropdown.addItem(i+".py")
+                counter += 1
+        ##else: #Add the found scripts to the dropdown
+        if counter > 0:
+            self.current_script_dropdown.insertSeparator(counter)
+            counter += 1
+            self.current_script_dropdown.insertSeparator(counter)
+            counter += 1
+        self.current_script_dropdown.addItem(" New ")
+        self.current_script_dropdown.addItem(" Duplicate ")
+        return
+
     def toggleFRW(self, frw_pressed):
         self.frw_open = frw_pressed
         self.frw.setVisible(self.frw_open)
@@ -551,7 +667,6 @@ class KnobScripter(QtWidgets.QWidget):
                 return
         else:
             event.accept()
-
 
 class KnobScripterPane(KnobScripter):
     def __init__(self, node=nuke.root(), knob="knobChanged"):
@@ -1515,7 +1630,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.tabSpace2.setChecked(self.knobScripter.tabSpaces == 2)
         self.tabSpace4.setChecked(self.knobScripter.tabSpaces == 4)
         
-        pinDefaultLabel = QtWidgets.QLabel("PIN Default:")
+        pinDefaultLabel = QtWidgets.QLabel("Always on top:")
         pinDefaultLabel.setToolTip("Default mode of the PIN toggle.")
         self.pinDefaultOn = QtWidgets.QRadioButton("On")
         self.pinDefaultOff = QtWidgets.QRadioButton("Off")
@@ -1524,6 +1639,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         pinDefaultButtonGroup.addButton(self.pinDefaultOff)
         self.pinDefaultOn.setChecked(self.knobScripter.pinned == True)
         self.pinDefaultOff.setChecked(self.knobScripter.pinned == False)
+        self.pinDefaultOn.clicked.connect(lambda:self.knobScripter.pin(True))
+        self.pinDefaultOff.clicked.connect(lambda:self.knobScripter.pin(False))
 
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
