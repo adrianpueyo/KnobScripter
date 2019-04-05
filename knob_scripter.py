@@ -23,14 +23,29 @@ except ImportError:
     from PySide2.QtCore import Qt
 
 KS_DIR = os.path.dirname(__file__)
-icons_path = KS_DIR+"/KnobScripter/icons/"
+icons_path = KS_DIR+"/icons/"
+
+
+def consoleChanged(self, ksOutput, origConsoleText = ""):
+    ''' This will be called every time the ScriptEditor Output text is changed '''
+    try:
+        if ksOutput: # KS Output exists
+            ksText = self.document().toPlainText()
+            if ksText.startswith(origConsoleText):
+                ksText = ksText[len(origConsoleText):]
+            ksOutput.setPlainText(ksText)
+    except:
+        pass
 
 class KnobScripter(QtWidgets.QWidget):
 
     def __init__(self, node="", knob="knobChanged"):
         super(KnobScripter,self).__init__()
         self.nodeMode = (node != "")
-        self.node = node
+        if node == "":
+            self.node = nuke.toNode("root")
+        else:
+            self.node = node
         self.knob = knob
         self.unsavedKnobs = {}
         self.scrollPos = {}
@@ -44,6 +59,10 @@ class KnobScripter(QtWidgets.QWidget):
         self.btn_size = 24
         self.qt_icon_size = QtCore.QSize(self.icon_size,self.icon_size)
         self.qt_btn_size = QtCore.QSize(self.btn_size,self.btn_size)
+        self.nukeSE = self.findSE()
+        self.nukeSEOutput = self.findSEOutput(self.nukeSE)
+        self.nukeSEInput = self.findSEInput(self.nukeSE)
+        self.nukeSERunBtn = self.findSERunBtn(self.nukeSE)
 
         # Load prefs
         self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_prefs_"+version+".txt"))
@@ -64,19 +83,8 @@ class KnobScripter(QtWidgets.QWidget):
         # Init UI
         self.initUI()
 
-        if self.pinned:
-            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-
-        # Set default values based on mode
-        if self.nodeMode:
-            self.node_mode_bar.setVisible(True)
-            self.script_mode_bar.setVisible(False)
-            self.setCurrentKnob(self.knob)
-            self.loadKnobValue(check = False)
-            self.splitter.setSizes([0,1])
-        else:
-            self.exitNodeMode()
-        self.script_editor.setFocus()
+        # Talk to Nuke's Script Editor
+        self.setSEOutputEvent() # Make the output window listen!
 
     def initUI(self): 
         ''' Initializes the tool UI'''
@@ -95,7 +103,11 @@ class KnobScripter(QtWidgets.QWidget):
         #TODO: Add icons to the buttons
         # ---
         # 2.1. Left buttons
-        self.change_btn = QtWidgets.QPushButton("Pick Node")
+        self.change_btn = QtWidgets.QToolButton()
+        #self.exit_node_btn.setIcon(QtGui.QIcon(KS_DIR+"/KnobScripter/icons/icons8-delete-26.png"))
+        self.change_btn.setIcon(QtGui.QIcon(icons_path+"icon_pick.png"))
+        self.change_btn.setIconSize(self.qt_icon_size)
+        self.change_btn.setFixedSize(self.qt_btn_size)
         self.change_btn.setToolTip("Change to node if selected. Otherwise, change to Script Mode.")
         self.change_btn.clicked.connect(self.changeClicked)
 
@@ -109,7 +121,9 @@ class KnobScripter(QtWidgets.QWidget):
         #self.exit_node_btn.setMaximumWidth(self.exit_node_btn.fontMetrics().boundingRect("Exit").width() + 16)
         self.exit_node_btn.setToolTip("Exit the node, and change to Script Mode.")
         self.exit_node_btn.clicked.connect(self.exitNodeMode)
-        self.current_node_label = QtWidgets.QLabel(" Node: <b>%s</b> "%self.node.fullName()) #TODO: This will accept click, to change the name of the node on a floating lineedit.
+        self.current_node_label_node = QtWidgets.QLabel(" Node:")
+        self.current_node_label_name = QtWidgets.QLabel(self.node.fullName()) #TODO: This will accept click, to change the name of the node on a floating lineedit.
+        self.current_node_label_name.setStyleSheet("font-weight:bold;")
         self.current_knob_label = QtWidgets.QLabel("Knob: ")
         self.current_knob_dropdown = QtWidgets.QComboBox()
         self.current_knob_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
@@ -122,7 +136,8 @@ class KnobScripter(QtWidgets.QWidget):
         #self.node_mode_bar_layout.setSpacing(0)
         self.node_mode_bar_layout.addWidget(self.exit_node_btn)
         self.node_mode_bar_layout.addSpacing(2)
-        self.node_mode_bar_layout.addWidget(self.current_node_label)
+        self.node_mode_bar_layout.addWidget(self.current_node_label_node)
+        self.node_mode_bar_layout.addWidget(self.current_node_label_name)
         self.node_mode_bar_layout.addSpacing(2)
         self.node_mode_bar_layout.addWidget(self.current_knob_dropdown)
         self.node_mode_bar = QtWidgets.QWidget()
@@ -227,7 +242,7 @@ class KnobScripter(QtWidgets.QWidget):
 
         # Script Editor
         self.script_editor = KnobScripterTextEditMain(self, self.script_output)
-        self.script_editor.setMinimumHeight(100)
+        self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         KSScriptEditorHighlighter(self.script_editor.document())
         self.script_editor_font = QtGui.QFont()
@@ -325,6 +340,33 @@ class KnobScripter(QtWidgets.QWidget):
         self.master_layout.addLayout(self.bottom_layout)
         self.setLayout(self.master_layout)
 
+        #----------------
+        # MAIN WINDOW UI
+        #----------------
+        size_policy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        self.setSizePolicy(size_policy)
+        self.setMinimumWidth(160)
+
+        if self.pinned:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+
+        # Set default values based on mode
+        if self.nodeMode:
+            self.node_mode_bar.setVisible(True)
+            self.script_mode_bar.setVisible(False)
+            self.setCurrentKnob(self.knob)
+            self.loadKnobValue(check = False)
+            self.splitter.setSizes([0,1])
+        else:
+            self.exitNodeMode()
+        self.script_editor.setFocus()
+
+    def resizeEvent(self, event):
+        w = self.frameGeometry().width()
+        for k in [self.current_node_label_node, self.script_label]:
+            k.setVisible(w>360)
+        return super(KnobScripter, self).resizeEvent(event)
+
     def updateKnobDropdown(self):
         ''' Populate knob dropdown list '''
         self.current_knob_dropdown.clear() # First remove all items
@@ -409,7 +451,8 @@ class KnobScripter(QtWidgets.QWidget):
             self.unsavedKnobs = {}
             self.scrollPos = {}
             self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(), self.knob))
-            self.current_node_label.setText("Node: <b> %s </b>" % self.node.fullName())
+            self.current_node_label_name.setText(self.node.fullName())
+
             ########TODO: REMOVE AND RE-ADD THE KNOB DROPDOWN
             self.toLoadKnob = False
             self.updateKnobDropdown()
@@ -649,6 +692,31 @@ class KnobScripter(QtWidgets.QWidget):
             self.pinned = False
             self.show()
 
+    def findSE(self):
+        for widget in QtWidgets.QApplication.allWidgets():
+            if "Script Editor" in widget.windowTitle():
+                return widget
+
+    def findSEInput(self, se):
+        return se.children()[-1].children()[0]
+
+    def findSEOutput(self, se):
+        return se.children()[-1].children()[1]
+
+    def findSERunBtn(self, se):
+        for btn in se.children():
+            try:
+                if "Run the current script" in btn.toolTip():
+                    return btn
+            except:
+                pass
+        return False
+
+    def setSEOutputEvent(self):
+        origConsoleText = self.nukeSEOutput.document().toPlainText()
+        self.nukeSEOutput.textChanged.connect(lambda:consoleChanged(self.nukeSEOutput, self.script_output, origConsoleText))
+        consoleChanged(self.nukeSEOutput, self.script_output, origConsoleText) # Initialise?
+
     def closeEvent(self, event):
         updatedCount = self.updateUnsavedKnobs()
         if updatedCount > 0:
@@ -671,11 +739,14 @@ class KnobScripter(QtWidgets.QWidget):
 class KnobScripterPane(KnobScripter):
     def __init__(self, node=nuke.root(), knob="knobChanged"):
         super(KnobScripterPane, self).__init__()
-        self.bottom_layout.removeWidget(self.pin_btn)
+        #self.bottom_layout.removeWidget(self.pin_btn)
         self.bottom_layout.removeWidget(self.close_btn)
-        self.pin_btn.deleteLater()
+        self.setContentsMargins(0,0,0,0)
+        #self.parent().setContentsMargins(0,0,0,0)
+        #self.window().layout().setSpacing(0)
+        #self.pin_btn.deleteLater()
         self.close_btn.deleteLater()
-        self.pin_btn = None
+        #self.pin_btn = None
         self.close_btn = None
 
         ksSignature = QtWidgets.QLabel(
@@ -827,7 +898,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         elif event.key() in [16777220 ,16777221]:
             self.indentNewLine()
         else:
-            print event.key()
+            #print event.key()
             QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
 
     #--------------------------------------------------------------------------------------------------
@@ -1168,6 +1239,7 @@ class ScriptOutputWidget(QtWidgets.QTextEdit) :
     def __init__(self, parent=None):
         super(ScriptOutputWidget, self).__init__(parent)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.setMinimumHeight(20)
 
     def paintEvent(self, event):
         QtWidgets.QTextEdit.paintEvent(self, event)
@@ -1179,7 +1251,6 @@ class ScriptOutputWidget(QtWidgets.QTextEdit) :
         self.moveCursor(QtGui.QTextCursor.End)
         self.insertPlainText(text)
         self.moveCursor(QtGui.QTextCursor.End)
-
 
 #---------------------------------------------------------------------
 # Modified KnobScripterTextEdit to include snippets etc.
@@ -1244,9 +1315,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
     def keyPressEvent(self,event):
 
-        ########
-        # FROM NUKE's SCRIPT EDITOR START
-        ########
+        # ADAPTED FROM NUKE's SCRIPT EDITOR
         ctrlToggled = ((event.modifiers() and (Qt.ControlModifier)) != 0)
         altToggled = ((event.modifiers() and (Qt.AltModifier)) != 0)
         shiftToggled = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
@@ -1299,11 +1368,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                         token = token.split("(")[-1]
                     self.completeTokenUnderCursor(token)
             return
-
-        ########
-        # FROM NUKE's SCRIPT EDITOR END
-        ########
-
 
         if type(event) == QtGui.QKeyEvent:
             if not ctrlToggled and not altToggled and not shiftToggled and event.key()==Qt.Key_Tab:
@@ -1392,9 +1456,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             else:
                 KnobScripterTextEdit.keyPressEvent(self,event)
 
-    ########
-    # FROM NUKE's SCRIPT EDITOR START
-    ########
+    # ADAPTED FROM NUKE's SCRIPT EDITOR
     def completionsForToken(self, token):
         def findModules(searchString):
             sysModules =  sys.modules
@@ -1494,70 +1556,26 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def completerHighlightChanged(self, highlighted):
         self._currentCompletion = highlighted
 
-    def getErrorLineFromTraceback(self, tracebackStr) : 
-        finalLine = None
-        for line in tracebackStr.split('\n') :    
-            if 'File "<string>", line' in line :
-                finalLine = line
-        if finalLine == None :
-            return 0
-        try :
-            errorLine = finalLine.split(',')[1].split(' ')[2]
-            return errorLine
-        except : 
-            return 0
-
     def runScript(self):
-
         cursor = self.textCursor()
-        if cursor.hasSelection() :
+        nukeSEInput = self.knobScripter.nukeSEInput
+        if cursor.hasSelection():
             code = cursor.selection().toPlainText()
         else:
             code = self.toPlainText()
 
-        if not code.endswith('\n') :
-            code = code + '\n'
+        nukeSECursor = nukeSEInput.textCursor()
+        origSelection = nukeSECursor.selectedText()
+        nukeSEInput.insertPlainText(code)
+        
+        find_flags = QtGui.QTextDocument.FindFlags()|QtGui.QTextDocument.FindBackward
 
-        result = None
-        compileSuccess = False
-        runError = False 
-        try : 
-            type = 'exec'
-            if code.count('\n') == 0:
-              type = 'single'
-            compiled = compile(code, '<string>', type)
-            compileSuccess = True
-        except Exception,e:
-            result = traceback.format_exc()
-            runError = True
-            compileSuccess = False
+        nukeSEInput.find(code,find_flags) # Select the inserted text
+        self.knobScripter.nukeSERunBtn.click()
+        nukeSEInput.insertPlainText(origSelection)
+        nukeSEInput.find(origSelection,find_flags)
+    
 
-        oldStdOut = sys.stdout
-        if compileSuccess:
-            buffer = StringIO() 
-            sys.stdout = buffer
-            try:
-                exec(compiled, globals())
-            except Exception,e: 
-                runError = True
-                result = traceback.format_exc()
-            else:
-                result = buffer.getvalue()
-        sys.stdout = oldStdOut
-
-        #Update output
-        self.script_output.updateOutput( code )
-        self.script_output.updateOutput( "# Result: \n" )
-        self.script_output.updateOutput( result )
-        self.script_output.updateOutput( "\n" )
-
-        if runError :
-            self._errorLine = self.getErrorLineFromTraceback(result)
-            self.highlightErrorLine()
-
-    ########
-    # FROM NUKE's SCRIPT EDITOR END
-    ########
 
 #---------------------------------------------------------------------
 # Preferences Panel
