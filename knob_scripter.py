@@ -808,7 +808,7 @@ class KnobScripterPane(KnobScripter):
     def event(self, event):
         if event.type() == QtCore.QEvent.Type.Show:
             try:
-                set_widget_margins_to_zero(self)
+                killPaneMargins(self)
             except:
                 pass
         return(super(KnobScripterPane, self).event(event))
@@ -829,7 +829,7 @@ def consoleChanged(self, ks):
     except:
         pass
 
-def set_widget_margins_to_zero(widget_object):
+def killPaneMargins(widget_object):
     if widget_object:
         target_widgets = set()
         target_widgets.add(widget_object.parentWidget().parentWidget())
