@@ -34,6 +34,7 @@ def consoleChanged(self, ksOutput, origConsoleText = ""):
             if ksText.startswith(origConsoleText):
                 ksText = ksText[len(origConsoleText):]
             ksOutput.setPlainText(ksText)
+            ksOutput.verticalScrollBar().setValue(ksOutput.verticalScrollBar().maximum())
     except:
         pass
 
@@ -880,7 +881,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         '''
         Custom actions for specific keystrokes
         '''
-
         #if Tab convert to Space
         if event.key() == 16777217:
             self.indentation('indent')
@@ -893,15 +893,21 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         elif event.key() == 16777219:
             if not self.unindentBackspace():
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-
         #if enter or return, match indent level
         elif event.key() in [16777220 ,16777221]:
             self.indentNewLine()
         else:
             #print event.key()
             QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+        self.scrollToCursor()
+
 
     #--------------------------------------------------------------------------------------------------
+
+    def scrollToCursor(self):
+        self.cursor = self.textCursor()
+        self.cursor.movePosition(QtGui.QTextCursor.NoMove) # Does nothing, but makes the scroll go to the right place...
+        self.setTextCursor(self.cursor)
 
     def getCursorInfo(self):
 
@@ -1241,16 +1247,8 @@ class ScriptOutputWidget(QtWidgets.QTextEdit) :
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.setMinimumHeight(20)
 
-    def paintEvent(self, event):
-        QtWidgets.QTextEdit.paintEvent(self, event)
-
     def keyPressEvent(self, event) :
         QtWidgets.QTextEdit.keyPressEvent(self, event)
-
-    def updateOutput(self, text) : 
-        self.moveCursor(QtGui.QTextCursor.End)
-        self.insertPlainText(text)
-        self.moveCursor(QtGui.QTextCursor.End)
 
 #---------------------------------------------------------------------
 # Modified KnobScripterTextEdit to include snippets etc.
@@ -1567,7 +1565,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         nukeSECursor = nukeSEInput.textCursor()
         origSelection = nukeSECursor.selectedText()
         nukeSEInput.insertPlainText(code)
-        
+
         find_flags = QtGui.QTextDocument.FindFlags()|QtGui.QTextDocument.FindBackward
 
         nukeSEInput.find(code,find_flags) # Select the inserted text
