@@ -277,6 +277,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_output.setTabStopWidth(self.script_output.tabStopWidth() / 4)
         self.script_output.setFocusPolicy(Qt.ClickFocus)
         self.script_output.setAutoFillBackground( 0 )
+        self.script_output.installEventFilter(self)
 
         # Script Editor
         self.script_editor = KnobScripterTextEditMain(self, self.script_output)
@@ -385,6 +386,12 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             self.exitNodeMode()
         self.script_editor.setFocus()
+
+    def eventFilter(self, object, event):
+        if event.type() == QtCore.QEvent.KeyPress:
+            return QtWidgets.QWidget.eventFilter(self, object, event)
+        else:
+            return QtWidgets.QWidget.eventFilter(self, object, event)
 
     def resizeEvent(self, res_event):
         w = self.frameGeometry().width()
@@ -1324,11 +1331,27 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
 class ScriptOutputWidget(QtWidgets.QTextEdit) :
     def __init__(self, parent=None):
         super(ScriptOutputWidget, self).__init__(parent)
+        self.knobScripter = parent
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.setMinimumHeight(20)
 
-    def keyPressEvent(self, event) :
-        QtWidgets.QTextEdit.keyPressEvent(self, event)
+    def keyPressEvent(self, event):
+        ctrlToggled = ((event.modifiers() and (Qt.ControlModifier)) != 0)
+        altToggled = ((event.modifiers() and (Qt.AltModifier)) != 0)
+        shiftToggled = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        key = event.key()
+        if type(event) == QtGui.QKeyEvent:
+            #print event.key()
+            if key in [32]: # Space
+                return KnobScripter.keyPressEvent(self.knobScripter, event)
+            elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
+                self.knobScripter.clearConsole()
+        return QtWidgets.QTextEdit.keyPressEvent(self, event)
+
+    #def mousePressEvent(self, QMouseEvent):
+    #    if QMouseEvent.button() == Qt.RightButton:
+    #        self.knobScripter.clearConsole()
+    #    QtWidgets.QTextEdit.mousePressEvent(self, QMouseEvent)
 
 #---------------------------------------------------------------------
 # Modified KnobScripterTextEdit to include snippets etc.
@@ -1648,7 +1671,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         oldPosition = nukeSECursor.position()
 
         # Add the code to be executed and select it
-        nukeSEInput.setFocus()
+        ##nukeSEInput.setFocus()
         nukeSEInput.insertPlainText(code)
 
         if oldAnchor < oldPosition:
@@ -1670,6 +1693,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         nukeSECursor.setPosition(oldAnchor, QtGui.QTextCursor.MoveAnchor)
         nukeSECursor.setPosition(oldPosition, QtGui.QTextCursor.KeepAnchor)
         nukeSEInput.setTextCursor(nukeSECursor)
+        #self.setFocus()
 
 #---------------------------------------------------------------------
 # Preferences Panel
@@ -1827,7 +1851,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.knobScripter.tabSpaces = self.tabSpaceValue()
         self.knobScripter.script_editor.tabSpaces = self.tabSpaceValue()
         with open(self.prefs_txt,"w") as f:
-            prefs = json.dump(ks_prefs, f)
+            prefs = json.dump(ks_prefs, f, sort_keys=True, indent=4)
             self.accept()
         return prefs
 
@@ -2173,7 +2197,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         if snippets == "":
             snippets = self.getSnippetsAsDict()
         with open(self.snippets_txt_path,"w") as f:
-            prefs = json.dump(snippets, f)
+            prefs = json.dump(snippets, f, sort_keys=True, indent=4)
         return prefs
 
     def okPressed(self):
