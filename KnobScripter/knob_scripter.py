@@ -968,24 +968,73 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         '''
         Custom actions for specific keystrokes
         '''
+        key = event.key()
         #if Tab convert to Space
-        if event.key() == 16777217:
+        if key == 16777217:
             self.indentation('indent')
 
         #if Shift+Tab remove indent
-        elif event.key() == 16777218:
+        elif key == 16777218:
             self.indentation('unindent')
 
         #if BackSpace try to snap to previous indent level
-        elif event.key() == 16777219:
+        elif key == 16777219:
             if not self.unindentBackspace():
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
         #if enter or return, match indent level
-        elif event.key() in [16777220 ,16777221]:
+        elif key in [16777220 ,16777221]:
             self.indentNewLine()
         else:
-            #print event.key()
-            QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+            ### COOL BEHAVIORS SIMILAR TO SUBLIME GO NEXT!
+            cursor = self.textCursor()
+            cpos = cursor.position()
+            apos = cursor.anchor()
+            text_before_cursor = self.toPlainText()[:min(cpos,apos)]
+            text_after_cursor = self.toPlainText()[max(cpos,apos):]
+            if cursor.hasSelection():
+                selection = cursor.selection().toPlainText()
+            else:
+                selection = ""
+
+            if key == Qt.Key_ParenLeft:
+                cursor.insertText("("+selection+")")
+                cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
+                self.setTextCursor(cursor)
+            elif key == Qt.Key_ParenRight and text_after_cursor.startswith(")"):
+                cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+                self.setTextCursor(cursor)
+            elif key == 34: # "
+                if text_after_cursor.startswith('"') and '"' in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
+                    cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+                elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
+                    print text_before_cursor
+                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+                elif not re.search(r"[\s.({\[,]$", text_before_cursor) and text_before_cursor != "": # If chars before cursor, act normal
+                    print text_before_cursor
+                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+                else:
+                    cursor.insertText('"'+selection+'"')
+                    cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
+                self.setTextCursor(cursor)
+            elif key == 39: # ''
+                if text_after_cursor.startswith("'") and "'" in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
+                    cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+                elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
+                    print text_before_cursor
+                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+                elif not re.search(r"[\s.({\[,]$", text_before_cursor) and text_before_cursor != "": # If chars before cursor, act normal
+                    print text_before_cursor
+                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+                else:
+                    cursor.insertText("'"+selection+"'")
+                    cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
+                self.setTextCursor(cursor)
+            else:
+                QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+            
+            #print key
+
+            
         self.scrollToCursor()
 
 
@@ -1392,7 +1441,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         match_key = None
         match_snippet = ""
         for key, val in dic.items():
-            match = re.search(r"[\s.({\[]"+key+r"(?:[\s)\]\"]+|$)",text)
+            match = re.search(r"[\s.({\[,]"+key+r"(?:[\s)\]\"]+|$)",text)
             if match or text == key:
                 if len(key) > longest:
                     longest = len(key)
