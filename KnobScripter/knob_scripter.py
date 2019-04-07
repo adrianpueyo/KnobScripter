@@ -1336,9 +1336,9 @@ class ScriptOutputWidget(QtWidgets.QTextEdit) :
         self.setMinimumHeight(20)
 
     def keyPressEvent(self, event):
-        ctrlToggled = ((event.modifiers() and (Qt.ControlModifier)) != 0)
-        altToggled = ((event.modifiers() and (Qt.AltModifier)) != 0)
-        shiftToggled = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
+        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
+        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
         key = event.key()
         if type(event) == QtGui.QKeyEvent:
             #print event.key()
@@ -1392,7 +1392,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         match_key = None
         match_snippet = ""
         for key, val in dic.items():
-            match = re.search(r"[\s.]"+key+"$",text)
+            match = re.search(r"[\s.({\[]"+key+r"(?:[\s)\]\"]+|$)",text)
             if match or text == key:
                 if len(key) > longest:
                     longest = len(key)
@@ -1417,10 +1417,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def keyPressEvent(self,event):
 
         # ADAPTED FROM NUKE's SCRIPT EDITOR
-        ctrlToggled = ((event.modifiers() and (Qt.ControlModifier)) != 0)
-        altToggled = ((event.modifiers() and (Qt.AltModifier)) != 0)
-        shiftToggled = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
-        keyBeingPressed = event.key()
+        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
+        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
+        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        key = event.key()
 
         #Get completer state
         self._completerShowing = self._completer.popup().isVisible()
@@ -1429,7 +1429,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         if self._completerShowing :
             tc = self.textCursor()
             #If we're hitting enter, do completion
-            if keyBeingPressed in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
+            if key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
                 if not self._currentCompletion:
                     self._completer.setCurrentRow(0)
                     self._currentCompletion = self._completer.currentCompletion()
@@ -1438,11 +1438,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 self._completer.popup().hide()
                 self._completerShowing = False
             #If you're hitting right or escape, hide the popup
-            elif keyBeingPressed == Qt.Key_Right or keyBeingPressed == Qt.Key_Escape:
+            elif key == Qt.Key_Right or key == Qt.Key_Escape:
                 self._completer.popup().hide()
                 self._completerShowing = False
             #If you hit tab, escape or ctrl-space, hide the completer
-            elif keyBeingPressed == Qt.Key_Tab or keyBeingPressed == Qt.Key_Escape or (ctrlToggled and keyBeingPressed == Qt.Key_Space) :
+            elif key == Qt.Key_Tab or key == Qt.Key_Escape or (ctrl and key == Qt.Key_Space) :
                 self._currentCompletion = ""
                 self._completer.popup().hide()
                 self._completerShowing = False
@@ -1471,9 +1471,9 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             return
 
         if type(event) == QtGui.QKeyEvent:
-            if keyBeingPressed == Qt.Key_Escape: # Close the knobscripter...
+            if key == Qt.Key_Escape: # Close the knobscripter...
                 self.knobScripter.close()
-            elif not ctrlToggled and not altToggled and not shiftToggled and event.key()==Qt.Key_Tab:
+            elif not ctrl and not alt and not shift and event.key()==Qt.Key_Tab:
                 self.placeholder = "$$"
                 # 1. Set the cursor
                 self.cursor = self.textCursor()
@@ -1495,9 +1495,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                             self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
                         self.setTextCursor(self.cursor)
                 except: # Meaning snippet not found...
-                    ########
                     # FROM NUKE's SCRIPT EDITOR START
-                    ########
                     tc = self.textCursor()
                     allCode = self.toPlainText()
                     colNum = tc.columnNumber()
@@ -1538,10 +1536,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
                             self.completeTokenUnderCursor(token)
                             return
-
-                    ########
-                    # FROM NUKE's SCRIPT EDITOR END
-                    ########
 
                     KnobScripterTextEdit.keyPressEvent(self,event)
             elif event.key() in [Qt.Key_Enter, Qt.Key_Return]:
