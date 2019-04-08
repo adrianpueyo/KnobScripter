@@ -53,6 +53,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.nukeSEOutput = self.findSEOutput(self.nukeSE)
         self.nukeSEInput = self.findSEInput(self.nukeSE)
         self.nukeSERunBtn = self.findSERunBtn(self.nukeSE)
+        self.scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
 
         # Load prefs
         self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_prefs_"+version+".txt"))
@@ -142,7 +143,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_folder_dropdown = QtWidgets.QComboBox()
         self.current_folder_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.updateFoldersDropdown()
-        ##self.current_folder_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
+        self.current_folder_dropdown.currentIndexChanged.connect(self.folderDropdownChanged)
 
         self.current_script_dropdown = QtWidgets.QComboBox()
         self.current_script_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
@@ -421,6 +422,109 @@ class KnobScripter(QtWidgets.QWidget):
                 counter += 1
         return
 
+    def updateFoldersDropdown(self):
+        ''' Populate folders dropdown list '''
+        self.current_folder_dropdown.clear() # First remove all items
+        defaultFolders = ["scripts"]
+        scriptFolders = []
+        counter = 0
+        for f in defaultFolders:
+            self.makeScriptFolder(f)
+            self.current_folder_dropdown.addItem(f+" /", f)
+            counter += 1
+
+        try:
+            scriptFolders = [x[0] for x in os.walk(self.scripts_dir)][1:]
+        except:
+            print "Couldn't read any script folders."
+
+        for f in scriptFolders:
+            fname = f.split("/")[-1]
+            if fname in defaultFolders:
+                continue
+            self.current_folder_dropdown.addItem(fname+" /", fname)
+            counter += 1
+
+        #print scriptFolders
+        if counter > 0:
+            self.current_folder_dropdown.insertSeparator(counter)
+            counter += 1
+            #self.current_folder_dropdown.insertSeparator(counter)
+            #counter += 1
+        self.current_folder_dropdown.addItem("New", "create new")
+        return
+
+    def updateScriptsDropdown(self):
+        ''' Populate py scripts dropdown list '''
+        self.current_script_dropdown.clear() # First remove all items
+        defaultScripts = ["Untitled"]
+        #TODO: Check scripts in folder...
+        found_scripts = []
+        counter = 0
+        if not len(found_scripts):
+            for i in defaultScripts:
+                self.current_script_dropdown.addItem(i+".py")
+                counter += 1
+        ##else: #Add the found scripts to the dropdown
+        if counter > 0:
+            self.current_script_dropdown.insertSeparator(counter)
+            counter += 1
+            self.current_script_dropdown.insertSeparator(counter)
+            counter += 1
+        self.current_script_dropdown.addItem(" New ")
+        self.current_script_dropdown.addItem(" Duplicate ")
+        return
+
+    def makeScriptFolder(self, name = "scripts"):
+        folder_path = os.path.join(self.scripts_dir,name)
+        if not os.path.exists(folder_path):
+            try:
+                os.makedirs(folder_path)
+                return True
+            except:
+                print "Couldn't create the scripting folders.\nPlease check your OS write permissions."
+                return False
+
+    def folderDropdownChanged(self):
+        '''Executed when the current folder dropdown is changed'''
+        folders_dropdown = self.current_folder_dropdown
+        fd_value = folders_dropdown.currentText()
+        fd_index = folders_dropdown.currentIndex()
+        fd_data = folders_dropdown.itemData(fd_index)
+        if fd_data == "create new":
+            panel = nuke.Panel("New scripts directory.")
+            panel.setWidth(260)
+            panel.addSingleLineInput("Name:","")
+            while True:
+                if panel.show():
+                    folder_name = panel.value("Name:").strip()
+                    #TOOO: regex valid chars
+                    #TODO: make this be a qt dialog!!! so it doesn't let you add invalid chars etc
+                    if os.path.isdir(os.path.join(self.scripts_dir,folder_name)):
+                        self.messageBox("Folder already exists.")
+                    if self.makeScriptFolder():
+                        # Success creating the folder
+                        self.updateScriptsDropdown()
+                        break
+                    else:
+                        self.messageBox("There was a problem creating the folder.")
+                        break
+                else:
+                    break
+            return
+        else:
+            self.updateScriptsDropdown()
+        return
+
+    def setCurrentFolder(self, folderName):
+        ''' Set current folder '''
+        folderList = [self.current_folder_dropdown.itemData(i) for i in range(self.current_folder_dropdown.count())]
+        if folderName in KnobDropdownItems:
+            knobIndex = self.current_knob_dropdown.findText(knobToSet, QtCore.Qt.MatchFixedString)
+            if knobIndex >= 0:
+                self.current_knob_dropdown.setCurrentIndex(knobIndex)
+        return
+
     def setCurrentKnob(self, knobToSet):
         ''' Set current knob '''
         KnobDropdownItems = [self.current_knob_dropdown.itemText(i).split(" (")[0] for i in range(self.current_knob_dropdown.count())]
@@ -510,43 +614,6 @@ class KnobScripter(QtWidgets.QWidget):
         origConsoleText = self.origConsoleText
         self.origConsoleText = self.nukeSEOutput.document().toPlainText()
         self.script_output.setPlainText("")
-
-    def updateFoldersDropdown(self):
-        ''' Populate folders dropdown list '''
-        self.current_folder_dropdown.clear() # First remove all items
-        defaultFolders = ["scripts"]
-        counter = 0
-        for i in defaultFolders:
-            self.current_folder_dropdown.addItem(i+" /")
-            counter += 1
-        if counter > 0:
-            self.current_folder_dropdown.insertSeparator(counter)
-            counter += 1
-            self.current_folder_dropdown.insertSeparator(counter)
-            counter += 1
-        self.current_folder_dropdown.addItem(" New ")
-        return
-
-    def updateScriptsDropdown(self):
-        ''' Populate py scripts dropdown list '''
-        self.current_script_dropdown.clear() # First remove all items
-        defaultScripts = ["Untitled"]
-        #TODO: Check scripts in folder...
-        found_scripts = []
-        counter = 0
-        if not len(found_scripts):
-            for i in defaultScripts:
-                self.current_script_dropdown.addItem(i+".py")
-                counter += 1
-        ##else: #Add the found scripts to the dropdown
-        if counter > 0:
-            self.current_script_dropdown.insertSeparator(counter)
-            counter += 1
-            self.current_script_dropdown.insertSeparator(counter)
-            counter += 1
-        self.current_script_dropdown.addItem(" New ")
-        self.current_script_dropdown.addItem(" Duplicate ")
-        return
 
     def toggleFRW(self, frw_pressed):
         self.frw_open = frw_pressed
@@ -775,50 +842,38 @@ class KnobScripter(QtWidgets.QWidget):
             se_output.textChanged.connect(partial(consoleChanged,se_output, self))
             consoleChanged(se_output, self) # Initialise.
 
-    def closeEvent(self, event):
-        updatedCount = self.updateUnsavedKnobs()
-        if updatedCount > 0:
-            msgBox = QtWidgets.QMessageBox()
-            msgBox.setText("Save changes to %s knob%s before closing?" % (str(updatedCount),int(updatedCount>1)*"s"))
-            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel)
-            msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-            msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            reply = msgBox.exec_()
-            if reply == QtWidgets.QMessageBox.Yes:
-                self.saveAllKnobValues(check=False)
-                event.accept()
-                return
-            elif reply == QtWidgets.QMessageBox.Cancel:
-                event.ignore()
-                return
+    def closeEvent(self, close_event):
+        if self.nodeMode:
+            updatedCount = self.updateUnsavedKnobs()
+            if updatedCount > 0:
+                msgBox = QtWidgets.QMessageBox()
+                msgBox.setText("Save changes to %s knob%s before closing?" % (str(updatedCount),int(updatedCount>1)*"s"))
+                msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel)
+                msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+                msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
+                reply = msgBox.exec_()
+                if reply == QtWidgets.QMessageBox.Yes:
+                    self.saveAllKnobValues(check=False)
+                    close_event.accept()
+                    return
+                elif reply == QtWidgets.QMessageBox.Cancel:
+                    close_event.ignore()
+                    return
+            else:
+                close_event.accept()
         else:
-            event.accept()
+            close_event.accept()
 
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
         super(KnobScripterPane, self).__init__()
-        #self.parent().setContentsMargins(0,0,0,0)
-        #self.window().layout().setSpacing(0)
-        #self.pin_btn.deleteLater()
-        #self.close_btn.deleteLater()
-        #self.pin_btn = None
-        #self.close_btn = None
-
-        #ksSignature = QtWidgets.QLabel('<a href="http://www.adrianpueyo.com/" style="color:#888;text-decoration:none"><b>KnobScripter </b></a>v'+version)
-        #ksSignature.setOpenExternalLinks(True)
-        #ksSignature.setStyleSheet('''color:#555;font-size:9px;''')
-        #self.bottom_layout.addWidget(ksSignature)
-
-    ##def deleteCloseButton(self):
-    ##    b = self.bottom_layout.takeAt(2)
-    ##    b.widget().deleteLater()
-    def event(self, event):
-        if event.type() == QtCore.QEvent.Type.Show:
+    def event(self, the_event):
+        if the_event.type() == QtCore.QEvent.Type.Show:
             try:
                 killPaneMargins(self)
             except:
                 pass
-        return(super(KnobScripterPane, self).event(event))
+        return super(KnobScripterPane, self).event(the_event)
 
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
@@ -847,6 +902,10 @@ def killPaneMargins(widget_object):
                 widget_layout.layout().setContentsMargins(0, 0, 0, 0)
             except:
                 pass
+
+#---------------------------------------------------------------------
+# Dialog for creating new... (folder, script, knob or whatever)
+#---------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------------------
 # Script Editor Widget
@@ -1574,10 +1633,9 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                         #If you are at the end of the line, 
                         else : 
                             #If there's nothing to the right of you add a tab
-                            if currentLine[colNum-1:] == "" :
+                            if currentLine[colNum-1:] == "" or currentLine.endswith(" "):
                                 KnobScripterTextEdit.keyPressEvent(self,event)
                                 return
-
                             #Else update token and show the completer
                             token = currentLine.split(" ")[-1]
                             if "(" in token :
@@ -1598,6 +1656,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
     # ADAPTED FROM NUKE's SCRIPT EDITOR
     def completionsForToken(self, token):
+        #TODO: refactor all the snippets part
         def findModules(searchString):
             sysModules =  sys.modules
             globalModules = globals()
