@@ -277,7 +277,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_output.setTabStopWidth(self.script_output.tabStopWidth() / 4)
         self.script_output.setFocusPolicy(Qt.ClickFocus)
         self.script_output.setAutoFillBackground( 0 )
-        self.script_output.installEventFilter(self)
 
         # Script Editor
         self.script_editor = KnobScripterTextEditMain(self, self.script_output)
@@ -386,12 +385,6 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             self.exitNodeMode()
         self.script_editor.setFocus()
-
-    def eventFilter(self, object, event):
-        if event.type() == QtCore.QEvent.KeyPress:
-            return QtWidgets.QWidget.eventFilter(self, object, event)
-        else:
-            return QtWidgets.QWidget.eventFilter(self, object, event)
 
     def resizeEvent(self, res_event):
         w = self.frameGeometry().width()
@@ -548,12 +541,20 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_script_dropdown.addItem(" Duplicate ")
         return
 
-    def toggleFRW(self, frw_pressed):
+    def toggleFRW(self, frw_pressed, replace = False):
         self.frw_open = frw_pressed
         self.frw.setVisible(self.frw_open)
+        cursor = self.script_editor.textCursor()
+        selection = cursor.selectedText()
         if self.frw_open:
-            self.frw.find_lineEdit.setFocus()
-            self.frw.find_lineEdit.selectAll()
+            if replace == False:
+                self.frw.find_lineEdit.setFocus()
+                self.frw.find_lineEdit.setText(selection)
+                self.frw.find_lineEdit.selectAll()
+            else:
+                self.frw.find_lineEdit.setText(selection)
+                self.frw.find_lineEdit.selectAll()
+                self.frw.replace_lineEdit.setFocus()
         else:
             self.script_editor.setFocus()
         return
@@ -812,13 +813,13 @@ class KnobScripterPane(KnobScripter):
     ##def deleteCloseButton(self):
     ##    b = self.bottom_layout.takeAt(2)
     ##    b.widget().deleteLater()
-    def event(self, event):
-        if event.type() == QtCore.QEvent.Type.Show:
+    def event(self, the_event):
+        if the_event.type() == QtCore.QEvent.Type.Show:
             try:
                 killPaneMargins(self)
             except:
                 pass
-        return(super(KnobScripterPane, self).event(event))
+        return KnobScripter.event(self, the_event)
 
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
@@ -968,73 +969,24 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         '''
         Custom actions for specific keystrokes
         '''
-        key = event.key()
         #if Tab convert to Space
-        if key == 16777217:
+        if event.key() == 16777217:
             self.indentation('indent')
 
         #if Shift+Tab remove indent
-        elif key == 16777218:
+        elif event.key() == 16777218:
             self.indentation('unindent')
 
         #if BackSpace try to snap to previous indent level
-        elif key == 16777219:
+        elif event.key() == 16777219:
             if not self.unindentBackspace():
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
         #if enter or return, match indent level
-        elif key in [16777220 ,16777221]:
+        elif event.key() in [16777220 ,16777221]:
             self.indentNewLine()
         else:
-            ### COOL BEHAVIORS SIMILAR TO SUBLIME GO NEXT!
-            cursor = self.textCursor()
-            cpos = cursor.position()
-            apos = cursor.anchor()
-            text_before_cursor = self.toPlainText()[:min(cpos,apos)]
-            text_after_cursor = self.toPlainText()[max(cpos,apos):]
-            if cursor.hasSelection():
-                selection = cursor.selection().toPlainText()
-            else:
-                selection = ""
-
-            if key == Qt.Key_ParenLeft:
-                cursor.insertText("("+selection+")")
-                cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
-                self.setTextCursor(cursor)
-            elif key == Qt.Key_ParenRight and text_after_cursor.startswith(")"):
-                cursor.movePosition(QtGui.QTextCursor.NextCharacter)
-                self.setTextCursor(cursor)
-            elif key == 34: # "
-                if text_after_cursor.startswith('"') and '"' in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
-                    cursor.movePosition(QtGui.QTextCursor.NextCharacter)
-                elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
-                    print text_before_cursor
-                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-                elif not re.search(r"[\s.({\[,]$", text_before_cursor) and text_before_cursor != "": # If chars before cursor, act normal
-                    print text_before_cursor
-                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-                else:
-                    cursor.insertText('"'+selection+'"')
-                    cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
-                self.setTextCursor(cursor)
-            elif key == 39: # ''
-                if text_after_cursor.startswith("'") and "'" in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
-                    cursor.movePosition(QtGui.QTextCursor.NextCharacter)
-                elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
-                    print text_before_cursor
-                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-                elif not re.search(r"[\s.({\[,]$", text_before_cursor) and text_before_cursor != "": # If chars before cursor, act normal
-                    print text_before_cursor
-                    QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-                else:
-                    cursor.insertText("'"+selection+"'")
-                    cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
-                self.setTextCursor(cursor)
-            else:
-                QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-            
-            #print key
-
-            
+            #print event.key()
+            QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
         self.scrollToCursor()
 
 
@@ -1380,27 +1332,11 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
 class ScriptOutputWidget(QtWidgets.QTextEdit) :
     def __init__(self, parent=None):
         super(ScriptOutputWidget, self).__init__(parent)
-        self.knobScripter = parent
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.setMinimumHeight(20)
 
-    def keyPressEvent(self, event):
-        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
-        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
-        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
-        key = event.key()
-        if type(event) == QtGui.QKeyEvent:
-            #print event.key()
-            if key in [32]: # Space
-                return KnobScripter.keyPressEvent(self.knobScripter, event)
-            elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
-                self.knobScripter.clearConsole()
-        return QtWidgets.QTextEdit.keyPressEvent(self, event)
-
-    #def mousePressEvent(self, QMouseEvent):
-    #    if QMouseEvent.button() == Qt.RightButton:
-    #        self.knobScripter.clearConsole()
-    #    QtWidgets.QTextEdit.mousePressEvent(self, QMouseEvent)
+    def keyPressEvent(self, event) :
+        QtWidgets.QTextEdit.keyPressEvent(self, event)
 
 #---------------------------------------------------------------------
 # Modified KnobScripterTextEdit to include snippets etc.
@@ -1441,7 +1377,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         match_key = None
         match_snippet = ""
         for key, val in dic.items():
-            match = re.search(r"[\s.({\[,]"+key+r"(?:[\s)\]\"]+|$)",text)
+            match = re.search(r"[\s.]"+key+"$",text)
             if match or text == key:
                 if len(key) > longest:
                     longest = len(key)
@@ -1466,10 +1402,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def keyPressEvent(self,event):
 
         # ADAPTED FROM NUKE's SCRIPT EDITOR
-        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
-        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
-        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
-        key = event.key()
+        ctrlToggled = ((event.modifiers() and (Qt.ControlModifier)) != 0)
+        altToggled = ((event.modifiers() and (Qt.AltModifier)) != 0)
+        shiftToggled = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        keyBeingPressed = event.key()
 
         #Get completer state
         self._completerShowing = self._completer.popup().isVisible()
@@ -1478,7 +1414,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         if self._completerShowing :
             tc = self.textCursor()
             #If we're hitting enter, do completion
-            if key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
+            if keyBeingPressed in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
                 if not self._currentCompletion:
                     self._completer.setCurrentRow(0)
                     self._currentCompletion = self._completer.currentCompletion()
@@ -1487,11 +1423,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 self._completer.popup().hide()
                 self._completerShowing = False
             #If you're hitting right or escape, hide the popup
-            elif key == Qt.Key_Right or key == Qt.Key_Escape:
+            elif keyBeingPressed == Qt.Key_Right or keyBeingPressed == Qt.Key_Escape:
                 self._completer.popup().hide()
                 self._completerShowing = False
             #If you hit tab, escape or ctrl-space, hide the completer
-            elif key == Qt.Key_Tab or key == Qt.Key_Escape or (ctrl and key == Qt.Key_Space) :
+            elif keyBeingPressed == Qt.Key_Tab or keyBeingPressed == Qt.Key_Escape or (ctrlToggled and keyBeingPressed == Qt.Key_Space) :
                 self._currentCompletion = ""
                 self._completer.popup().hide()
                 self._completerShowing = False
@@ -1520,9 +1456,9 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             return
 
         if type(event) == QtGui.QKeyEvent:
-            if key == Qt.Key_Escape: # Close the knobscripter...
+            if keyBeingPressed == Qt.Key_Escape: # Close the knobscripter...
                 self.knobScripter.close()
-            elif not ctrl and not alt and not shift and event.key()==Qt.Key_Tab:
+            elif not ctrlToggled and not altToggled and not shiftToggled and event.key()==Qt.Key_Tab:
                 self.placeholder = "$$"
                 # 1. Set the cursor
                 self.cursor = self.textCursor()
@@ -1544,7 +1480,9 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                             self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
                         self.setTextCursor(self.cursor)
                 except: # Meaning snippet not found...
+                    ########
                     # FROM NUKE's SCRIPT EDITOR START
+                    ########
                     tc = self.textCursor()
                     allCode = self.toPlainText()
                     colNum = tc.columnNumber()
@@ -1585,6 +1523,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
                             self.completeTokenUnderCursor(token)
                             return
+
+                    ########
+                    # FROM NUKE's SCRIPT EDITOR END
+                    ########
 
                     KnobScripterTextEdit.keyPressEvent(self,event)
             elif event.key() in [Qt.Key_Enter, Qt.Key_Return]:
@@ -1714,7 +1656,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         oldPosition = nukeSECursor.position()
 
         # Add the code to be executed and select it
-        ##nukeSEInput.setFocus()
+        nukeSEInput.setFocus()
         nukeSEInput.insertPlainText(code)
 
         if oldAnchor < oldPosition:
@@ -1736,7 +1678,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         nukeSECursor.setPosition(oldAnchor, QtGui.QTextCursor.MoveAnchor)
         nukeSECursor.setPosition(oldPosition, QtGui.QTextCursor.KeepAnchor)
         nukeSEInput.setTextCursor(nukeSECursor)
-        #self.setFocus()
 
 #---------------------------------------------------------------------
 # Preferences Panel
@@ -1894,7 +1835,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.knobScripter.tabSpaces = self.tabSpaceValue()
         self.knobScripter.script_editor.tabSpaces = self.tabSpaceValue()
         with open(self.prefs_txt,"w") as f:
-            prefs = json.dump(ks_prefs, f, sort_keys=True, indent=4)
+            prefs = json.dump(ks_prefs, f)
             self.accept()
         return prefs
 
@@ -1948,12 +1889,12 @@ class FindReplaceWidget(QtWidgets.QWidget):
         #self.find_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
         self.find_label.setFixedWidth(50)
         self.find_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self.find_lineEdit = QtWidgets.QLineEdit()
+        self.find_lineEdit = FindReplaceTextEdit(self)
         self.find_next_button = QtWidgets.QPushButton("Next")
         self.find_next_button.clicked.connect(self.find)
         self.find_prev_button = QtWidgets.QPushButton("Previous")
         self.find_prev_button.clicked.connect(self.findBack)
-        self.find_lineEdit.returnPressed.connect(self.find_next_button.click)
+        #self.find_lineEdit.returnPressed.connect(self.find_next_button.click)
 
         # Layout
         self.find_layout = QtWidgets.QHBoxLayout()
@@ -1961,7 +1902,6 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.find_layout.addWidget(self.find_lineEdit, stretch = 1)
         self.find_layout.addWidget(self.find_next_button)
         self.find_layout.addWidget(self.find_prev_button)
-
 
         #--------------
         # Replace Row
@@ -1972,12 +1912,12 @@ class FindReplaceWidget(QtWidgets.QWidget):
         #self.replace_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
         self.replace_label.setFixedWidth(50)
         self.replace_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self.replace_lineEdit = QtWidgets.QLineEdit()
+        self.replace_lineEdit = FindReplaceTextEdit(self)
         self.replace_button = QtWidgets.QPushButton("Replace")
         self.replace_button.clicked.connect(self.replace)
         self.replace_all_button = QtWidgets.QPushButton("Replace All")
         self.replace_all_button.clicked.connect(lambda: self.replace(rep_all = True))
-        self.replace_lineEdit.returnPressed.connect(self.replace_button.click)
+        #self.replace_lineEdit.returnPressed.connect(self.replace_button.click)
 
         # Layout
         self.replace_layout = QtWidgets.QHBoxLayout()
@@ -2014,10 +1954,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.layout.addLayout(self.find_layout)
         self.layout.addLayout(self.replace_layout)
         self.layout.setSpacing(4)
-        try: #>n11
-            self.layout.setMargin(2)
-        except: #<n10
-            self.layout.setContentsMargins(2,2,2,2)
+        self.layout.setContentsMargins(2,2,2,2)
         self.layout.addSpacing(4)
         self.layout.addWidget(line)
         self.setLayout(self.layout)
@@ -2027,9 +1964,10 @@ class FindReplaceWidget(QtWidgets.QWidget):
 
     def find(self, find_str = "", match_case = True):
         if find_str == "":
-            find_str = self.find_lineEdit.text()
+            find_str = self.find_lineEdit.toPlainText()
 
         matches = self.editor.toPlainText().count(find_str)
+        print matches
         if not matches or matches == 0:
             self.info_text.setText("              No more matches.")
             self.info_text.setVisible(True)
@@ -2057,7 +1995,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
 
     def findBack(self, find_str = "", match_case = True):
         if find_str == "":
-            find_str = self.find_lineEdit.text()
+            find_str = self.find_lineEdit.toPlainText()
 
         matches = self.editor.toPlainText().count(find_str)
         if not matches or matches == 0:
@@ -2085,9 +2023,9 @@ class FindReplaceWidget(QtWidgets.QWidget):
 
     def replace(self, find_str = "", rep_str = "", rep_all=False):
         if find_str == "":
-            find_str = self.find_lineEdit.text()
+            find_str = self.find_lineEdit.toPlainText()
         if rep_str == "":
-            rep_str = self.replace_lineEdit.text()
+            rep_str = self.replace_lineEdit.toPlainText()
 
         matches = self.editor.toPlainText().count(find_str)
         if not matches or matches == 0:
@@ -2137,6 +2075,51 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.replace_lineEdit.setFocus()
         return
 
+class FindReplaceTextEdit(QtWidgets.QTextEdit):
+    def __init__(self, parent=None):
+        super(FindReplaceTextEdit,self).__init__(parent)
+        self.frw = parent
+        self.textChanged.connect(self.textModified)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
+        self.resizeToText()
+
+    def resizeToText(self):
+        font = self.document().defaultFont()
+        fontMetrics = QtGui.QFontMetrics(font)
+        lines = self.toPlainText().count("\n")+1
+
+        textSize = fontMetrics.size(0, "Line")
+
+        if lines>1:
+            textHeight = textSize.height()*4 + 12
+        else:
+            textHeight = textSize.height() + 12
+
+        self.setFixedHeight(textHeight)
+
+    def textModified(self):
+        self.resizeToText()
+
+    def keyPressEvent(self, event):
+        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
+        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
+        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        key = event.key()
+        
+        if type(event) == QtGui.QKeyEvent:
+            ##if key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
+            if key in [Qt.Key_Return, Qt.Key_Enter]:
+                if not shift:
+                    self.frw.find_next_button.click()
+                    return
+            #TODO: If tab, go to next ocurrence
+            #TODO:Make the find work.....with multiline....
+
+                
+
+        QtWidgets.QTextEdit.keyPressEvent(self,event)
+
+        
 
 #--------------------------------
 # Snippets
@@ -2240,7 +2223,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         if snippets == "":
             snippets = self.getSnippetsAsDict()
         with open(self.snippets_txt_path,"w") as f:
-            prefs = json.dump(snippets, f, sort_keys=True, indent=4)
+            prefs = json.dump(snippets, f)
         return prefs
 
     def okPressed(self):
