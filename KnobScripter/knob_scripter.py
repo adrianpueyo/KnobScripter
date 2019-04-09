@@ -144,6 +144,9 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_folder_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.updateFoldersDropdown()
         self.current_folder_dropdown.currentIndexChanged.connect(self.folderDropdownChanged)
+        #self.current_folder_dropdown.setEditable(True)
+        #self.current_folder_dropdown.lineEdit().setReadOnly(True)
+        #self.current_folder_dropdown.lineEdit().setAlignment(Qt.AlignRight)
 
         self.current_script_dropdown = QtWidgets.QComboBox()
         self.current_script_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
@@ -430,7 +433,7 @@ class KnobScripter(QtWidgets.QWidget):
         counter = 0
         for f in defaultFolders:
             self.makeScriptFolder(f)
-            self.current_folder_dropdown.addItem(f+" /", f)
+            self.current_folder_dropdown.addItem(f+"/", f)
             counter += 1
 
         try:
@@ -442,7 +445,7 @@ class KnobScripter(QtWidgets.QWidget):
             fname = f.split("/")[-1]
             if fname in defaultFolders:
                 continue
-            self.current_folder_dropdown.addItem(fname+" /", fname)
+            self.current_folder_dropdown.addItem(fname+"/", fname)
             counter += 1
 
         #print scriptFolders
@@ -452,6 +455,7 @@ class KnobScripter(QtWidgets.QWidget):
             #self.current_folder_dropdown.insertSeparator(counter)
             #counter += 1
         self.current_folder_dropdown.addItem("New", "create new")
+        self.folder_index = self.current_folder_dropdown.currentIndex()
         return
 
     def updateScriptsDropdown(self):
@@ -495,23 +499,23 @@ class KnobScripter(QtWidgets.QWidget):
             panel = FileNameDialog(self, mode="folder")
             #panel.setWidth(260)
             #panel.addSingleLineInput("Name:","")
-            while True:
-                if panel.show():
-                    folder_name = panel.name
-                    #TOOO: regex valid chars
-                    #TODO: make this be a qt dialog!!! so it doesn't let you add invalid chars etc
-                    if os.path.isdir(os.path.join(self.scripts_dir,folder_name)):
-                        self.messageBox("Folder already exists.")
-                    if self.makeScriptFolder():
-                        # Success creating the folder
-                        self.updateScriptsDropdown()
-                        break
-                    else:
-                        self.messageBox("There was a problem creating the folder.")
-                        break
+            if panel.exec_():
+                # Accepted
+                folder_name = panel.text
+                if os.path.isdir(os.path.join(self.scripts_dir,folder_name)):
+                    self.messageBox("Folder already exists.")
+                if self.makeScriptFolder(name = folder_name):
+                    # Success creating the folder
+                    self.updateFoldersDropdown()
+                    self.setCurrentFolder(folder_name)
+                    self.updateScriptsDropdown()
                 else:
-                    break
-            return
+                    self.messageBox("There was a problem creating the folder.")
+                    self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+            else:
+                # Canceled/rejected
+                self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+                return
         else:
             self.updateScriptsDropdown()
         return
@@ -519,10 +523,10 @@ class KnobScripter(QtWidgets.QWidget):
     def setCurrentFolder(self, folderName):
         ''' Set current folder '''
         folderList = [self.current_folder_dropdown.itemData(i) for i in range(self.current_folder_dropdown.count())]
-        if folderName in KnobDropdownItems:
-            knobIndex = self.current_knob_dropdown.findText(knobToSet, QtCore.Qt.MatchFixedString)
-            if knobIndex >= 0:
-                self.current_knob_dropdown.setCurrentIndex(knobIndex)
+        if folderName in folderList:
+            index = folderList.index(folderName)
+            self.current_folder_dropdown.setCurrentIndex(index)
+        self.folder_index = self.current_folder_dropdown.currentIndex()
         return
 
     def setCurrentKnob(self, knobToSet):
