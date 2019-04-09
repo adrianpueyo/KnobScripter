@@ -142,7 +142,6 @@ class KnobScripter(QtWidgets.QWidget):
 
         self.current_folder_dropdown = QtWidgets.QComboBox()
         self.current_folder_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-        self.updateFoldersDropdown()
         self.current_folder_dropdown.currentIndexChanged.connect(self.folderDropdownChanged)
         #self.current_folder_dropdown.setEditable(True)
         #self.current_folder_dropdown.lineEdit().setReadOnly(True)
@@ -150,8 +149,10 @@ class KnobScripter(QtWidgets.QWidget):
 
         self.current_script_dropdown = QtWidgets.QComboBox()
         self.current_script_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+
+        self.updateFoldersDropdown()
         self.updateScriptsDropdown()
-        ##self.current_folder_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
+        ##self.current_script_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
 
         # Layout
         self.script_mode_bar_layout = QtWidgets.QHBoxLayout()
@@ -456,18 +457,35 @@ class KnobScripter(QtWidgets.QWidget):
             #counter += 1
         self.current_folder_dropdown.addItem("New", "create new")
         self.folder_index = self.current_folder_dropdown.currentIndex()
+        #TODO: remember last opened folder... in a prefs file or sth
         return
 
     def updateScriptsDropdown(self):
         ''' Populate py scripts dropdown list '''
         self.current_script_dropdown.clear() # First remove all items
-        defaultScripts = ["Untitled"]
+        current_folder = self.current_folder_dropdown.itemData(self.current_folder_dropdown.currentIndex())
+        current_folder_path = os.path.join(self.scripts_dir,current_folder)
+        print "---"
+        print current_folder_path
+        defaultScripts = ["Untitled.py"]
         #TODO: Check scripts in folder...
         found_scripts = []
         counter = 0
+        try:
+            found_scripts = [f for f in os.listdir(current_folder_path) if f.endswith(".py")]
+        except:
+            print "Couldn't find any scripts in the selected folder."
+
+        print found_scripts
+
         if not len(found_scripts):
-            for i in defaultScripts:
-                self.current_script_dropdown.addItem(i+".py")
+            for s in defaultScripts:
+                self.current_script_dropdown.addItem(s,s)
+                counter += 1
+        else:
+            for s in found_scripts:
+                sname = s.split("/")[-1]
+                self.current_script_dropdown.addItem(sname, sname)
                 counter += 1
         ##else: #Add the found scripts to the dropdown
         if counter > 0:
@@ -475,8 +493,8 @@ class KnobScripter(QtWidgets.QWidget):
             counter += 1
             self.current_script_dropdown.insertSeparator(counter)
             counter += 1
-        self.current_script_dropdown.addItem(" New ")
-        self.current_script_dropdown.addItem(" Duplicate ")
+        self.current_script_dropdown.addItem("New", "create new")
+        self.current_script_dropdown.addItem("Duplicate", "create duplicate")
         return
 
     def makeScriptFolder(self, name = "scripts"):
@@ -610,8 +628,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.node_mode_bar.setVisible(False)
         self.script_mode_bar.setVisible(True)
         self.node = nuke.toNode("root")
-        self.updateFoldersDropdown()
-        self.updateScriptsDropdown()
+        #self.updateFoldersDropdown()
+        #self.updateScriptsDropdown()
         self.splitter.setSizes([1,1])
 
     def clearConsole(self):
