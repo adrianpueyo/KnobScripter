@@ -492,12 +492,12 @@ class KnobScripter(QtWidgets.QWidget):
         fd_index = folders_dropdown.currentIndex()
         fd_data = folders_dropdown.itemData(fd_index)
         if fd_data == "create new":
-            panel = nuke.Panel("New scripts directory.")
-            panel.setWidth(260)
-            panel.addSingleLineInput("Name:","")
+            panel = FileNameDialog(self, mode="folder")
+            #panel.setWidth(260)
+            #panel.addSingleLineInput("Name:","")
             while True:
                 if panel.show():
-                    folder_name = panel.value("Name:").strip()
+                    folder_name = panel.name
                     #TOOO: regex valid chars
                     #TODO: make this be a qt dialog!!! so it doesn't let you add invalid chars etc
                     if os.path.isdir(os.path.join(self.scripts_dir,folder_name)):
@@ -677,7 +677,6 @@ class KnobScripter(QtWidgets.QWidget):
         if self.nodeMode:
             self.saveKnobValue(False)
         #TODO: If script mode...
-
 
     def loadKnobValue(self, check=True, updateDict=False):
         ''' Get the content of the knob knobChanged and populate the editor '''
@@ -904,8 +903,69 @@ def killPaneMargins(widget_object):
                 pass
 
 #---------------------------------------------------------------------
-# Dialog for creating new... (folder, script, knob or whatever)
+# Dialog for creating new... (folder, script or knob)
 #---------------------------------------------------------------------
+class FileNameDialog(QtWidgets.QDialog):
+    '''
+    Dialog for creating new... (mode = "folder", "script" or "knob").
+    '''
+    def __init__(self, parent = None, mode = "folder", text = ""):
+        super(FileNameDialog, self).__init__(parent)
+        self.mode = mode
+        self.text = text
+
+        title = "Create new {}.".format(self.mode)
+        self.setWindowTitle(title)
+
+        self.initUI()
+
+    def initUI(self):
+        # Widgets
+        self.name_label = QtWidgets.QLabel("Name: ")
+        self.name_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.name_lineEdit = QtWidgets.QLineEdit()
+        self.name_lineEdit.setText(self.text)
+        self.name_lineEdit.textChanged.connect(self.nameChanged)
+
+        # Buttons
+        self.button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        self.button_box.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(self.text != "")
+        self.button_box.accepted.connect(self.clickedOk)
+        self.button_box.rejected.connect(self.clickedCancel)
+
+        # Layout
+        self.master_layout = QtWidgets.QVBoxLayout()
+        self.name_layout = QtWidgets.QHBoxLayout()
+        self.name_layout.addWidget(self.name_label)
+        self.name_layout.addWidget(self.name_lineEdit)
+        self.master_layout.addLayout(self.name_layout)
+        self.master_layout.addWidget(self.button_box)
+        self.setLayout(self.master_layout)
+
+        self.name_lineEdit.setFocus()
+        self.setMinimumWidth(250)
+
+    def nameChanged(self):
+        txt = self.name_lineEdit.text()
+        m = r"[\w]*$"
+        if self.mode == "knob": # Knobs can't start with a number...
+            m = r"[a-zA-Z_]+" + m
+
+        if re.match(m, txt) or txt == "":
+            self.text = txt
+        else:
+            self.name_lineEdit.setText(self.text)
+
+        self.button_box.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(self.text != "")
+        return
+
+    def clickedOk(self):
+        self.accept()
+        return
+
+    def clickedCancel(self):
+        self.reject()
+        return
 
 #------------------------------------------------------------------------------------------------------
 # Script Editor Widget
