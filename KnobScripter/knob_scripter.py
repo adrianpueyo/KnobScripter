@@ -53,7 +53,13 @@ class KnobScripter(QtWidgets.QWidget):
         self.nukeSEOutput = self.findSEOutput(self.nukeSE)
         self.nukeSEInput = self.findSEInput(self.nukeSE)
         self.nukeSERunBtn = self.findSERunBtn(self.nukeSE)
+
         self.scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
+        self.current_folder = "scripts"
+        self.folder_index = 0
+        self.current_script = "Untitled.py"
+        self.script_index = 0
+
 
         # Load prefs
         self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_prefs_"+version+".txt"))
@@ -149,10 +155,9 @@ class KnobScripter(QtWidgets.QWidget):
 
         self.current_script_dropdown = QtWidgets.QComboBox()
         self.current_script_dropdown.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-
         self.updateFoldersDropdown()
         self.updateScriptsDropdown()
-        ##self.current_script_dropdown.currentIndexChanged.connect(lambda: self.loadKnobValue(False,updateDict=True))
+        self.current_script_dropdown.currentIndexChanged.connect(self.scriptDropdownChanged)
 
         # Layout
         self.script_mode_bar_layout = QtWidgets.QHBoxLayout()
@@ -390,6 +395,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.splitter.setSizes([0,1])
         else:
             self.exitNodeMode()
+            #self.loadScriptContents(check = False)
         self.script_editor.setFocus()
 
     # Node Mode
@@ -586,28 +592,29 @@ class KnobScripter(QtWidgets.QWidget):
             #self.current_folder_dropdown.insertSeparator(counter)
             #counter += 1
         self.current_folder_dropdown.addItem("New", "create new")
+        self.current_folder_dropdown.addItem("Browse...", "open in browser")
         self.folder_index = self.current_folder_dropdown.currentIndex()
+        self.current_folder = self.current_folder_dropdown.itemData(self.folder_index)
         #TODO: remember last opened folder... in a prefs file or sth
         return
 
     def updateScriptsDropdown(self):
         ''' Populate py scripts dropdown list '''
         self.current_script_dropdown.clear() # First remove all items
-        current_folder = self.current_folder_dropdown.itemData(self.current_folder_dropdown.currentIndex())
-        current_folder_path = os.path.join(self.scripts_dir,current_folder)
-        print "---"
-        print current_folder_path
+        print "updating scripts dropdown..."
+        print "scripts dir:"+self.scripts_dir
+        print "current folder:"+self.current_folder
+        #current_folder = self.current_folder_dropdown.itemData(self.current_folder_dropdown.currentIndex())
+        current_folder_path = os.path.join(self.scripts_dir,self.current_folder)
         defaultScripts = ["Untitled.py"]
-        #TODO: Check scripts in folder...
         found_scripts = []
         counter = 0
+        dir_list = os.listdir(current_folder_path) # All files and folders inside of the folder
         try:
-            found_scripts = [f for f in os.listdir(current_folder_path) if f.endswith(".py")]
+            found_scripts = [f for f in dir_list if f.endswith(".py")]
         except:
             print "Couldn't find any scripts in the selected folder."
-
-        print found_scripts
-
+        #TODO: Check which ones have been modified (thus a modified script also exists)
         if not len(found_scripts):
             for s in defaultScripts:
                 self.current_script_dropdown.addItem(s,s)
@@ -625,7 +632,9 @@ class KnobScripter(QtWidgets.QWidget):
             counter += 1
         self.current_script_dropdown.addItem("New", "create new")
         self.current_script_dropdown.addItem("Duplicate", "create duplicate")
+        self.current_script_dropdown.addItem("Delete", "delete script")
         self.script_index = self.current_script_dropdown.currentIndex()
+        self.current_script = self.current_script_dropdown.itemData(self.script_index)
         return
 
     def makeScriptFolder(self, name = "scripts"):
@@ -638,13 +647,40 @@ class KnobScripter(QtWidgets.QWidget):
                 print "Couldn't create the scripting folders.\nPlease check your OS write permissions."
                 return False
 
+    def makeScriptFile(self, name = "Untitled.py", folder = "scripts", empty = True):
+        script_path = os.path.join(self.scripts_dir, self.current_folder, name)
+        if not os.path.isfile(script_path):
+            try:
+                self.current_script_file = open(script_path, 'w')
+                return True
+            except:
+                print "Couldn't create the scripting folders.\nPlease check your OS write permissions."
+                return False
+
     def setCurrentFolder(self, folderName):
-        ''' Set current folder '''
+        ''' Set current folder ON THE DROPDOWN ONLY'''
         folderList = [self.current_folder_dropdown.itemData(i) for i in range(self.current_folder_dropdown.count())]
         if folderName in folderList:
             index = folderList.index(folderName)
             self.current_folder_dropdown.setCurrentIndex(index)
+            self.current_folder = folderName
         self.folder_index = self.current_folder_dropdown.currentIndex()
+        self.current_folder = self.current_folder_dropdown.itemData(self.folder_index)
+        return
+
+    def setCurrentScript(self, scriptName):
+        ''' Set current script ON THE DROPDOWN ONLY '''
+        scriptList = [self.current_script_dropdown.itemData(i) for i in range(self.current_script_dropdown.count())]
+        if scriptName in scriptList:
+            index = scriptList.index(scriptName)
+            self.current_script_dropdown.setCurrentIndex(index)
+            self.current_script = scriptName
+        self.script_index = self.current_script_dropdown.currentIndex()
+        self.current_script = self.current_script_dropdown.itemData(self.script_index)
+        return
+
+    def loadScriptContents(self, check = False):
+        ''' Get the contents of the selected script and populate the editor '''
         return
 
     """
@@ -693,6 +729,7 @@ class KnobScripter(QtWidgets.QWidget):
     """
     def folderDropdownChanged(self):
         '''Executed when the current folder dropdown is changed'''
+        #TODO: Save temp file for current!!!!!
         folders_dropdown = self.current_folder_dropdown
         fd_value = folders_dropdown.currentText()
         fd_index = folders_dropdown.currentIndex()
@@ -706,8 +743,10 @@ class KnobScripter(QtWidgets.QWidget):
                 folder_name = panel.text
                 if os.path.isdir(os.path.join(self.scripts_dir,folder_name)):
                     self.messageBox("Folder already exists.")
+                    self.setCurrentFolder(self.current_folder)
                 if self.makeScriptFolder(name = folder_name):
                     # Success creating the folder
+                    self.current_folder = folder_name
                     self.updateFoldersDropdown()
                     self.setCurrentFolder(folder_name)
                     self.updateScriptsDropdown()
@@ -719,36 +758,47 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_folder_dropdown.setCurrentIndex(self.folder_index)
                 return
         else:
+            self.current_folder = fd_data
+            self.folder_index = fd_index
             self.updateScriptsDropdown()
         return
 
     def scriptDropdownChanged(self):
         '''Executed when the current script dropdown is changed'''
+        #TODO: This function is barely started.
+        #TODO: Save temp file for current!!!!!
         scripts_dropdown = self.current_script_dropdown
         sd_value = scripts_dropdown.currentText()
         sd_index = scripts_dropdown.currentIndex()
-        sd_data = scripts_dropdown.itemData(fd_index)
+        sd_data = scripts_dropdown.itemData(sd_index)
         if sd_data == "create new":
             panel = FileNameDialog(self, mode="script")
             if panel.exec_():
                 # Accepted
-                script_name = panel.text
-                if os.path.isdir(os.path.join(self.scripts_dir,script_name)):
+                script_name = panel.text + ".py"
+                script_path = os.path.join(self.scripts_dir, self.current_folder, script_name)
+                print script_name, script_path
+                if os.path.isfile(script_path):
                     self.messageBox("Script already exists.")
-                if self.makeScriptFolder(name = folder_name):
+                    self.current_script_dropdown.setCurrentIndex(self.script_index)
+                if self.makeScriptFile(name = script_name, folder = self.current_folder):
                     # Success creating the folder
-                    self.updateFoldersDropdown()
-                    self.setCurrentFolder(folder_name)
+                    #self.updateFoldersDropdown()
                     self.updateScriptsDropdown()
+                    self.current_script = script_name
+                    self.setCurrentScript(script_name)
+                    
                 else:
-                    self.messageBox("There was a problem creating the folder.")
-                    self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+                    self.messageBox("There was a problem creating the script.")
+                    self.current_script_dropdown.setCurrentIndex(self.script_index)
             else:
                 # Canceled/rejected
-                self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+                self.current_script_dropdown.setCurrentIndex(self.script_index)
                 return
         else:
-            self.updateScriptsDropdown()
+            self.current_script = sd_data
+            self.script_index = sd_index
+            self.setCurrentScript(self.current_script)
         return
 
     # Global stuff
@@ -820,6 +870,7 @@ class KnobScripter(QtWidgets.QWidget):
     
     def exitNodeMode(self):
         self.nodeMode = False
+        self.setWindowTitle("KnobScripter - Script Mode")
         self.node_mode_bar.setVisible(False)
         self.script_mode_bar.setVisible(True)
         self.node = nuke.toNode("root")
@@ -1739,11 +1790,12 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 # 2. Save text before and after
                 cpos = self.cursor.position()
                 text_before_cursor = self.toPlainText()[:cpos]
+                line_before_cursor = text_before_cursor.split('\n')[-1]
                 text_after_cursor = self.toPlainText()[cpos:]
 
                 # 3. Check coincidences in snippets dicts
                 try: #Meaning snippet found
-                    match_key, match_snippet = self.findLongestEndingMatch(text_before_cursor, self.knobScripter.snippets)
+                    match_key, match_snippet = self.findLongestEndingMatch(line_before_cursor, self.knobScripter.snippets)
                     for i in range(len(match_key)):
                         self.cursor.deletePreviousChar()
                     placeholder_to_end = self.placeholderToEnd(match_snippet,self.placeholder)
@@ -2514,12 +2566,10 @@ class SnippetEdit(QtWidgets.QWidget):
 def showKnobScripter(knob="knobChanged"):
     selection = nuke.selectedNodes()
     if not len(selection):
-        nuke.message("Please select one or more nodes!")
+        pan = KnobScripter()
     else:
-        if len(selection) > 1:
-            nuke.message("More than one node selected.\nOpening knobChanged editor for %s" % selection[0].name())
         pan = KnobScripter(selection[0], knob)
-        pan.show()
+    pan.show()
 
 def addKnobScripterPanel():
     global knobScripterPanel
