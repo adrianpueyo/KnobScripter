@@ -58,6 +58,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_folder = "scripts"
         self.folder_index = 0
         self.current_script = "Untitled.py"
+        self.current_script_modified = False
         self.script_index = 0
 
 
@@ -96,8 +97,7 @@ class KnobScripter(QtWidgets.QWidget):
         #---------------------
         # 2. TOP BAR
         #---------------------
-        #TODO: Reduce margins, especially vertically
-        #TODO: Add icons to the buttons
+
         # ---
         # 2.1. Left buttons
         self.change_btn = QtWidgets.QToolButton()
@@ -111,11 +111,9 @@ class KnobScripter(QtWidgets.QWidget):
         # ---
         # 2.2.A. Node mode UI
         self.exit_node_btn = QtWidgets.QToolButton()
-        #self.exit_node_btn.setIcon(QtGui.QIcon(KS_DIR+"/KnobScripter/icons/icons8-delete-26.png"))
         self.exit_node_btn.setIcon(QtGui.QIcon(icons_path+"icon_exitnode.png"))
         self.exit_node_btn.setIconSize(self.qt_icon_size)
         self.exit_node_btn.setFixedSize(self.qt_btn_size)
-        #self.exit_node_btn.setMaximumWidth(self.exit_node_btn.fontMetrics().boundingRect("Exit").width() + 16)
         self.exit_node_btn.setToolTip("Exit the node, and change to Script Mode.")
         self.exit_node_btn.clicked.connect(self.exitNodeMode)
         self.current_node_label_node = QtWidgets.QLabel(" Node:")
@@ -129,8 +127,6 @@ class KnobScripter(QtWidgets.QWidget):
 
         # Layout
         self.node_mode_bar_layout = QtWidgets.QHBoxLayout()
-        #self.node_mode_bar_layout.setContentsMargins(10,10,10,10)
-        #self.node_mode_bar_layout.setSpacing(0)
         self.node_mode_bar_layout.addWidget(self.exit_node_btn)
         self.node_mode_bar_layout.addSpacing(2)
         self.node_mode_bar_layout.addWidget(self.current_node_label_node)
@@ -395,7 +391,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.splitter.setSizes([0,1])
         else:
             self.exitNodeMode()
-            #self.loadScriptContents(check = False)
+            self.loadScriptContents(check = False)
         self.script_editor.setFocus()
 
     # Node Mode
@@ -460,6 +456,7 @@ class KnobScripter(QtWidgets.QWidget):
             if self.knob in self.scrollPos:
                 obtained_scrollValue = self.scrollPos[self.knob]
         self.script_editor.setPlainText(obtained_knobValue)
+        self.setScriptModified(False)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.name(), self.knob))
         return
@@ -564,6 +561,7 @@ class KnobScripter(QtWidgets.QWidget):
     # Script Mode
     def updateFoldersDropdown(self):
         ''' Populate folders dropdown list '''
+        self.current_folder_dropdown.blockSignals(True)
         self.current_folder_dropdown.clear() # First remove all items
         defaultFolders = ["scripts"]
         scriptFolders = []
@@ -595,15 +593,18 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_folder_dropdown.addItem("Browse...", "open in browser")
         self.folder_index = self.current_folder_dropdown.currentIndex()
         self.current_folder = self.current_folder_dropdown.itemData(self.folder_index)
+        self.current_folder_dropdown.blockSignals(False)
         #TODO: remember last opened folder... in a prefs file or sth
         return
 
     def updateScriptsDropdown(self):
         ''' Populate py scripts dropdown list '''
+        self.current_script_dropdown.blockSignals(True)
         self.current_script_dropdown.clear() # First remove all items
-        print "updating scripts dropdown..."
+        print "# Updating scripts dropdown..."
         print "scripts dir:"+self.scripts_dir
         print "current folder:"+self.current_folder
+        print "previous current script:"+self.current_script
         #current_folder = self.current_folder_dropdown.itemData(self.current_folder_dropdown.currentIndex())
         current_folder_path = os.path.join(self.scripts_dir,self.current_folder)
         defaultScripts = ["Untitled.py"]
@@ -612,12 +613,16 @@ class KnobScripter(QtWidgets.QWidget):
         dir_list = os.listdir(current_folder_path) # All files and folders inside of the folder
         try:
             found_scripts = [f for f in dir_list if f.endswith(".py")]
+            found_temp_scripts = [f for f in dir_list if f.endswith(".py.autosave")]
         except:
             print "Couldn't find any scripts in the selected folder."
         #TODO: Check which ones have been modified (thus a modified script also exists)
         if not len(found_scripts):
             for s in defaultScripts:
-                self.current_script_dropdown.addItem(s,s)
+                if s+".autosave" in found_temp_scripts:
+                    self.current_script_dropdown.addItem(s+"(*)",s)
+                else:
+                    self.current_script_dropdown.addItem(s,s)
                 counter += 1
         else:
             for s in found_scripts:
@@ -633,8 +638,12 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_script_dropdown.addItem("New", "create new")
         self.current_script_dropdown.addItem("Duplicate", "create duplicate")
         self.current_script_dropdown.addItem("Delete", "delete script")
-        self.script_index = self.current_script_dropdown.currentIndex()
+        #self.script_index = self.current_script_dropdown.currentIndex()
+        self.script_index = 0
         self.current_script = self.current_script_dropdown.itemData(self.script_index)
+        print "Finished updating scripts dropdown."
+        print "current_script:"+self.current_script
+        self.current_script_dropdown.blockSignals(False)
         return
 
     def makeScriptFolder(self, name = "scripts"):
@@ -679,8 +688,56 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_script = self.current_script_dropdown.itemData(self.script_index)
         return
 
-    def loadScriptContents(self, check = False):
+    def loadScriptContents(self, check = False, folder=""):
         ''' Get the contents of the selected script and populate the editor '''
+        print "# About to load script contents now."
+        print "self.scripts_dir: "+self.scripts_dir
+        print "self.current_folder: "+self.current_folder
+        print "self.current_script: "+self.current_script
+        script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+        script_path_temp = script_path + ".autosave"
+        self.setWindowTitle("KnobScripter - %s/%s" % (self.current_folder, self.current_script))
+        if os.path.isfile(script_path_temp):
+            print "Loading .py.autosave file"
+            with open(script_path_temp, 'r') as script:
+                content = script.read()
+            self.setScriptModified(True)
+        elif os.path.isfile(script_path):
+            print "Loading .py file"
+            with open(script_path, 'r') as script:
+                content = script.read()
+            self.setScriptModified(False)
+        else:
+            content = ""
+            self.setScriptModified(False)
+        self.script_editor.setPlainText(content)
+        print "loaded "+script_path
+        print "---"
+        return
+
+    def saveCurrentScript(self, temp = True):
+        ''' Save the current contents of the editor into the python file. If temp == True, saves a different file '''
+        print "\n# About to save script contents now."
+        print "Temp mode is: "+str(temp)
+        print "self.current_folder: "+self.current_folder
+        print "self.current_script: "+self.current_script
+        script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+        script_path_temp = script_path + ".autosave"
+
+        if temp == True:
+            with open(script_path_temp, 'w') as script:
+                script.write(self.script_editor.toPlainText())
+            self.setScriptModified(True)
+        else:
+            with open(script_path, 'w') as script:
+                script.write(self.script_editor.toPlainText())
+            # Clear trash
+            if os.path.isfile(script_path_temp):
+                os.remove(script_path_temp)
+                print "Removed "+script_path_temp
+            self.setScriptModified(False)
+        print "Saved "+script_path
+        print "---"
         return
 
     """
@@ -730,6 +787,7 @@ class KnobScripter(QtWidgets.QWidget):
     def folderDropdownChanged(self):
         '''Executed when the current folder dropdown is changed'''
         #TODO: Save temp file for current!!!!!
+        print "# folder dropdown changed"
         folders_dropdown = self.current_folder_dropdown
         fd_value = folders_dropdown.currentText()
         fd_index = folders_dropdown.currentIndex()
@@ -758,14 +816,18 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_folder_dropdown.setCurrentIndex(self.folder_index)
                 return
         else:
+            #TODO: Save temp file before changing anything
+            self.saveCurrentScript(temp = True)
             self.current_folder = fd_data
             self.folder_index = fd_index
+            print "about to update the scripts dropdown."
             self.updateScriptsDropdown()
+            self.scriptDropdownChanged()
         return
 
     def scriptDropdownChanged(self):
         '''Executed when the current script dropdown is changed'''
-        #TODO: This function is barely started.
+
         #TODO: Save temp file for current!!!!!
         scripts_dropdown = self.current_script_dropdown
         sd_value = scripts_dropdown.currentText()
@@ -787,7 +849,6 @@ class KnobScripter(QtWidgets.QWidget):
                     self.updateScriptsDropdown()
                     self.current_script = script_name
                     self.setCurrentScript(script_name)
-                    
                 else:
                     self.messageBox("There was a problem creating the script.")
                     self.current_script_dropdown.setCurrentIndex(self.script_index)
@@ -796,10 +857,21 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_script_dropdown.setCurrentIndex(self.script_index)
                 return
         else:
+            self.saveCurrentScript()
             self.current_script = sd_data
             self.script_index = sd_index
             self.setCurrentScript(self.current_script)
+            self.loadScriptContents()
         return
+
+    def setScriptModified(self, modified = True):
+        ''' Sets self.current_script_modified, title and whatever else we need '''
+        self.current_script_modified = modified
+        title_modified_string = " [modified]"
+        windowTitle = self.windowTitle().split(title_modified_string)[0]
+        if modified == True:
+            windowTitle += title_modified_string
+        self.setWindowTitle(windowTitle)
 
     # Global stuff
     def eventFilter(self, object, event):
@@ -966,6 +1038,8 @@ class KnobScripter(QtWidgets.QWidget):
     def saveClicked(self):
         if self.nodeMode:
             self.saveKnobValue(False)
+        else:
+            self.saveCurrentScript(temp = False)
         #TODO: If script mode...
 
     def pin(self, pressed):
@@ -1013,7 +1087,6 @@ class KnobScripter(QtWidgets.QWidget):
             se_output = self.findSEOutput(se)
             se_output.textChanged.connect(partial(consoleChanged,se_output, self))
             consoleChanged(se_output, self) # Initialise.
-
 
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
@@ -1780,6 +1853,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             return
 
         if type(event) == QtGui.QKeyEvent:
+            if not self.knobScripter.current_script_modified:
+                self.knobScripter.setScriptModified(True)
             if key == Qt.Key_Escape: # Close the knobscripter...
                 self.knobScripter.close()
             elif not ctrl and not alt and not shift and event.key()==Qt.Key_Tab:
