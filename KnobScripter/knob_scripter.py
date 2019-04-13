@@ -37,6 +37,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.node = node
         self.knob = knob
         self.unsavedKnobs = {}
+        self.modifiedKnobs = set()
         self.scrollPos = {}
         self.fontSize = 11
         self.tabSpaces = 4
@@ -315,52 +316,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.scripting_layout.addWidget(self.splitter)
         self.scripting_layout.addWidget(self.frw)
 
-
-        #----------------------
-        # 3. LOWER BAR
-        #----------------------
-
-        # Reload/All and Save/All Buttons
-        # self.reload_all_btn = QtWidgets.QPushButton("All")
-        # self.reload_all_btn.setToolTip("Reload the contents of all knobs. Will clear the KnobScripter's memory.")
-        # self.reload_all_btn.clicked.connect(self.loadAllKnobValues)
-        # self.reload_all_btn.setMaximumWidth(self.reload_all_btn.fontMetrics().boundingRect("All").width() + 24)
-
-        # self.arrows_label = QtWidgets.QLabel("&raquo;")
-        # self.arrows_label.setTextFormat(QtCore.Qt.RichText)
-        # self.arrows_label.setStyleSheet('color:#BBB')
-       
-        # self.save_all_btn = QtWidgets.QPushButton("All")
-        # self.save_all_btn.setToolTip("Save all changes into the knobs.")
-        # self.save_all_btn.clicked.connect(self.saveAllKnobValues)
-        # self.save_all_btn.setMaximumWidth(self.save_all_btn.fontMetrics().boundingRect("All").width() + 24)
-
-        # PIN Button
-        ##self.pin_btn = QtWidgets.QPushButton("PIN") #TODO: Add Pin icon
-        ##self.pin_btn.setCheckable(True)
-        #if self.pinned:
-        ##    self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-        ##    self.pin_btn.toggle()
-        ##self.pin_btn.setToolTip("Keep the KnobScripter on top of all other windows.")
-        ##self.pin_btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        ##self.pin_btn.setMaximumWidth(self.pin_btn.fontMetrics().boundingRect("pin").width() + 12)
-        ##self.pin_btn.clicked[bool].connect(self.pin)
-
-        # Close Button
-        ##self.close_btn = QtWidgets.QPushButton("Close")
-        ##self.close_btn.clicked.connect(self.close)
-
-        # ---
-        # Layout
-        ##self.bottom_layout = QtWidgets.QHBoxLayout()
-        ##self.bottom_layout.addWidget(self.reload_all_btn)
-        ##self.bottom_layout.addWidget(self.arrows_label)
-        ##self.bottom_layout.addWidget(self.save_all_btn)
-        ##self.bottom_layout.addStretch()
-        ##self.bottom_layout.addWidget(self.pin_btn)
-        ##self.bottom_layout.addWidget(self.close_btn)
-        #self.bottom_layout.setSpacing(8)
-
         #---------------
         # MASTER LAYOUT
         #---------------
@@ -393,7 +348,6 @@ class KnobScripter(QtWidgets.QWidget):
             self.exitNodeMode()
             self.loadScriptContents(check = False)
         self.script_editor.setFocus()
-        #TODO: Only setup the output command window if the nodemode is off?
 
     # Node Mode
     def updateKnobDropdown(self):
@@ -405,7 +359,7 @@ class KnobScripter(QtWidgets.QWidget):
         counter = 0
         for i in self.node.knobs():
             if i not in defaultKnobs and self.node.knob(i).Class() in permittedKnobClasses:
-                self.current_knob_dropdown.addItem(i)# + " (" + self.node.knob(i).name()+")")
+                self.current_knob_dropdown.addItem(i, i)# + " (" + self.node.knob(i).name()+")")
                 counter += 1
         if counter > 0:
             self.current_knob_dropdown.insertSeparator(counter)
@@ -414,7 +368,7 @@ class KnobScripter(QtWidgets.QWidget):
             counter += 1
         for i in self.node.knobs():
             if i in defaultKnobs:
-                self.current_knob_dropdown.addItem(i)
+                self.current_knob_dropdown.addItem(i, i)
                 counter += 1
         return
 
@@ -422,7 +376,7 @@ class KnobScripter(QtWidgets.QWidget):
         ''' Get the content of the knob knobChanged and populate the editor '''
         if self.toLoadKnob == False:
             return
-        dropdown_value = self.current_knob_dropdown.currentText().split(" (")[0]
+        dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
         try:
             obtained_knobValue = str(self.node[dropdown_value].value())
             obtained_scrollValue = 0
@@ -437,7 +391,9 @@ class KnobScripter(QtWidgets.QWidget):
             self.unsavedKnobs[self.knob] = edited_knobValue
             self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
         prev_knob = self.knob
-        self.knob = self.current_knob_dropdown.currentText().split(" (")[0]
+
+        self.knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
+        #self.knob = self.current_knob_dropdown.currentText().split(" (")[0]
         if check and obtained_knobValue != edited_knobValue:
             msgBox = QtWidgets.QMessageBox()
             msgBox.setText("The Script Editor has been modified.")
@@ -480,10 +436,10 @@ class KnobScripter(QtWidgets.QWidget):
 
     def saveKnobValue(self, check=True):
         ''' Save the text from the editor to the node's knobChanged knob '''
-        dropdown_value = self.current_knob_dropdown.currentText().split(" (")[0]
+        dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
         try:
             obtained_knobValue = str(self.node[dropdown_value].value())
-            self.knob = self.current_knob_dropdown.currentText().split(" (")[0]
+            self.knob = dropdown_value
         except:
             error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
             error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
@@ -500,7 +456,8 @@ class KnobScripter(QtWidgets.QWidget):
             reply = msgBox.exec_()
             if reply == QtWidgets.QMessageBox.No:
                 return
-        self.node[self.current_knob_dropdown.currentText().split(" (")[0]].setValue(edited_knobValue)
+        self.node[dropdown_value].setValue(edited_knobValue)
+        self.setKnobModified(modified = False, knob = dropdown_value, changeTitle = True)
         if self.knob in self.unsavedKnobs:
             del self.unsavedKnobs[self.knob]
         return
@@ -557,7 +514,45 @@ class KnobScripter(QtWidgets.QWidget):
                         del self.unsavedKnobs[k]
                 else:
                     del self.unsavedKnobs[k]
+        # Set appropriate knobs modified...
+        knobs_dropdown = self.current_knob_dropdown
+        all_knobs = [knobs_dropdown.itemData(i) for i in range(knobs_dropdown.count())]
+        for key in all_knobs:
+            if key in self.unsavedKnobs.keys():
+                self.setKnobModified(modified = True, knob = key, changeTitle = False)
+            else:
+                self.setKnobModified(modified = False, knob = key, changeTitle = False)
+
         return len(self.unsavedKnobs)
+
+    def setKnobModified(self, modified = True, knob = "", changeTitle = True):
+        ''' Sets the current knob modified, title and whatever else we need '''
+        if knob == "":
+            knob = self.knob
+        if modified:
+            self.modifiedKnobs.add(knob)
+        else:
+            self.modifiedKnobs.discard(knob)
+
+        if changeTitle:
+            title_modified_string = " [modified]"
+            windowTitle = self.windowTitle().split(title_modified_string)[0]
+            if modified == True:
+                windowTitle += title_modified_string
+            self.setWindowTitle(windowTitle)
+
+        try:
+            knobs_dropdown = self.current_knob_dropdown
+            kd_index = knobs_dropdown.currentIndex()
+            kd_data = knobs_dropdown.itemData(kd_index)
+            if modified == False:
+                knobs_dropdown.setItemText(kd_index, kd_data)
+            else:
+                knobs_dropdown.setItemText(kd_index, kd_data+"(*)")
+        except:
+            pass
+
+
 
     # Script Mode
     def updateFoldersDropdown(self):
@@ -738,7 +733,7 @@ class KnobScripter(QtWidgets.QWidget):
             if os.path.isfile(script_path):
                 with open(script_path, 'r') as script:
                     orig_content = script.read()
-            elif content == "" and os.path.isfile(script_path_temp): #If script path doesnt exist and autosave does but the script is empty...
+            elif content == "" and os.path.isfile(script_path_temp): #If script path doesn't exist and autosave does but the script is empty...
                 os.remove(script_path_temp)
                 return
             if content != orig_content:
@@ -857,8 +852,6 @@ class KnobScripter(QtWidgets.QWidget):
         if modified == True:
             windowTitle += title_modified_string
         self.setWindowTitle(windowTitle)
-        # TODO: Also call this on first instance...
-        # TODO: Also make this update the (*) on the dropdown
         try:
             scripts_dropdown = self.current_script_dropdown
             sd_index = scripts_dropdown.currentIndex()
@@ -869,10 +862,6 @@ class KnobScripter(QtWidgets.QWidget):
                 scripts_dropdown.setItemText(sd_index, sd_data+"(*)")
         except:
             pass
-
-
-        #self.current_script = "Untitled.py"
-        #self.current_script_modified = False
 
     # Global stuff
     def eventFilter(self, object, event):
@@ -1887,8 +1876,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             return
 
         if type(event) == QtGui.QKeyEvent:
-            if not self.knobScripter.current_script_modified:
+            if self.knobScripter.nodeMode:
+                self.knobScripter.setKnobModified(True)
+            elif not self.knobScripter.current_script_modified:
                 self.knobScripter.setScriptModified(True)
+
             if key == Qt.Key_Escape: # Close the knobscripter...
                 self.knobScripter.close()
             elif not ctrl and not alt and not shift and event.key()==Qt.Key_Tab:
