@@ -738,7 +738,7 @@ class KnobScripter(QtWidgets.QWidget):
             if os.path.isfile(script_path):
                 with open(script_path, 'r') as script:
                     orig_content = script.read()
-            elif content == "": # Autosave empty and .py doesn't exist...
+            elif content == "" and os.path.isfile(script_path_temp): #If script path doesnt exist and autosave does but the script is empty...
                 os.remove(script_path_temp)
                 return
             if content != orig_content:
