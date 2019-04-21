@@ -30,10 +30,22 @@ KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR+"/icons/"
 DebugMode = False
 
+AllKnobScripters = [] # All open instances at a given time
+
 class KnobScripter(QtWidgets.QWidget):
 
     def __init__(self, node="", knob="knobChanged"):
         super(KnobScripter,self).__init__()
+
+        # Autosave the other knobscripters and add this one
+        for ks in AllKnobScripters:
+            try:
+                ks.autosave()
+            except:
+                pass
+        if self not in AllKnobScripters:
+            AllKnobScripters.append(self)
+
         self.nodeMode = (node != "")
         if node == "":
             self.node = nuke.toNode("root")
@@ -1225,6 +1237,8 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             #TODO: add tprint on open
             self.autosave()
+            if self in AllKnobScripters:
+                AllKnobScripters.remove(self)
             close_event.accept()
 
 
@@ -1300,7 +1314,7 @@ class KnobScripter(QtWidgets.QWidget):
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
         super(KnobScripterPane, self).__init__()
-
+    '''
     def event(self, the_event):
         if the_event.type() == QtCore.QEvent.Type.Show:
             try:
@@ -1310,7 +1324,18 @@ class KnobScripterPane(KnobScripter):
         elif the_event.type() in [QtCore.QEvent.Type.Hide, QtCore.QEvent.Type.Close]:
             self.autosave()
         return super(KnobScripterPane, self).event(the_event)
+    '''
 
+    def showEvent(self, the_event):
+        try:
+            killPaneMargins(self)
+        except:
+            pass
+        return KnobScripter.showEvent(self,the_event)
+
+    def hideEvent(self, the_event):
+        self.autosave()
+        return KnobScripter.hideEvent(self,the_event)
 
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
