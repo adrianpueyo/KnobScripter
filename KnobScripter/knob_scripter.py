@@ -929,6 +929,39 @@ class KnobScripter(QtWidgets.QWidget):
                 return
             self.current_script_dropdown.blockSignals(False)
 
+        elif sd_data == "create duplicate":
+            self.current_script_dropdown.blockSignals(True)
+            current_folder_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+            current_script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+
+            current_name = self.current_script
+            if self.current_script.endswith(".py"):
+                current_name = current_name[:-3]
+
+            test_name = current_name
+            while True:
+                test_name += "_copy"
+                new_script_path = os.path.join(self.scripts_dir, self.current_folder, test_name+".py")
+                if not os.path.isfile(new_script_path):
+                    break
+
+            script_name = test_name + ".py"
+
+            if self.makeScriptFile(name = script_name, folder = self.current_folder):
+                # Success creating the folder
+                self.saveScriptContents(temp = True)
+                self.updateScriptsDropdown()
+                #self.script_editor.setPlainText("")
+                self.current_script = script_name
+                self.setCurrentScript(script_name)
+            else:
+                self.messageBox("There was a problem duplicating the script.")
+                self.current_script_dropdown.setCurrentIndex(self.script_index)
+
+            self.current_script_dropdown.blockSignals(False)
+
+        #TODO add "Rename" option?
+
         elif sd_data == "open in browser":
             current_script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
             self.openInBrowser(current_script_path)
