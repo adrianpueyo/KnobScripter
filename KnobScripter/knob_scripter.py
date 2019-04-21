@@ -698,10 +698,9 @@ class KnobScripter(QtWidgets.QWidget):
     def loadScriptContents(self, check = False, pyOnly = False, folder=""):
         ''' Get the contents of the selected script and populate the editor '''
         log("# About to load script contents now.")
-        #print "self.scripts_dir: "+self.scripts_dir
-        #print "self.current_folder: "+self.current_folder
-        #print "self.current_script: "+self.current_script
-        script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+        if folder == "":
+            folder = self.current_folder
+        script_path = os.path.join(self.scripts_dir, folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         # 1: If autosave exists and pyOnly is false, load it
         if os.path.isfile(script_path_temp) and not pyOnly:
@@ -808,6 +807,35 @@ class KnobScripter(QtWidgets.QWidget):
         log("Saved "+script_path+"\n---")
         return
 
+    def deleteScript(self, check = True, folder=""):
+        ''' Get the contents of the selected script and populate the editor '''
+        log("# About to delete the .py and/or autosave script now.")
+        if folder == "":
+            folder = self.current_folder
+        script_path = os.path.join(self.scripts_dir, folder, self.current_script)
+        script_path_temp = script_path + ".autosave"
+        if check:
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("You're about to delete this script.")
+            msgBox.setInformativeText("Are you sure you want to delete {}?".format(self.current_script))
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            msgBox.setIcon(QtWidgets.QMessageBox.Question)
+            msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+            reply = msgBox.exec_()
+            if reply == QtWidgets.QMessageBox.No:
+                return False
+
+        if os.path.isfile(script_path_temp):
+            os.remove(script_path_temp)
+            log("Removed "+script_path_temp)
+
+        if os.path.isfile(script_path):
+            os.remove(script_path)
+            log("Removed "+script_path)
+
+        return True
+
     def folderDropdownChanged(self):
         '''Executed when the current folder dropdown is changed'''
         log("# folder dropdown changed")
@@ -908,6 +936,16 @@ class KnobScripter(QtWidgets.QWidget):
             self.current_script_dropdown.setCurrentIndex(self.script_index)
             self.current_script_dropdown.blockSignals(False)
             return
+
+        elif sd_data == "delete script":
+            if self.deleteScript():
+                self.updateScriptsDropdown()
+                self.loadScriptContents()
+            else:
+                self.current_script_dropdown.blockSignals(True)
+                self.current_script_dropdown.setCurrentIndex(self.script_index)
+                self.current_script_dropdown.blockSignals(False)
+
         else:
             self.saveScriptContents()
             self.current_script = sd_data
