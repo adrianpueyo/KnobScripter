@@ -14,7 +14,7 @@ import nuke
 import re
 import traceback, string
 from functools import partial
-import logging
+#import logging
 
 try:
     from PySide import QtCore, QtGui, QtGui as QtWidgets
@@ -25,6 +25,7 @@ except ImportError:
 
 KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR+"/icons/"
+DebugMode = False
 
 class KnobScripter(QtWidgets.QWidget):
 
@@ -690,7 +691,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_script = self.current_script_dropdown.itemData(self.script_index)
         return
 
-    def loadScriptContents(self, check = False, folder=""):
+    def loadScriptContents(self, check = False, pyOnly = False, folder=""):
         ''' Get the contents of the selected script and populate the editor '''
         log("# About to load script contents now.")
         #print "self.scripts_dir: "+self.scripts_dir
@@ -698,25 +699,74 @@ class KnobScripter(QtWidgets.QWidget):
         #print "self.current_script: "+self.current_script
         script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
-        self.setWindowTitle("KnobScripter - %s/%s" % (self.current_folder, self.current_script))
-        if os.path.isfile(script_path_temp):
+        # 1: If autosave exists and pyOnly is false, load it
+        if os.path.isfile(script_path_temp) and not pyOnly:
             log("Loading .py.autosave file\n---")
             with open(script_path_temp, 'r') as script:
                 content = script.read()
             self.script_editor.setPlainText(content)
             self.setScriptModified(True)
+
+        # 2: Try to load the .py as first priority, if it exists
         elif os.path.isfile(script_path):
             log("Loading .py file\n---")
             with open(script_path, 'r') as script:
                 content = script.read()
+            current_text = self.script_editor.toPlainText()
+            print current_text
+            print content
+            if check and current_text != content and current_text.strip() != "":
+                msgBox = QtWidgets.QMessageBox()
+                msgBox.setText("The script has been modified.")
+                msgBox.setInformativeText("Do you want to overwrite the current code on this editor?")
+                msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                msgBox.setIcon(QtWidgets.QMessageBox.Question)
+                msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+                msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
+                reply = msgBox.exec_()
+                if reply == QtWidgets.QMessageBox.No:
+                    return
+            # Clear trash
+            if os.path.isfile(script_path_temp):
+                os.remove(script_path_temp)
+                log("Removed "+script_path_temp)
+            self.setScriptModified(False)
             self.script_editor.setPlainText(content)
             self.setScriptModified(False)
+
+        # 3: If .py doesn't exist... only then stick to the autosave
+        elif os.path.isfile(script_path_temp):
+            with open(script_path_temp, 'r') as script:
+                content = script.read()
+
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("The .py file hasn't been found.")
+            msgBox.setInformativeText("Do you want to clear the current code on this editor?")
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            msgBox.setIcon(QtWidgets.QMessageBox.Question)
+            msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
+            reply = msgBox.exec_()
+            if reply == QtWidgets.QMessageBox.No:
+                return
+
+            # Clear trash
+            os.remove(script_path_temp)
+            log("Removed "+script_path_temp)
+            self.script_editor.setPlainText("")
+            self.updateScriptsDropdown()
+            self.loadScriptContents(check=False)
+
         else:
             content = ""
             self.script_editor.setPlainText(content)
             self.setScriptModified(False)
+        self.setWindowTitle("KnobScripter - %s/%s" % (self.current_folder, self.current_script))
         #log("loaded "+script_path+"\n---")
         return
+        # TODO: When opening ks, open last opened script (saving it somewhere)
+        # TODO: Make 'run script' and pin buttons
+        # TODO: Only set modified when text actually changes...
 
     def saveScriptContents(self, temp = True):
         ''' Save the current contents of the editor into the python file. If temp == True, saves a .py.autosave file '''
@@ -825,9 +875,10 @@ class KnobScripter(QtWidgets.QWidget):
                     # Success creating the folder
                     self.saveScriptContents(temp = True)
                     self.updateScriptsDropdown()
+                    self.script_editor.setPlainText("")
                     self.current_script = script_name
                     self.setCurrentScript(script_name)
-                    self.loadScriptContents()
+                    #self.loadScriptContents()
                 else:
                     self.messageBox("There was a problem creating the script.")
                     self.current_script_dropdown.setCurrentIndex(self.script_index)
@@ -1022,7 +1073,9 @@ class KnobScripter(QtWidgets.QWidget):
     def reloadClicked(self):
         if self.nodeMode:
             self.loadKnobValue()
-        #TODO: If script mode...
+        else:
+            log("Node mode is off")
+            self.loadScriptContents(check = True, pyOnly = True)
 
     def saveClicked(self):
         if self.nodeMode:
@@ -1118,14 +1171,20 @@ def killPaneMargins(widget_object):
 
 def debug(lev=0):
     ''' Convenience function to set the KnobScripter on debug mode'''
-    levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-    logging.basicConfig(level=levels[lev])
+    # levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
+    # for handler in logging.root.handlers[:]:
+    #     logging.root.removeHandler(handler)
+    # logging.basicConfig(level=levels[lev])
+    # Changed to a shitty way for now
+    global DebugMode
+    DebugMode = True
 
 def log(text):
     ''' Display a debug info message'''
-    logging.info(text)
+    #logging.info(text)
+    global DebugMode
+    if DebugMode:
+        print(text)
 
 
 #---------------------------------------------------------------------
