@@ -29,7 +29,6 @@ except ImportError:
 KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR+"/icons/"
 DebugMode = False
-
 AllKnobScripters = [] # All open instances at a given time
 
 class KnobScripter(QtWidgets.QWidget):
@@ -55,6 +54,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.unsavedKnobs = {}
         self.modifiedKnobs = set()
         self.scrollPos = {}
+        self.cursorPos = {}
         self.fontSize = 11
         self.tabSpaces = 4
         self.windowDefaultSize = [500, 300]
@@ -411,6 +411,7 @@ class KnobScripter(QtWidgets.QWidget):
         if updateDict==True:
             self.unsavedKnobs[self.knob] = edited_knobValue
             self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
+            self.cursorPos[self.knob] = self.script_editor.textCursor().position()
         prev_knob = self.knob
 
         self.knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
@@ -434,10 +435,14 @@ class KnobScripter(QtWidgets.QWidget):
             if self.knob in self.scrollPos:
                 obtained_scrollValue = self.scrollPos[self.knob]
         self.script_editor.setPlainText(obtained_knobValue)
+        cursor = self.script_editor.textCursor()
+        self.script_editor.setTextCursor(cursor)
         self.setScriptModified(False)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.name(), self.knob))
         return
+        #TODO IMPORTANT ON change from node to script, reload the contents of the autosave.
+        #TODO IMPORTANT on change to node, autosave too.
 
     def loadAllKnobValues(self):
         ''' Load all knobs button's function '''
@@ -715,12 +720,31 @@ class KnobScripter(QtWidgets.QWidget):
         ''' Get the contents of the selected script and populate the editor '''
         log("# About to load script contents now.")
         obtained_scrollValue = 0
+        obtained_cursorPosValue = 0
         if folder == "":
             folder = self.current_folder
         script_path = os.path.join(self.scripts_dir, folder, self.current_script)
         script_path_temp = script_path + ".autosave"
-        if ("script_"+self.current_script) in self.scrollPos:
-            obtained_scrollValue = self.scrollPos["script_"+self.current_script]
+        if (self.current_folder+"/"+self.current_script) in self.scrollPos:
+            obtained_scrollValue = self.scrollPos[self.current_folder+"/"+self.current_script]
+        if (self.current_folder+"/"+self.current_script) in self.cursorPos:
+            obtained_cursorPosValue = self.cursorPos[self.current_folder+"/"+self.current_script]
+
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+        #TODO IMPORTANT FIX THE CURSOR POSITION AND SCROLL STORAGE IN DISK AND MEMORY
+
         # 1: If autosave exists and pyOnly is false, load it
         if os.path.isfile(script_path_temp) and not pyOnly:
             log("Loading .py.autosave file\n---")
@@ -757,6 +781,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.script_editor.setPlainText(content)
             self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
             self.setScriptModified(False)
+            self.loadScriptState()
 
         # 3: If .py doesn't exist... only then stick to the autosave
         elif os.path.isfile(script_path_temp):
@@ -778,22 +803,24 @@ class KnobScripter(QtWidgets.QWidget):
             os.remove(script_path_temp)
             log("Removed "+script_path_temp)
             self.script_editor.setPlainText("")
-            del self.scrollPos["script_"+self.current_script]
+            del self.scrollPos[self.current_folder+"/"+self.current_script] #TODO SAVE THE FOLDER TOO?
+            del self.cursorPos[self.current_folder+"/"+self.current_script]
             self.updateScriptsDropdown()
             self.loadScriptContents(check=False)
+            self.loadScriptState()
 
         else:
             content = ""
             self.script_editor.setPlainText(content)
             self.setScriptModified(False)
-            del self.scrollPos["script_"+self.current_script]
+            del self.scrollPos[self.current_folder+"/"+self.current_script]
+            del self.cursorPos[self.current_folder+"/"+self.current_script]
 
         self.setWindowTitle("KnobScripter - %s/%s" % (self.current_folder, self.current_script))
         #log("loaded "+script_path+"\n---")
         return
         # TODO: When opening ks, open last opened script (saving it somewhere)
         # TODO: Make 'run script' and pin buttons
-        # TODO: Only set modified when text actually changes...
 
     def saveScriptContents(self, temp = True):
         ''' Save the current contents of the editor into the python file. If temp == True, saves a .py.autosave file '''
@@ -829,6 +856,7 @@ class KnobScripter(QtWidgets.QWidget):
                 log("Removed "+script_path_temp)
             self.setScriptModified(False)
         self.saveScrollValue()
+        self.saveCursorPosValue()
         log("Saved "+script_path+"\n---")
         return
 
@@ -863,6 +891,7 @@ class KnobScripter(QtWidgets.QWidget):
 
     def folderDropdownChanged(self):
         '''Executed when the current folder dropdown is changed'''
+        self.saveScriptState()
         log("# folder dropdown changed")
         folders_dropdown = self.current_folder_dropdown
         fd_value = folders_dropdown.currentText()
@@ -916,11 +945,13 @@ class KnobScripter(QtWidgets.QWidget):
             self.updateScriptsDropdown()
             # 4: Load the current script!
             self.loadScriptContents()
+            self.script_editor.setFocus()
 
         return
 
     def scriptDropdownChanged(self):
         '''Executed when the current script dropdown is changed. Should only be called by the manual dropdown change. Not by other functions.'''
+        self.saveScriptState()
         scripts_dropdown = self.current_script_dropdown
         sd_value = scripts_dropdown.currentText()
         sd_index = scripts_dropdown.currentIndex()
@@ -979,6 +1010,7 @@ class KnobScripter(QtWidgets.QWidget):
                 #self.script_editor.setPlainText("")
                 self.current_script = script_name
                 self.setCurrentScript(script_name)
+                self.script_editor.setFocus()
             else:
                 self.messageBox("There was a problem duplicating the script.")
                 self.current_script_dropdown.setCurrentIndex(self.script_index)
@@ -1010,6 +1042,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.script_index = sd_index
             self.setCurrentScript(self.current_script)
             self.loadScriptContents()
+            self.script_editor.setFocus()
         return
 
     def setScriptModified(self, modified = True):
@@ -1044,32 +1077,57 @@ class KnobScripter(QtWidgets.QWidget):
 
     def loadScriptState(self):
         ''' Loads the last state of the script from a file inside the SE directory's root '''
-        self.state_txt_path
-        return
+        state_dict = {}
+        if not os.path.isfile(self.state_txt_path):
+            return False
+        else:
+            with open(self.state_txt_path, "r") as f:
+                state_dict = json.load(f)
+
+        script_fullname = self.current_folder+"/"+self.current_script
+        print script_fullname
+
+        if script_fullname in state_dict["scroll_pos"]:
+            self.script_editor.verticalScrollBar().setValue(int(state_dict["scroll_pos"][script_fullname]))
+
+        if script_fullname in state_dict["cursor_pos"]:
+            cursor = self.script_editor.textCursor()
+            cursor.setPosition(int(state_dict["cursor_pos"][script_fullname]))
+            self.script_editor.setTextCursor(cursor)
+
+        print "scroll", int(state_dict["scroll_pos"][script_fullname])
+        print "cursor",int(state_dict["cursor_pos"][script_fullname])
+
+        #TODO SET THE SCROLL, CURSOR POS ETC FROM THE DATA WE JUST READ
 
     def saveScriptState(self):
         ''' Stores the current state of the script into a file inside the SE directory's root '''
-        self.state_txt_path
-        return
+        state_dict = {}
+        if os.path.isfile(self.state_txt_path):
+            with open(self.state_txt_path, "r") as f:
+                state_dict = json.load(f)
+
+        self.saveScrollValue()
+        self.saveCursorPosValue()
+
+        state_dict['scroll_pos'] = self.scrollPos
+        state_dict['cursor_pos'] = self.cursorPos
+
+        with open(self.state_txt_path,"w") as f:
+            state = json.dump(state_dict, f, sort_keys=True, indent=4)
+        return state
 
     # Autosave background loop
     def autosave(self):
         if self.toAutosave:
             #Save the script...
             self.saveScriptContents()
-            print "autosave would happen now..."
-            nuke.tprint("autosave would happen now...")
             self.toAutosave = False
+            self.saveScriptState()
+            print "autosave would happen now..."
+            #TODO: store scroll position, and cursor position!
+            #TODO: store current open script/folder?
             return
-
-    def startAutosave(self, interval = 5):
-        ''' Starts a background process to run the autosave function every "interval" seconds '''
-        stopped = Event()
-        def loop():
-            while not stopped.wait(interval):
-                self.autosave()
-        Thread(target=loop).start()    
-        return stopped.set
 
     #TODO: ; self.stopAutosave()
 
@@ -1098,12 +1156,11 @@ class KnobScripter(QtWidgets.QWidget):
             self.node_mode_bar.setVisible(True)
             self.script_mode_bar.setVisible(False)
             if not self.nodeMode:
+                self.saveScriptContents()
+                self.toAutosave = False
+                self.saveScriptState()
                 self.splitter.setSizes([0,1])
             self.nodeMode = True
-            try:
-                self.stopAutosave() # Stop the autosave loop!
-            except:
-                pass
 
             # If already selected, pass
             if selection[0].fullName() == self.node.fullName():
@@ -1152,9 +1209,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.node = nuke.toNode("root")
         #self.updateFoldersDropdown()
         #self.updateScriptsDropdown()
-        self.splitter.setSizes([1,1])
-        #nuke.addOnScriptClose(autosaveKS, self)
-        #####self.stopAutosave = self.startAutosave() # Start the autosave loop! #TODO: Maybe change this for saving onScriptClose, bad idea otherwise
+        self.splitter.setSizes([1,1]) #TODO: remember splitter size and pos later on the state.txt
 
     def clearConsole(self):
         self.origConsoleText = self.nukeSEOutput.document().toPlainText()
@@ -1213,7 +1268,13 @@ class KnobScripter(QtWidgets.QWidget):
         if self.nodeMode:
             self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
         else:
-            self.scrollPos["script_"+self.current_script] = self.script_editor.verticalScrollBar().value()
+            self.scrollPos[self.current_folder+"/"+self.current_script] = self.script_editor.verticalScrollBar().value()
+
+    def saveCursorPosValue(self):
+        ''' Save cursor pos values '''
+        # TODO IMPORTANT APPLY THIS FUNCTION TOO
+        if not self.nodeMode:
+            self.cursorPos[self.current_folder+"/"+self.current_script] = self.script_editor.textCursor().position()
 
     def closeEvent(self, close_event):
         if self.nodeMode:
@@ -1314,17 +1375,6 @@ class KnobScripter(QtWidgets.QWidget):
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
         super(KnobScripterPane, self).__init__()
-    '''
-    def event(self, the_event):
-        if the_event.type() == QtCore.QEvent.Type.Show:
-            try:
-                killPaneMargins(self)
-            except:
-                pass
-        elif the_event.type() in [QtCore.QEvent.Type.Hide, QtCore.QEvent.Type.Close]:
-            self.autosave()
-        return super(KnobScripterPane, self).event(the_event)
-    '''
 
     def showEvent(self, the_event):
         try:
@@ -1332,6 +1382,7 @@ class KnobScripterPane(KnobScripter):
         except:
             pass
         return KnobScripter.showEvent(self,the_event)
+    #TODO: catch ctrl+s etc if possible
 
     def hideEvent(self, the_event):
         self.autosave()
@@ -1352,11 +1403,8 @@ def consoleChanged(self, ks):
             ksOutput.verticalScrollBar().setValue(ksOutput.verticalScrollBar().maximum())
     except:
         pass
-
-def autosaveKS(knobscripter):
-    ''' Executes the autosave function for the given knobscripter instance '''
-    knobscripter.saveScriptContents()
-    nuke.tprint("Couldn't autosave???")
+    
+#nuke.tprint("Couldn't autosave???")
 
 def killPaneMargins(widget_object):
     if widget_object:
