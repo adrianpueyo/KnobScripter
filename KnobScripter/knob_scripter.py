@@ -16,6 +16,7 @@ import traceback, string
 from functools import partial
 import subprocess
 import platform
+from threading import Event, Thread
 #import logging
 
 try:
@@ -64,10 +65,10 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_script = "Untitled.py"
         self.current_script_modified = False
         self.script_index = 0
-
+        self.toAutosave = False
 
         # Load prefs
-        self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_prefs_"+version+".txt"))
+        self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Prefs.txt"))
         self.loadedPrefs = self.loadPrefs()
         if self.loadedPrefs != []:
             try:
@@ -79,8 +80,11 @@ class KnobScripter(QtWidgets.QWidget):
                 logging.warning("KnobScripter: Failed to load preferences.")
 
         # Load snippets
-        self.snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/apSnippets.txt"))
+        self.snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Snippets.txt"))
         self.snippets = self.loadSnippets()
+
+        # Current state of script (loaded when exiting node mode)
+        self.state_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_State.txt"))
 
         # Init UI
         self.initUI()
@@ -698,10 +702,13 @@ class KnobScripter(QtWidgets.QWidget):
     def loadScriptContents(self, check = False, pyOnly = False, folder=""):
         ''' Get the contents of the selected script and populate the editor '''
         log("# About to load script contents now.")
+        obtained_scrollValue = 0
         if folder == "":
             folder = self.current_folder
         script_path = os.path.join(self.scripts_dir, folder, self.current_script)
         script_path_temp = script_path + ".autosave"
+        if ("script_"+self.current_script) in self.scrollPos:
+            obtained_scrollValue = self.scrollPos["script_"+self.current_script]
         # 1: If autosave exists and pyOnly is false, load it
         if os.path.isfile(script_path_temp) and not pyOnly:
             log("Loading .py.autosave file\n---")
@@ -709,6 +716,7 @@ class KnobScripter(QtWidgets.QWidget):
                 content = script.read()
             self.script_editor.setPlainText(content)
             self.setScriptModified(True)
+            self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
 
         # 2: Try to load the .py as first priority, if it exists
         elif os.path.isfile(script_path):
@@ -735,6 +743,7 @@ class KnobScripter(QtWidgets.QWidget):
                 log("Removed "+script_path_temp)
             self.setScriptModified(False)
             self.script_editor.setPlainText(content)
+            self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
             self.setScriptModified(False)
 
         # 3: If .py doesn't exist... only then stick to the autosave
@@ -757,6 +766,7 @@ class KnobScripter(QtWidgets.QWidget):
             os.remove(script_path_temp)
             log("Removed "+script_path_temp)
             self.script_editor.setPlainText("")
+            del self.scrollPos["script_"+self.current_script]
             self.updateScriptsDropdown()
             self.loadScriptContents(check=False)
 
@@ -764,6 +774,8 @@ class KnobScripter(QtWidgets.QWidget):
             content = ""
             self.script_editor.setPlainText(content)
             self.setScriptModified(False)
+            del self.scrollPos["script_"+self.current_script]
+
         self.setWindowTitle("KnobScripter - %s/%s" % (self.current_folder, self.current_script))
         #log("loaded "+script_path+"\n---")
         return
@@ -804,6 +816,7 @@ class KnobScripter(QtWidgets.QWidget):
                 os.remove(script_path_temp)
                 log("Removed "+script_path_temp)
             self.setScriptModified(False)
+        self.saveScrollValue()
         log("Saved "+script_path+"\n---")
         return
 
@@ -1017,6 +1030,37 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             subprocess.Popen(["xdg-open", path])
 
+    def loadScriptState(self):
+        ''' Loads the last state of the script from a file inside the SE directory's root '''
+        self.state_txt_path
+        return
+
+    def saveScriptState(self):
+        ''' Stores the current state of the script into a file inside the SE directory's root '''
+        self.state_txt_path
+        return
+
+    # Autosave background loop
+    def autosave(self):
+        if self.toAutosave:
+            #Save the script...
+            self.saveScriptContents()
+            print "autosave would happen now..."
+            nuke.tprint("autosave would happen now...")
+            self.toAutosave = False
+            return
+
+    def startAutosave(self, interval = 5):
+        ''' Starts a background process to run the autosave function every "interval" seconds '''
+        stopped = Event()
+        def loop():
+            while not stopped.wait(interval):
+                self.autosave()
+        Thread(target=loop).start()    
+        return stopped.set
+
+    #TODO: ; self.stopAutosave()
+
     # Global stuff
     def eventFilter(self, object, event):
         if event.type() == QtCore.QEvent.KeyPress:
@@ -1044,6 +1088,10 @@ class KnobScripter(QtWidgets.QWidget):
             if not self.nodeMode:
                 self.splitter.setSizes([0,1])
             self.nodeMode = True
+            try:
+                self.stopAutosave() # Stop the autosave loop!
+            except:
+                pass
 
             # If already selected, pass
             if selection[0].fullName() == self.node.fullName():
@@ -1093,6 +1141,8 @@ class KnobScripter(QtWidgets.QWidget):
         #self.updateFoldersDropdown()
         #self.updateScriptsDropdown()
         self.splitter.setSizes([1,1])
+        #nuke.addOnScriptClose(autosaveKS, self)
+        #####self.stopAutosave = self.startAutosave() # Start the autosave loop! #TODO: Maybe change this for saving onScriptClose, bad idea otherwise
 
     def clearConsole(self):
         self.origConsoleText = self.nukeSEOutput.document().toPlainText()
@@ -1148,7 +1198,10 @@ class KnobScripter(QtWidgets.QWidget):
 
     def saveScrollValue(self):
         ''' Save scroll values '''
-        self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
+        if self.nodeMode:
+            self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
+        else:
+            self.scrollPos["script_"+self.current_script] = self.script_editor.verticalScrollBar().value()
 
     def closeEvent(self, close_event):
         if self.nodeMode:
@@ -1170,7 +1223,10 @@ class KnobScripter(QtWidgets.QWidget):
             else:
                 close_event.accept()
         else:
+            #TODO: add tprint on open
+            self.autosave()
             close_event.accept()
+
 
     # Landing functions
     def reloadClicked(self):
@@ -1192,6 +1248,8 @@ class KnobScripter(QtWidgets.QWidget):
             self.setKnobModified(True)
         elif not self.current_script_modified:
             self.setScriptModified(True)
+        if not self.nodeMode:
+            self.toAutosave = True
 
     def pin(self, pressed):
         if pressed:
@@ -1242,13 +1300,17 @@ class KnobScripter(QtWidgets.QWidget):
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
         super(KnobScripterPane, self).__init__()
+
     def event(self, the_event):
         if the_event.type() == QtCore.QEvent.Type.Show:
             try:
                 killPaneMargins(self)
             except:
                 pass
+        elif the_event.type() in [QtCore.QEvent.Type.Hide, QtCore.QEvent.Type.Close]:
+            self.autosave()
         return super(KnobScripterPane, self).event(the_event)
+
 
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
@@ -1265,6 +1327,11 @@ def consoleChanged(self, ks):
             ksOutput.verticalScrollBar().setValue(ksOutput.verticalScrollBar().maximum())
     except:
         pass
+
+def autosaveKS(knobscripter):
+    ''' Executes the autosave function for the given knobscripter instance '''
+    knobscripter.saveScriptContents()
+    nuke.tprint("Couldn't autosave???")
 
 def killPaneMargins(widget_object):
     if widget_object:
