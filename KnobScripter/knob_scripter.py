@@ -85,6 +85,7 @@ class KnobScripter(QtWidgets.QWidget):
 
         # Talk to Nuke's Script Editor
         self.setSEOutputEvent() # Make the output windowS listen!
+        self.clearConsole()
 
     def initUI(self): 
         ''' Initializes the tool UI'''
@@ -291,6 +292,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_editor = KnobScripterTextEditMain(self, self.script_output)
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
+        self.script_editor.textChanged.connect(self.setModified)
         KSScriptEditorHighlighter(self.script_editor.document())
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily("Courier")
@@ -554,7 +556,6 @@ class KnobScripter(QtWidgets.QWidget):
             pass
 
 
-
     # Script Mode
     def updateFoldersDropdown(self):
         ''' Populate folders dropdown list '''
@@ -609,7 +610,7 @@ class KnobScripter(QtWidgets.QWidget):
         counter = 0
         dir_list = os.listdir(current_folder_path) # All files and folders inside of the folder
         try:
-            found_scripts = [f for f in dir_list if f.endswith(".py")]
+            found_scripts = sorted([f for f in dir_list if f.endswith(".py")])
             found_temp_scripts = [f for f in dir_list if f.endswith(".py.autosave")]
         except:
             logging.warning("Couldn't find any scripts in the selected folder.")
@@ -1083,6 +1084,12 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             self.saveScriptContents(temp = False)
         #TODO: If script mode...
+
+    def setModified(self):
+        if self.nodeMode:
+            self.setKnobModified(True)
+        elif not self.current_script_modified:
+            self.setScriptModified(True)
 
     def pin(self, pressed):
         if pressed:
@@ -1935,11 +1942,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             return
 
         if type(event) == QtGui.QKeyEvent:
-            if self.knobScripter.nodeMode:
-                self.knobScripter.setKnobModified(True)
-            elif not self.knobScripter.current_script_modified:
-                self.knobScripter.setScriptModified(True)
-
             if key == Qt.Key_Escape: # Close the knobscripter...
                 self.knobScripter.close()
             elif not ctrl and not alt and not shift and event.key()==Qt.Key_Tab:
