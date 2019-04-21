@@ -14,6 +14,8 @@ import nuke
 import re
 import traceback, string
 from functools import partial
+import subprocess
+import platform
 #import logging
 
 try:
@@ -642,6 +644,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.current_script_dropdown.addItem("New", "create new")
         self.current_script_dropdown.addItem("Duplicate", "create duplicate")
         self.current_script_dropdown.addItem("Delete", "delete script")
+        self.current_script_dropdown.addItem("Open", "open in browser")
         #self.script_index = self.current_script_dropdown.currentIndex()
         self.script_index = 0
         self.current_script = self.current_script_dropdown.itemData(self.script_index)
@@ -841,6 +844,15 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_folder_dropdown.setCurrentIndex(self.folder_index)
                 self.current_folder_dropdown.blockSignals(False)
                 return
+
+        elif fd_data == "open in browser":
+            current_folder_path = os.path.join(self.scripts_dir, self.current_folder)
+            self.openInBrowser(current_folder_path)
+            self.current_folder_dropdown.blockSignals(True)
+            self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+            self.current_folder_dropdown.blockSignals(False)
+            return
+
         else:
             # 1: Save current script as temp if needed
             self.saveScriptContents(temp = True)
@@ -888,6 +900,14 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_script_dropdown.setCurrentIndex(self.script_index)
                 return
             self.current_script_dropdown.blockSignals(False)
+
+        elif sd_data == "open in browser":
+            current_script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+            self.openInBrowser(current_script_path)
+            self.current_script_dropdown.blockSignals(True)
+            self.current_script_dropdown.setCurrentIndex(self.script_index)
+            self.current_script_dropdown.blockSignals(False)
+            return
         else:
             self.saveScriptContents()
             self.current_script = sd_data
@@ -914,6 +934,17 @@ class KnobScripter(QtWidgets.QWidget):
                 scripts_dropdown.setItemText(sd_index, sd_data+"(*)")
         except:
             pass
+
+    def openInBrowser(self, path = ""):
+        OS = platform.system()
+        if not os.path.exists(path):
+            path = KS_DIR
+        if OS == "Windows":
+            os.startfile(path)
+        elif OS == "Darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
 
     # Global stuff
     def eventFilter(self, object, event):
