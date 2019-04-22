@@ -1,8 +1,9 @@
 #-------------------------------------------------
 # Knob Scripter by Adrian Pueyo
 # Script editor for python and callback knobs
-# adrianpueyo.com, 2017-2018
+# adrianpueyo.com, 2017-2019
 version = "1.3BETA"
+date = "April 22 2019"
 #-------------------------------------------------
 
 import nuke
@@ -30,6 +31,8 @@ KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR+"/icons/"
 DebugMode = False
 AllKnobScripters = [] # All open instances at a given time
+
+nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2019 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
 class KnobScripter(QtWidgets.QWidget):
 
@@ -284,7 +287,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.top_layout.addWidget(self.node_mode_bar)
         self.top_layout.addWidget(self.script_mode_bar)
         self.node_mode_bar.setVisible(False)
-        #TODO: Add the script mode bar layout here too, then hide one of them
         #self.top_layout.addSpacing(10)
         self.top_layout.addLayout(self.top_file_bar_layout)
         self.top_layout.addStretch()
@@ -369,6 +371,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.exitNodeMode()
             self.loadScriptContents(check = False)
             self.loadScriptState()
+            self.setScriptState()
         self.script_editor.setFocus()
 
     # Node Mode
@@ -443,6 +446,7 @@ class KnobScripter(QtWidgets.QWidget):
         return
         #TODO IMPORTANT ON change from node to script, reload the contents of the autosave.
         #TODO IMPORTANT on change to node, autosave too.
+        #TODO IMPORTANT store the current open script on close...
 
     def loadAllKnobValues(self):
         ''' Load all knobs button's function '''
@@ -767,6 +771,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
             self.setScriptModified(False)
             self.loadScriptState()
+            self.setScriptState()
 
         # 3: If .py doesn't exist... only then stick to the autosave
         elif os.path.isfile(script_path_temp):
@@ -791,6 +796,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.updateScriptsDropdown()
             self.loadScriptContents(check=False)
             self.loadScriptState()
+            self.setScriptState()
 
         else:
             content = ""
@@ -930,6 +936,10 @@ class KnobScripter(QtWidgets.QWidget):
             self.loadScriptContents()
             self.script_editor.setFocus()
 
+            self.loadScriptState()
+            self.setScriptState()
+            # TODO IMPORTANT REFRESH BUTTON TO WORK. RUN SCRIPT BUTTON.
+
         return
 
     def scriptDropdownChanged(self):
@@ -1027,6 +1037,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.loadScriptContents()
             self.script_editor.setFocus()
             self.loadScriptState()
+            self.setScriptState()
         return
 
     def setScriptModified(self, modified = True):
@@ -1060,56 +1071,67 @@ class KnobScripter(QtWidgets.QWidget):
             subprocess.Popen(["xdg-open", path])
 
     def loadScriptState(self):
-        ''' Loads the last state of the script from a file inside the SE directory's root '''
-        state_dict = {}
+        '''
+        Loads the last state of the script from a file inside the SE directory's root.
+        SAVES self.scroll_pos, self.cursor_pos, self.last_open_script
+        '''
+        self.state_dict = {}
         if not os.path.isfile(self.state_txt_path):
             return False
         else:
             with open(self.state_txt_path, "r") as f:
-                state_dict = json.load(f)
+                self.state_dict = json.load(f)
 
+        
+        log("Loading script state into self.state_dict, self.scrollPos, self.cursorPos")
+        log(self.state_dict)
+
+        if "scroll_pos" in self.state_dict:
+            self.scrollPos = self.state_dict["scroll_pos"]
+        if "cursor_pos" in self.state_dict:
+            self.cursorPos = self.state_dict["cursor_pos"]
+
+    def setScriptState(self):
+        '''
+        Sets the already script state from self.state_dict into the current script if applicable
+        '''
         script_fullname = self.current_folder+"/"+self.current_script
-        print "Starting to load script state"
-        print "script fullname: "+script_fullname
-        print state_dict
 
-        self.scroll_pos = state_dict["scroll_pos"]
-        self.cursor_pos = state_dict["cursor_pos"]
-        print self.scroll_pos
-        print self.cursor_pos
+        if script_fullname in self.state_dict["scroll_pos"]:
+            self.script_editor.verticalScrollBar().setValue(int(self.state_dict["scroll_pos"][script_fullname]))
 
-        if script_fullname in state_dict["scroll_pos"]:
-            self.script_editor.verticalScrollBar().setValue(int(state_dict["scroll_pos"][script_fullname]))
-
-        if script_fullname in state_dict["cursor_pos"]:
+        if script_fullname in self.state_dict["cursor_pos"]:
             cursor = self.script_editor.textCursor()
-            cursor.setPosition(int(state_dict["cursor_pos"][script_fullname][1]), QtGui.QTextCursor.MoveAnchor)
-            cursor.setPosition(int(state_dict["cursor_pos"][script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
+            cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][1]), QtGui.QTextCursor.MoveAnchor)
+            cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
             self.script_editor.setTextCursor(cursor)
-
-        #TODO SET THE SCROLL, CURSOR POS ETC FROM THE DATA WE JUST READ
 
     def saveScriptState(self):
         ''' Stores the current state of the script into a file inside the SE directory's root '''
         log("About to save script state...")
-        state_dict = {}
+        '''
+        # self.state_dict = {}
         if os.path.isfile(self.state_txt_path):
             with open(self.state_txt_path, "r") as f:
-                state_dict = json.load(f)
+                self.state_dict = json.load(f)
 
-        if "scroll_pos" in state_dict:
-            self.scrollPos = state_dict["scroll_pos"]
-        if "cursor_pos" in state_dict:
-            self.cursorPos = state_dict["cursor_pos"]
+        if "scroll_pos" in self.state_dict:
+            self.scrollPos = self.state_dict["scroll_pos"]
+        if "cursor_pos" in self.state_dict:
+            self.cursorPos = self.state_dict["cursor_pos"]
 
+        '''
+        self.loadScriptState()
+        
+        # Overwrite current values into the scriptState
         self.saveScrollValue()
         self.saveCursorPosValue()
 
-        state_dict['scroll_pos'] = self.scrollPos
-        state_dict['cursor_pos'] = self.cursorPos
+        self.state_dict['scroll_pos'] = self.scrollPos
+        self.state_dict['cursor_pos'] = self.cursorPos
 
         with open(self.state_txt_path,"w") as f:
-            state = json.dump(state_dict, f, sort_keys=True, indent=4)
+            state = json.dump(self.state_dict, f, sort_keys=True, indent=4)
         return state
 
     # Autosave background loop
