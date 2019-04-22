@@ -121,7 +121,7 @@ class KnobScripter(QtWidgets.QWidget):
         #---------------------
         # 2. TOP BAR
         #---------------------
-
+        #TODO: only one preferences panel maximum...
         # ---
         # 2.1. Left buttons
         self.change_btn = QtWidgets.QToolButton()
@@ -230,13 +230,23 @@ class KnobScripter(QtWidgets.QWidget):
 
         # ---
         # 2.4. Right Side buttons
+
+        # Run script
+        self.run_script_button = QtWidgets.QPushButton("R")
+        #self.run_script_button.setIcon(QtGui.QIcon(icons_path+"icon_clearConsole.png"))
+        #self.run_script_button.setIconSize(QtCore.QSize(50,50))
+        #self.run_script_button.setIconSize(self.qt_icon_size)
+        self.run_script_button.setFixedSize(self.qt_btn_size)
+        self.run_script_button.setToolTip("Execute the current selection on the KnobScripter, or the whole script if no selection.\nShortcut: Ctrl+Enter")
+        self.run_script_button.clicked.connect(self.runScript)
+
         # Clear console
         self.clear_console_button = QtWidgets.QToolButton()
         self.clear_console_button.setIcon(QtGui.QIcon(icons_path+"icon_clearConsole.png"))
         self.clear_console_button.setIconSize(QtCore.QSize(50,50))
         self.clear_console_button.setIconSize(self.qt_icon_size)
         self.clear_console_button.setFixedSize(self.qt_btn_size)
-        self.clear_console_button.setToolTip("Clear the text in the console window.\nShortcut: Right click on the console.")
+        self.clear_console_button.setToolTip("Clear the text in the console window.\nShortcut: Click Backspace on the console.")
         self.clear_console_button.clicked.connect(self.clearConsole)
 
         # FindReplace button
@@ -262,6 +272,19 @@ class KnobScripter(QtWidgets.QWidget):
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.snippets_button.clicked.connect(self.openSnippets)
 
+        # PIN
+        self.pin_button = QtWidgets.QPushButton("P")
+        self.pin_button.setCheckable(True)
+        if self.pinned:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+            self.pin_button.toggle()
+        self.pin_button.setToolTip("Toggle 'Always On Top'. Keeps the KnobScripter on top of all other windows.")
+        self.pin_button.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.pin_button.setFixedSize(self.qt_btn_size)
+        self.pin_button.clicked[bool].connect(self.pin)
+
+        # TODO: Add "echo python commands" button
+
         # Prefs
         self.prefs_button = QtWidgets.QToolButton()
         self.prefs_button.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
@@ -272,9 +295,11 @@ class KnobScripter(QtWidgets.QWidget):
 
         # Layout
         self.top_right_bar_layout = QtWidgets.QHBoxLayout()
+        self.top_right_bar_layout.addWidget(self.run_script_button)
         self.top_right_bar_layout.addWidget(self.clear_console_button)
         self.top_right_bar_layout.addWidget(self.find_button)
         self.top_right_bar_layout.addWidget(self.snippets_button)
+        self.top_right_bar_layout.addWidget(self.pin_button)
         #self.top_right_bar_layout.addSpacing(10)
         self.top_right_bar_layout.addWidget(self.prefs_button)
 
@@ -1157,7 +1182,6 @@ class KnobScripter(QtWidgets.QWidget):
             self.toAutosave = False
             self.saveScriptState()
             log("autosaving...")
-            #TODO: store current open script/folder?
             return
 
     # Global stuff
@@ -1169,8 +1193,8 @@ class KnobScripter(QtWidgets.QWidget):
 
     def resizeEvent(self, res_event):
         w = self.frameGeometry().width()
-        self.current_node_label_node.setVisible(w>360)
-        self.script_label.setVisible(w>360)
+        self.current_node_label_node.setVisible(w>460)
+        self.script_label.setVisible(w>460)
         return super(KnobScripter, self).resizeEvent(res_event)
 
     def changeClicked(self, newNode=""):
@@ -1297,6 +1321,10 @@ class KnobScripter(QtWidgets.QWidget):
                 prefs = json.load(f)
                 return prefs
 
+    def runScript(self):
+        ''' Run the current script... '''
+        self.script_editor.runScript()
+
     def saveScrollValue(self):
         ''' Save scroll values '''
         if self.nodeMode:
@@ -1336,6 +1364,18 @@ class KnobScripter(QtWidgets.QWidget):
 
 
     # Landing functions
+    def refreshClicked(self):
+        ''' Function to refresh the dropdowns '''
+        if self.nodeMode:
+            self.updateKnobDropdown()
+        else:
+            self.autosave()
+            self.updateFoldersDropdown()
+            self.setCurrentFolder(self.current_folder)
+            self.updateScriptsDropdown()
+            self.setCurrentScript(self.current_script)
+            self.script_editor.setFocus()
+
     def reloadClicked(self):
         if self.nodeMode:
             self.loadKnobValue()
@@ -1420,6 +1460,7 @@ class KnobScripterPane(KnobScripter):
         self.autosave()
         return KnobScripter.hideEvent(self,the_event)
 
+#TODO VERTICAL SEPARATOR NEXT TO SAVE BUTTON
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
     try:
@@ -1719,7 +1760,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                     cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                     cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            '''
+                '''
             elif key == Qt.Key_Up: # If up key and nothing happens, go to start
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
                 QtWidgets.QApplication.processEvents()
@@ -1734,7 +1775,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 if new_pos == cpos:
                     cursor.movePosition(QtGui.QTextCursor.End)
                     self.setTextCursor(cursor)
-            '''
+                '''
             else:
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
             
