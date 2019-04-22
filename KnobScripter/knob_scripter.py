@@ -369,9 +369,6 @@ class KnobScripter(QtWidgets.QWidget):
             self.splitter.setSizes([0,1])
         else:
             self.exitNodeMode()
-            self.loadScriptContents(check = False)
-            self.loadScriptState()
-            self.setScriptState()
         self.script_editor.setFocus()
 
     # Node Mode
@@ -918,7 +915,7 @@ class KnobScripter(QtWidgets.QWidget):
 
         elif fd_data == "open in browser":
             current_folder_path = os.path.join(self.scripts_dir, self.current_folder)
-            self.openInBrowser(current_folder_path)
+            self.openInFileBrowser(current_folder_path)
             self.current_folder_dropdown.blockSignals(True)
             self.current_folder_dropdown.setCurrentIndex(self.folder_index)
             self.current_folder_dropdown.blockSignals(False)
@@ -1014,7 +1011,7 @@ class KnobScripter(QtWidgets.QWidget):
 
         elif sd_data == "open in browser":
             current_script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
-            self.openInBrowser(current_script_path)
+            self.openInFileBrowser(current_script_path)
             self.current_script_dropdown.blockSignals(True)
             self.current_script_dropdown.setCurrentIndex(self.script_index)
             self.current_script_dropdown.blockSignals(False)
@@ -1059,7 +1056,7 @@ class KnobScripter(QtWidgets.QWidget):
         except:
             pass
 
-    def openInBrowser(self, path = ""):
+    def openInFileBrowser(self, path = ""):
         OS = platform.system()
         if not os.path.exists(path):
             path = KS_DIR
@@ -1106,6 +1103,15 @@ class KnobScripter(QtWidgets.QWidget):
             cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
             self.script_editor.setTextCursor(cursor)
 
+    def setLastScript(self):
+        if 'last_folder' in self.state_dict and 'last_script' in self.state_dict:
+            self.updateFoldersDropdown()
+            self.setCurrentFolder(self.state_dict['last_folder'])
+            self.updateScriptsDropdown()
+            self.setCurrentScript(self.state_dict['last_script'])
+            self.loadScriptContents()
+            self.script_editor.setFocus()
+
     def saveScriptState(self):
         ''' Stores the current state of the script into a file inside the SE directory's root '''
         log("About to save script state...")
@@ -1129,6 +1135,8 @@ class KnobScripter(QtWidgets.QWidget):
 
         self.state_dict['scroll_pos'] = self.scrollPos
         self.state_dict['cursor_pos'] = self.cursorPos
+        self.state_dict['last_folder'] = self.current_folder
+        self.state_dict['last_script'] = self.current_script
 
         with open(self.state_txt_path,"w") as f:
             state = json.dump(self.state_dict, f, sort_keys=True, indent=4)
@@ -1224,6 +1232,11 @@ class KnobScripter(QtWidgets.QWidget):
         #self.updateFoldersDropdown()
         #self.updateScriptsDropdown()
         self.splitter.setSizes([1,1]) #TODO: remember splitter size and pos later on the state.txt
+        self.loadScriptState()
+        self.setLastScript()
+
+        self.loadScriptContents(check = False)
+        self.setScriptState()
 
     def clearConsole(self):
         self.origConsoleText = self.nukeSEOutput.document().toPlainText()
