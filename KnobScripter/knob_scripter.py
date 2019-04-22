@@ -1103,6 +1103,11 @@ class KnobScripter(QtWidgets.QWidget):
             cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
             self.script_editor.setTextCursor(cursor)
 
+        if 'splitter_sizes' in self.state_dict:
+            self.splitter.setSizes(self.state_dict['splitter_sizes'])
+
+        print self.state_dict['splitter_sizes'] #TODO IMPORTANT SHIFT + UP GOES TO TOP WTF
+
     def setLastScript(self):
         if 'last_folder' in self.state_dict and 'last_script' in self.state_dict:
             self.updateFoldersDropdown()
@@ -1137,6 +1142,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.state_dict['cursor_pos'] = self.cursorPos
         self.state_dict['last_folder'] = self.current_folder
         self.state_dict['last_script'] = self.current_script
+        self.state_dict['splitter_sizes'] = self.splitter.sizes()
+
 
         with open(self.state_txt_path,"w") as f:
             state = json.dump(self.state_dict, f, sort_keys=True, indent=4)
@@ -1231,7 +1238,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.node = nuke.toNode("root")
         #self.updateFoldersDropdown()
         #self.updateScriptsDropdown()
-        self.splitter.setSizes([1,1]) #TODO: remember splitter size and pos later on the state.txt
+        self.splitter.setSizes([1,1])
         self.loadScriptState()
         self.setLastScript()
 
@@ -1712,9 +1719,12 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                     cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                     cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
+            '''
             elif key == Qt.Key_Up: # If up key and nothing happens, go to start
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
+                QtWidgets.QApplication.processEvents()
                 new_pos = cursor.position()
+                print new_pos, cpos
                 if new_pos == cpos:
                     cursor.setPosition(0)
                     self.setTextCursor(cursor)
@@ -1724,6 +1734,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 if new_pos == cpos:
                     cursor.movePosition(QtGui.QTextCursor.End)
                     self.setTextCursor(cursor)
+            '''
             else:
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
             
