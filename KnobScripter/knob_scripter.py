@@ -18,6 +18,7 @@ from functools import partial
 import subprocess
 import platform
 from threading import Event, Thread
+from webbrowser import open as openUrl
 #import logging
 
 try:
@@ -31,6 +32,9 @@ KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR+"/icons/"
 DebugMode = False
 AllKnobScripters = [] # All open instances at a given time
+
+PrefsPanel = ""
+SnippetEditPanel = ""
 
 nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2019 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
@@ -273,6 +277,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.snippets_button.clicked.connect(self.openSnippets)
 
         # PIN
+        '''
         self.pin_button = QtWidgets.QPushButton("P")
         self.pin_button.setCheckable(True)
         if self.pinned:
@@ -282,15 +287,17 @@ class KnobScripter(QtWidgets.QWidget):
         self.pin_button.setFocusPolicy(QtCore.Qt.NoFocus)
         self.pin_button.setFixedSize(self.qt_btn_size)
         self.pin_button.clicked[bool].connect(self.pin)
-
-        # TODO: Add "echo python commands" button
+        '''
 
         # Prefs
-        self.prefs_button = QtWidgets.QToolButton()
+        self.createPrefsMenu()
+        self.prefs_button = QtWidgets.QPushButton()
         self.prefs_button.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
         self.prefs_button.setIconSize(self.qt_icon_size)
-        self.prefs_button.setFixedSize(self.qt_btn_size)
-        self.prefs_button.clicked.connect(self.openPrefs)
+        self.prefs_button.setFixedSize(QtCore.QSize(self.btn_size+10,self.btn_size))
+        #self.prefs_button.clicked.connect(self.openPrefs)
+        self.prefs_button.setMenu(self.prefsMenu)
+        self.prefs_button.setStyleSheet("text-align:left;padding-left:2px;")
         #self.prefs_button.setMaximumWidth(self.prefs_button.fontMetrics().boundingRect("Prefs").width() + 12)
 
         # Layout
@@ -298,8 +305,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.top_right_bar_layout.addWidget(self.run_script_button)
         self.top_right_bar_layout.addWidget(self.clear_console_button)
         self.top_right_bar_layout.addWidget(self.find_button)
-        self.top_right_bar_layout.addWidget(self.snippets_button)
-        self.top_right_bar_layout.addWidget(self.pin_button)
+        ##self.top_right_bar_layout.addWidget(self.snippets_button)
+        ##self.top_right_bar_layout.addWidget(self.pin_button)
         #self.top_right_bar_layout.addSpacing(10)
         self.top_right_bar_layout.addWidget(self.prefs_button)
 
@@ -395,6 +402,60 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             self.exitNodeMode()
         self.script_editor.setFocus()
+
+    # Preferences submenus
+    def createPrefsMenu(self):
+
+        # Actions
+        self.echoAct = QtWidgets.QAction("Echo python commands", self, checkable=True, statusTip="Toggle nuke's 'Echo all python commands to ScriptEditor'", triggered=self.toggleEcho)
+        self.pinAct = QtWidgets.QAction("Always on top", self, checkable=True, statusTip="Keeps the KnobScripter window always on top or not.", triggered=self.togglePin)
+        if self.pinned:
+            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+            self.pinAct.toggle()
+        self.helpAct = QtWidgets.QAction("&Help", self, statusTip="Open the KnobScripter help in your browser.", shortcut="F1", triggered=self.showHelp)
+        self.nukepediaAct = QtWidgets.QAction("Show in Nukepedia", self, statusTip="Open the KnobScripter download page on Nukepedia.", triggered=self.showInNukepedia)
+        self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
+        self.snippetsAct = QtWidgets.QAction("Snippets", self, statusTip="Open the Snippets editor.", triggered=self.openSnippets)
+        self.snippetsAct.setIcon(QtGui.QIcon(icons_path+"icon_snippets.png"))
+        self.prefsAct = QtWidgets.QAction("Preferences", self, statusTip="Open the Preferences panel.", triggered=self.openPrefs)
+        self.prefsAct.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
+
+        # Menus
+        self.prefsMenu = QtWidgets.QMenu("Preferences")
+        self.prefsMenu.addAction(self.echoAct)
+        self.prefsMenu.addAction(self.pinAct)
+        self.prefsMenu.addSeparator()
+        self.prefsMenu.addAction(self.nukepediaAct)
+        self.prefsMenu.addAction(self.githubAct)
+        self.prefsMenu.addSeparator()
+        self.prefsMenu.addAction(self.helpAct)
+        self.prefsMenu.addSeparator()
+        self.prefsMenu.addAction(self.snippetsAct)
+        self.prefsMenu.addAction(self.prefsAct)
+
+    def initEcho(self):
+        ''' Initializes the echo chechable QAction based on nuke's state '''
+        echo_knob = nuke.toNode("preferences").knob("echoAllCommands")
+        self.echoAct.setChecked(echo_knob.value())
+
+    def toggleEcho(self):
+        ''' Toggle the "Echo python commands" from Nuke '''
+        echo_knob = nuke.toNode("preferences").knob("echoAllCommands")
+        echo_knob.setValue(self.echoAct.isChecked())
+
+    def togglePin(self):
+        ''' Toggle "always on top" based on the submenu button '''
+        self.pin(self.pinAct.isChecked())
+
+    def showInNukepedia(self):
+        openUrl("http://www.nukepedia.com/python/ui/knobscripter")
+
+    def showInGithub(self):
+        openUrl("https://github.com/adrianpueyo/KnobScripter")
+
+    def showHelp(self):
+        openUrl("http://www.adrianpueyo.com/")
+
 
     # Node Mode
     def updateKnobDropdown(self):
@@ -1285,10 +1346,13 @@ class KnobScripter(QtWidgets.QWidget):
 
     def openSnippets(self):
         ''' Whenever the 'snippets' button is pressed... open the panel '''
-        global snippet_panel
-        snippet_panel = SnippetsPanel(self)
-        if snippet_panel.show():
+        global SnippetEditPanel
+        if SnippetEditPanel == "":
+            SnippetEditPanel = SnippetsPanel(self)
+
+        if SnippetEditPanel.show():
             self.loadSnippets()
+            SnippetEditPanel = ""
 
     def loadSnippets(self):
         ''' Load prefs '''
@@ -1308,9 +1372,12 @@ class KnobScripter(QtWidgets.QWidget):
 
     def openPrefs(self):
         ''' Open the preferences panel '''
-        global ks_prefs
-        ks_prefs = KnobScripterPrefs(self)
-        ks_prefs.show()
+        global PrefsPanel
+        if PrefsPanel == "":
+            PrefsPanel = KnobScripterPrefs(self)
+
+        if PrefsPanel.show():
+            PrefsPanel = ""
 
     def loadPrefs(self):
         ''' Load prefs '''
@@ -2886,6 +2953,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
 class SnippetsPanel(QtWidgets.QDialog):
     def __init__(self, parent):
         super(SnippetsPanel, self).__init__(parent)
+
         self.mainWidget = parent
 
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
