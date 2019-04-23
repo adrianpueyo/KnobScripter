@@ -236,9 +236,9 @@ class KnobScripter(QtWidgets.QWidget):
         # 2.4. Right Side buttons
 
         # Run script
-        self.run_script_button = QtWidgets.QPushButton("R")
-        #self.run_script_button.setIcon(QtGui.QIcon(icons_path+"icon_clearConsole.png"))
-        #self.run_script_button.setIconSize(QtCore.QSize(50,50))
+        self.run_script_button = QtWidgets.QToolButton()
+        self.run_script_button.setIcon(QtGui.QIcon(icons_path+"icon_run.png"))
+        self.run_script_button.setIconSize(self.qt_icon_size)
         #self.run_script_button.setIconSize(self.qt_icon_size)
         self.run_script_button.setFixedSize(self.qt_btn_size)
         self.run_script_button.setToolTip("Execute the current selection on the KnobScripter, or the whole script if no selection.\nShortcut: Ctrl+Enter")
@@ -885,8 +885,10 @@ class KnobScripter(QtWidgets.QWidget):
             content = ""
             self.script_editor.setPlainText(content)
             self.setScriptModified(False)
-            del self.scrollPos[self.current_folder+"/"+self.current_script]
-            del self.cursorPos[self.current_folder+"/"+self.current_script]
+            if self.current_folder+"/"+self.current_script in self.scrollPos:
+                del self.scrollPos[self.current_folder+"/"+self.current_script]
+            if self.current_folder+"/"+self.current_script in self.cursorPos:
+                del self.cursorPos[self.current_folder+"/"+self.current_script]
 
         self.setWindowTitle("KnobScripter - %s/%s" % (self.current_folder, self.current_script))
         #log("loaded "+script_path+"\n---")
@@ -1180,19 +1182,19 @@ class KnobScripter(QtWidgets.QWidget):
         '''
         script_fullname = self.current_folder+"/"+self.current_script
 
-        if script_fullname in self.state_dict["scroll_pos"]:
-            self.script_editor.verticalScrollBar().setValue(int(self.state_dict["scroll_pos"][script_fullname]))
+        if "scroll_pos" in self.state_dict:
+            if script_fullname in self.state_dict["scroll_pos"]:
+                self.script_editor.verticalScrollBar().setValue(int(self.state_dict["scroll_pos"][script_fullname]))
 
-        if script_fullname in self.state_dict["cursor_pos"]:
-            cursor = self.script_editor.textCursor()
-            cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][1]), QtGui.QTextCursor.MoveAnchor)
-            cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
-            self.script_editor.setTextCursor(cursor)
+        if "cursor_pos" in self.state_dict:
+            if script_fullname in self.state_dict["cursor_pos"]:
+                cursor = self.script_editor.textCursor()
+                cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][1]), QtGui.QTextCursor.MoveAnchor)
+                cursor.setPosition(int(self.state_dict["cursor_pos"][script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
+                self.script_editor.setTextCursor(cursor)
 
         if 'splitter_sizes' in self.state_dict:
             self.splitter.setSizes(self.state_dict['splitter_sizes'])
-
-        print self.state_dict['splitter_sizes'] #TODO IMPORTANT SHIFT + UP GOES TO TOP WTF
 
     def setLastScript(self):
         if 'last_folder' in self.state_dict and 'last_script' in self.state_dict:
