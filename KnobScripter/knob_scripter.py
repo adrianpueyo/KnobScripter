@@ -1643,6 +1643,57 @@ class FileNameDialog(QtWidgets.QDialog):
         self.reject()
         return
 
+class TextInputDialog(QtWidgets.QDialog):
+    '''
+    Simple dialog for a text input.
+    '''
+    def __init__(self, parent = None, name = "", text = "", title=""):
+        super(TextInputDialog, self).__init__(parent)
+
+        self.name = name #title of textinput
+        self.text = text #default content of textinput
+
+        self.setWindowTitle(title)
+
+        self.initUI()
+
+    def initUI(self):
+        # Widgets
+        self.name_label = QtWidgets.QLabel(self.name+": ")
+        self.name_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.name_lineEdit = QtWidgets.QLineEdit()
+        self.name_lineEdit.setText(self.text)
+        self.name_lineEdit.textChanged.connect(self.nameChanged)
+
+        # Buttons
+        self.button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        #self.button_box.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(self.text != "")
+        self.button_box.accepted.connect(self.clickedOk)
+        self.button_box.rejected.connect(self.clickedCancel)
+
+        # Layout
+        self.master_layout = QtWidgets.QVBoxLayout()
+        self.name_layout = QtWidgets.QHBoxLayout()
+        self.name_layout.addWidget(self.name_label)
+        self.name_layout.addWidget(self.name_lineEdit)
+        self.master_layout.addLayout(self.name_layout)
+        self.master_layout.addWidget(self.button_box)
+        self.setLayout(self.master_layout)
+
+        self.name_lineEdit.setFocus()
+        self.setMinimumWidth(250)
+
+    def nameChanged(self):
+        self.text = self.name_lineEdit.text()
+
+    def clickedOk(self):
+        self.accept()
+        return
+
+    def clickedCancel(self):
+        self.reject()
+        return
+
 #------------------------------------------------------------------------------------------------------
 # Script Editor Widget
 # Wouter Gilsing built an incredibly useful python script editor for his Hotbox Manager, so I had it
@@ -2263,15 +2314,49 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
     def placeholderToEnd(self,text,placeholder):
         '''Returns distance (int) from the first ocurrence of the placeholder, to the end of the string with placeholders removed'''
-        from_start = text.find(placeholder)
-        if from_start < 0:
+        search = re.search(placeholder, text)
+        if not search:
             return -1
+        from_start = search.start()
         #print("from_start="+str(from_start))
-        total = len(text.replace(placeholder,""))
+        total = len(re.sub(placeholder, "", text))
         #print("total="+str(total))
         to_end = total-from_start
         #print("to_end="+str(to_end))
         return to_end
+
+    def addSnippetText(self, snippet_text):
+        ''' Adds the selected text as a snippet (taking care of $$, $name$ etc) to the script editor '''
+        
+        cursor_placeholder_find = r"(?<=[^\\])(\$\$)" # Matches $$
+        variables_placeholder_find = r"[^\\](\$[\w]*[^\t\n\r\f\v\$\\]+\$)" # Matches $thing$
+        text = snippet_text
+        while True:
+            placeholder_variable = re.search(variables_placeholder_find, text)
+            if not placeholder_variable:
+                break
+            word = placeholder_variable.groups()[0]
+            word_bare = word[1:-1]
+            panel = TextInputDialog(name = word_bare, text = "", title= "Set text for "+word_bare)
+            if panel.exec_():
+            #    # Accepted
+                text = text.replace(word,panel.text)
+            else:
+                text = text.replace(word,"")
+        
+        # TODO: Add global paths for snippets and for scripts (one or more folders)
+        # OLD FROM HERE ON
+        
+        placeholder_to_end = self.placeholderToEnd(text,cursor_placeholder_find)
+
+        #placeholder_pos = re.search(cursor_placeholder_find, text).start()
+        #print placeholder_pos
+        text = re.sub(cursor_placeholder_find, "", text)
+        self.cursor.insertText(text)
+        if placeholder_to_end >= 0:
+            for i in range(placeholder_to_end):
+                self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
+            self.setTextCursor(self.cursor)
 
     def keyPressEvent(self,event):
 
@@ -2348,12 +2433,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                     match_key, match_snippet = self.findLongestEndingMatch(line_before_cursor, self.knobScripter.snippets)
                     for i in range(len(match_key)):
                         self.cursor.deletePreviousChar()
-                    placeholder_to_end = self.placeholderToEnd(match_snippet,self.placeholder)
-                    self.cursor.insertText(match_snippet.replace(self.placeholder,""))
-                    if placeholder_to_end >= 0:
-                        for i in range(placeholder_to_end):
-                            self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
-                        self.setTextCursor(self.cursor)
+                    self.addSnippetText(match_snippet) # This function takes care of adding the appropriate snippet and moving the cursor...
                 except: # Meaning snippet not found...
                     # FROM NUKE's SCRIPT EDITOR START
                     tc = self.textCursor()
