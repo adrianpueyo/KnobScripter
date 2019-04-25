@@ -57,6 +57,8 @@ class KnobScripter(QtWidgets.QWidget):
             self.node = nuke.toNode("root")
         else:
             self.node = node
+
+        self.isPane = False
         self.knob = knob
         self.unsavedKnobs = {}
         self.modifiedKnobs = set()
@@ -1367,7 +1369,10 @@ class KnobScripter(QtWidgets.QWidget):
 
     def messageBox(self, the_text=""):
         ''' Just a simple message box '''
-        msgBox = QtWidgets.QMessageBox(self)
+        if self.isPane:
+            msgBox = QtWidgets.QMessageBox()
+        else:
+            msgBox = QtWidgets.QMessageBox(self)
         msgBox.setText(the_text)
         msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         msgBox.exec_()
@@ -1516,6 +1521,7 @@ class KnobScripter(QtWidgets.QWidget):
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
         super(KnobScripterPane, self).__init__()
+        self.isPane = True
 
     def showEvent(self, the_event):
         try:
