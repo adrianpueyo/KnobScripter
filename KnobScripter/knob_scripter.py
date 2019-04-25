@@ -1592,7 +1592,11 @@ class FileNameDialog(QtWidgets.QDialog):
     Dialog for creating new... (mode = "folder", "script" or "knob").
     '''
     def __init__(self, parent = None, mode = "folder", text = ""):
-        super(FileNameDialog, self).__init__(parent)
+        if parent.isPane:
+            super(FileNameDialog, self).__init__()
+        else:
+            super(FileNameDialog, self).__init__(parent)
+            #self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.mode = mode
         self.text = text
 
@@ -1654,7 +1658,12 @@ class TextInputDialog(QtWidgets.QDialog):
     Simple dialog for a text input.
     '''
     def __init__(self, parent = None, name = "", text = "", title=""):
-        super(TextInputDialog, self).__init__(parent)
+        if parent.isPane:
+            print "PANE???"
+            super(TextInputDialog, self).__init__()
+        else:
+            super(TextInputDialog, self).__init__(parent)
+            #self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
 
         self.name = name #title of textinput
         self.text = text #default content of textinput
@@ -2343,7 +2352,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 break
             word = placeholder_variable.groups()[0]
             word_bare = word[1:-1]
-            panel = TextInputDialog(name = word_bare, text = "", title= "Set text for "+word_bare)
+            panel = TextInputDialog(self.knobScripter,name = word_bare, text = "", title= "Set text for "+word_bare)
             if panel.exec_():
             #    # Accepted
                 text = text.replace(word,panel.text)
