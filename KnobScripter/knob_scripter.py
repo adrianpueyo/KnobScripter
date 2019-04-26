@@ -1012,31 +1012,31 @@ class KnobScripter(QtWidgets.QWidget):
 
         elif fd_data == "add custom path":
             folder_path = nuke.getFilename('Select custom folder.')
-
-            if not folder_path:
-                return
-
-            if not os.path.isdir(folder_path):
-                self.messageBox("Folder not found. Please try again with the full path to a folder.")
-                self.current_folder_dropdown.blockSignals(True)
-                self.current_folder_dropdown.setCurrentIndex(self.folder_index)
-                self.current_folder_dropdown.blockSignals(False)
-
-            else:
-                # Create symlink etc here!
-                self.current_folder_dropdown.blockSignals(True)
-                self.current_folder_dropdown.setCurrentIndex(self.folder_index)
-                self.current_folder_dropdown.blockSignals(False)
-            '''    
-            if self.makeScriptFolder(name = folder_path):
-                self.saveScriptContents(temp=True)
-                # Success creating the folder
-                self.current_folder = folder_name
-                self.updateFoldersDropdown()
-                self.setCurrentFolder(folder_name)
-                self.updateScriptsDropdown()
-                self.loadScriptContents(check=False)
-            '''
+            print folder_path
+            if folder_path is not None:
+                if folder_path.endswith("/"):
+                    aliasName = folder_path.split("/")[-2]
+                else:
+                    aliasName = folder_path.split("/")[-1]
+                print aliasName
+                if not os.path.isdir(folder_path):
+                    self.messageBox("Folder not found. Please try again with the full path to a folder.")
+                elif not len(aliasName):
+                    self.messageBox("Folder with the same name already exists. Please delete or rename it first.")
+                else:
+                    # All good
+                    os.symlink(folder_path, os.path.join(self.scripts_dir,aliasName))
+                    self.saveScriptContents(temp=True)
+                    self.current_folder = aliasName
+                    self.updateFoldersDropdown()
+                    self.setCurrentFolder(aliasName)
+                    self.updateScriptsDropdown()
+                    self.loadScriptContents(check=False)
+                    self.script_editor.setFocus()
+                    return
+            self.current_folder_dropdown.blockSignals(True)
+            self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+            self.current_folder_dropdown.blockSignals(False)
         else:
             # 1: Save current script as temp if needed
             self.saveScriptContents(temp = True)
