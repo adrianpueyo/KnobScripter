@@ -682,7 +682,7 @@ class KnobScripter(QtWidgets.QWidget):
             counter += 1
 
         try:
-            scriptFolders = [x[0] for x in os.walk(self.scripts_dir)][1:]
+            scriptFolders = sorted([f for f in os.listdir(self.scripts_dir) if os.path.isdir(os.path.join(self.scripts_dir, f))]) # Accepts symlinks!!!
         except:
             logging.warning("Couldn't read any script folders.")
 
@@ -700,7 +700,8 @@ class KnobScripter(QtWidgets.QWidget):
             #self.current_folder_dropdown.insertSeparator(counter)
             #counter += 1
         self.current_folder_dropdown.addItem("New", "create new")
-        self.current_folder_dropdown.addItem("Browse...", "open in browser")
+        self.current_folder_dropdown.addItem("Open...", "open in browser")
+        self.current_folder_dropdown.addItem("Add custom", "add custom path")
         self.folder_index = self.current_folder_dropdown.currentIndex()
         self.current_folder = self.current_folder_dropdown.itemData(self.folder_index)
         self.current_folder_dropdown.blockSignals(False)
@@ -834,8 +835,6 @@ class KnobScripter(QtWidgets.QWidget):
             with open(script_path, 'r') as script:
                 content = script.read()
             current_text = self.script_editor.toPlainText()
-            print current_text
-            print content
             if check and current_text != content and current_text.strip() != "":
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setText("The script has been modified.")
@@ -1011,6 +1010,33 @@ class KnobScripter(QtWidgets.QWidget):
             self.current_folder_dropdown.blockSignals(False)
             return
 
+        elif fd_data == "add custom path":
+            folder_path = nuke.getFilename('Select custom folder.')
+
+            if not folder_path:
+                return
+
+            if not os.path.isdir(folder_path):
+                self.messageBox("Folder not found. Please try again with the full path to a folder.")
+                self.current_folder_dropdown.blockSignals(True)
+                self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+                self.current_folder_dropdown.blockSignals(False)
+
+            else:
+                # Create symlink etc here!
+                self.current_folder_dropdown.blockSignals(True)
+                self.current_folder_dropdown.setCurrentIndex(self.folder_index)
+                self.current_folder_dropdown.blockSignals(False)
+            '''    
+            if self.makeScriptFolder(name = folder_path):
+                self.saveScriptContents(temp=True)
+                # Success creating the folder
+                self.current_folder = folder_name
+                self.updateFoldersDropdown()
+                self.setCurrentFolder(folder_name)
+                self.updateScriptsDropdown()
+                self.loadScriptContents(check=False)
+            '''
         else:
             # 1: Save current script as temp if needed
             self.saveScriptContents(temp = True)
@@ -1294,7 +1320,6 @@ class KnobScripter(QtWidgets.QWidget):
                 reply = msgBox.exec_()
                 if reply == QtWidgets.QMessageBox.Yes:
                     self.saveAllKnobValues(check=False)
-                    print self.unsavedKnobs
                 elif reply == QtWidgets.QMessageBox.Cancel:
                     return
             if len(selection) > 1:
@@ -1659,7 +1684,6 @@ class TextInputDialog(QtWidgets.QDialog):
     '''
     def __init__(self, parent = None, name = "", text = "", title=""):
         if parent.isPane:
-            print "PANE???"
             super(TextInputDialog, self).__init__()
         else:
             super(TextInputDialog, self).__init__(parent)
@@ -1871,10 +1895,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 if text_after_cursor.startswith('"') and '"' in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
                     cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
-                    print text_before_cursor
                     QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
                 elif not re.search(r"[\s.({\[,]$", text_before_cursor) and text_before_cursor != "": # If chars before cursor, act normal
-                    print text_before_cursor
                     QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
                 else:
                     cursor.insertText('"'+selection+'"')
@@ -1885,10 +1907,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 if text_after_cursor.startswith("'") and "'" in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
                     cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
-                    print text_before_cursor
                     QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
                 elif not re.search(r"[\s.({\[,]$", text_before_cursor) and text_before_cursor != "": # If chars before cursor, act normal
-                    print text_before_cursor
                     QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
                 else:
                     cursor.insertText("'"+selection+"'")
