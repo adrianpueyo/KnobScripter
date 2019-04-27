@@ -1293,63 +1293,63 @@ class KnobScripter(QtWidgets.QWidget):
         nuke.menu("Nuke").findItem("Edit/Node/Update KnobScripter Context").invoke()
         selection = knobScripterSelectedNodes
         updatedCount = self.updateUnsavedKnobs()
-        if not len(selection):
+        if newNode != "" and nuke.exists(newNode):
+            selection = [newNode]
+        elif not len(selection):
             # TODO Panel to choose a node
             node_dialog = ChooseNodeDialog(self)
             if node_dialog.exec_():
-            #    # Accepted
-                text = text.replace(word,panel.text)
+                # Accepted
+                selection = [nuke.toNode(node_dialog.name)]
             else:
-                text = text.replace(word,"")
-
-            self.messageBox("Please select one or more nodes!")
-        else:
-            # Change to node mode...
-            self.node_mode_bar.setVisible(True)
-            self.script_mode_bar.setVisible(False)
-            if not self.nodeMode:
-                self.saveScriptContents()
-                self.toAutosave = False
-                self.saveScriptState()
-                self.splitter.setSizes([0,1])
-            self.nodeMode = True
-
-            # If already selected, pass
-            if selection[0].fullName() == self.node.fullName():
-                self.messageBox("Please select a different node first!")
                 return
-            elif updatedCount > 0:
-                msgBox = QtWidgets.QMessageBox()
-                msgBox.setText(
-                    "Save changes to %s knob%s before changing the node?" % (str(updatedCount), int(updatedCount > 1) * "s"))
-                msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel)
-                msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-                msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
-                reply = msgBox.exec_()
-                if reply == QtWidgets.QMessageBox.Yes:
-                    self.saveAllKnobValues(check=False)
-                elif reply == QtWidgets.QMessageBox.Cancel:
-                    return
-            if len(selection) > 1:
-                self.messageBox("More than one node selected.\nChanging knobChanged editor to %s" % selection[0].fullName())
-            # Reinitialise everything, wooo!
-            self.node = selection[0]
-            self.script_editor.setPlainText("")
-            self.unsavedKnobs = {}
-            self.scrollPos = {}
-            self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(), self.knob))
-            self.current_node_label_name.setText(self.node.fullName())
 
-            ########TODO: REMOVE AND RE-ADD THE KNOB DROPDOWN
-            self.toLoadKnob = False
-            self.updateKnobDropdown()
-            #self.current_knob_dropdown.repaint()
-            ###self.current_knob_dropdown.setMinimumWidth(self.current_knob_dropdown.minimumSizeHint().width())
-            self.toLoadKnob = True
-            self.setCurrentKnob(self.knob)
-            self.loadKnobValue(False)
-            self.script_editor.setFocus()
-            #self.current_knob_dropdown.setMinimumContentsLength(80)
+        # Change to node mode...
+        self.node_mode_bar.setVisible(True)
+        self.script_mode_bar.setVisible(False)
+        if not self.nodeMode:
+            self.saveScriptContents()
+            self.toAutosave = False
+            self.saveScriptState()
+            self.splitter.setSizes([0,1])
+        self.nodeMode = True
+
+        # If already selected, pass
+        if selection[0].fullName() == self.node.fullName():
+            self.messageBox("Please select a different node first!")
+            return
+        elif updatedCount > 0:
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText(
+                "Save changes to %s knob%s before changing the node?" % (str(updatedCount), int(updatedCount > 1) * "s"))
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel)
+            msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
+            reply = msgBox.exec_()
+            if reply == QtWidgets.QMessageBox.Yes:
+                self.saveAllKnobValues(check=False)
+            elif reply == QtWidgets.QMessageBox.Cancel:
+                return
+        if len(selection) > 1:
+            self.messageBox("More than one node selected.\nChanging knobChanged editor to %s" % selection[0].fullName())
+        # Reinitialise everything, wooo!
+        self.node = selection[0]
+        self.script_editor.setPlainText("")
+        self.unsavedKnobs = {}
+        self.scrollPos = {}
+        self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(), self.knob))
+        self.current_node_label_name.setText(self.node.fullName())
+
+        ########TODO: REMOVE AND RE-ADD THE KNOB DROPDOWN
+        self.toLoadKnob = False
+        self.updateKnobDropdown()
+        #self.current_knob_dropdown.repaint()
+        ###self.current_knob_dropdown.setMinimumWidth(self.current_knob_dropdown.minimumSizeHint().width())
+        self.toLoadKnob = True
+        self.setCurrentKnob(self.knob)
+        self.loadKnobValue(False)
+        self.script_editor.setFocus()
+        #self.current_knob_dropdown.setMinimumContentsLength(80)
         return
     
     def exitNodeMode(self):
@@ -1585,6 +1585,9 @@ class KnobScripterPane(KnobScripter):
         return KnobScripter.hideEvent(self,the_event)
 
 #TODO VERTICAL SEPARATOR NEXT TO SAVE BUTTON
+
+#TODO IMPORTANT: WHEN CHANGING KNOBS IT SHOULDN'T BE MODIFIED BY DEFAULT. ONLY ONCE IT'S ACTUALLY CHANGED...
+
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
     try:
@@ -1779,12 +1782,12 @@ class ChooseNodeDialog(QtWidgets.QDialog):
         self.name_label = QtWidgets.QLabel("Name: ")
         self.name_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.name_lineEdit = QtWidgets.QLineEdit()
-        self.name_lineEdit.setText(self.text)
+        self.name_lineEdit.setText(self.name)
         self.name_lineEdit.textChanged.connect(self.nameChanged)
 
         self.allNodes = self.getAllNodes()
-        completer = QCompleter(self.allNodes, self)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer = QtWidgets.QCompleter(self.allNodes, self)
+        completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.name_lineEdit.setCompleter(completer)
 
         # Buttons
@@ -1806,8 +1809,8 @@ class ChooseNodeDialog(QtWidgets.QDialog):
         self.setMinimumWidth(250)
 
     def getAllNodes(self):
-        self.allNodes = [n.fullname() for n in nuke.allNodes()] #if parent is in current context??
-        print self.allNodes
+        self.allNodes = [n.fullName() for n in nuke.allNodes(recurseGroups=True)] #if parent is in current context??
+        self.allNodes.extend(["root","preferences"])
         return self.allNodes
 
     def nameChanged(self):
