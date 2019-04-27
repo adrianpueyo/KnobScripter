@@ -1294,6 +1294,14 @@ class KnobScripter(QtWidgets.QWidget):
         selection = knobScripterSelectedNodes
         updatedCount = self.updateUnsavedKnobs()
         if not len(selection):
+            # TODO Panel to choose a node
+            node_dialog = ChooseNodeDialog(self)
+            if node_dialog.exec_():
+            #    # Accepted
+                text = text.replace(word,panel.text)
+            else:
+                text = text.replace(word,"")
+
             self.messageBox("Please select one or more nodes!")
         else:
             # Change to node mode...
@@ -1626,7 +1634,7 @@ def log(text):
 
 
 #---------------------------------------------------------------------
-# Dialog for creating new... (folder, script or knob)
+# Dialogs
 #---------------------------------------------------------------------
 class FileNameDialog(QtWidgets.QDialog):
     '''
@@ -1748,6 +1756,72 @@ class TextInputDialog(QtWidgets.QDialog):
     def clickedCancel(self):
         self.reject()
         return
+
+class ChooseNodeDialog(QtWidgets.QDialog):
+    '''
+    Dialog for selecting a node by its name. Only admits nodes that exist (including root, preferences...)
+    '''
+    def __init__(self, parent = None, name = ""):
+        if parent.isPane:
+            super(ChooseNodeDialog, self).__init__()
+        else:
+            super(ChooseNodeDialog, self).__init__(parent)
+
+        self.name = name # Name of node (will be "" by default)
+        self.allNodes = []
+
+        self.setWindowTitle("Enter the node's name...")
+
+        self.initUI()
+
+    def initUI(self):
+        # Widgets
+        self.name_label = QtWidgets.QLabel("Name: ")
+        self.name_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.name_lineEdit = QtWidgets.QLineEdit()
+        self.name_lineEdit.setText(self.text)
+        self.name_lineEdit.textChanged.connect(self.nameChanged)
+
+        self.allNodes = self.getAllNodes()
+        completer = QCompleter(self.allNodes, self)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.name_lineEdit.setCompleter(completer)
+
+        # Buttons
+        self.button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        self.button_box.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(nuke.exists(self.name))
+        self.button_box.accepted.connect(self.clickedOk)
+        self.button_box.rejected.connect(self.clickedCancel)
+
+        # Layout
+        self.master_layout = QtWidgets.QVBoxLayout()
+        self.name_layout = QtWidgets.QHBoxLayout()
+        self.name_layout.addWidget(self.name_label)
+        self.name_layout.addWidget(self.name_lineEdit)
+        self.master_layout.addLayout(self.name_layout)
+        self.master_layout.addWidget(self.button_box)
+        self.setLayout(self.master_layout)
+
+        self.name_lineEdit.setFocus()
+        self.setMinimumWidth(250)
+
+    def getAllNodes(self):
+        self.allNodes = [n.fullname() for n in nuke.allNodes()] #if parent is in current context??
+        print self.allNodes
+        return self.allNodes
+
+    def nameChanged(self):
+        self.name = self.name_lineEdit.text()
+        self.button_box.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(self.name in self.allNodes)
+
+    def clickedOk(self):
+        self.accept()
+        return
+
+    def clickedCancel(self):
+        self.reject()
+        return
+
 
 #------------------------------------------------------------------------------------------------------
 # Script Editor Widget
