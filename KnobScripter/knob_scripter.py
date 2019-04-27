@@ -102,7 +102,7 @@ class KnobScripter(QtWidgets.QWidget):
 
         # Load snippets
         self.snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Snippets.txt"))
-        self.snippets = self.loadSnippets()
+        self.snippets = self.loadSnippets(maxDepth=5)
 
         # Current state of script (loaded when exiting node mode)
         self.state_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_State.txt"))
@@ -1380,17 +1380,33 @@ class KnobScripter(QtWidgets.QWidget):
             SnippetEditPanel = SnippetsPanel(self)
 
         if SnippetEditPanel.show():
-            self.loadSnippets()
+            self.snippets = self.loadSnippets(maxDepth=5)
+            print "ALL SNIPPETS:"
+            print self.snippets
             SnippetEditPanel = ""
 
-    def loadSnippets(self):
-        ''' Load prefs '''
-        if not os.path.isfile(self.snippets_txt_path):
+    def loadSnippets(self, path="", maxDepth=5, depth=0):
+        '''
+        Load prefs recursive. When maximum recursion depth, ignores paths.
+        '''
+        max_depth = maxDepth
+        cur_depth = depth
+        if path == "":
+            path = self.snippets_txt_path
+        if not os.path.isfile(path):
             return {}
         else:
-            with open(self.snippets_txt_path, "r") as f:
-                self.snippets = json.load(f)
-                return self.snippets
+            loaded_snippets = {}
+            with open(path, "r") as f:
+                file = json.load(f)
+                for i, (key, val) in enumerate(file.items()):
+                    if re.match(r"\[custom-path-[0-9]+\]$",key):
+                        if cur_depth < max_depth:
+                            new_dict = self.loadSnippets(path = val, maxDepth=max_depth, depth = cur_depth+1)
+                            loaded_snippets.update(new_dict)
+                    else:
+                        loaded_snippets[key] = val
+                return loaded_snippets
 
     def messageBox(self, the_text=""):
         ''' Just a simple message box '''
@@ -3077,7 +3093,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.setWindowTitle("Snippet editor")
 
         self.snippets_txt_path = self.mainWidget.snippets_txt_path
-        self.snippets_dict = self.mainWidget.loadSnippets()
+        self.snippets_dict = self.loadSnippetsDict(path = self.snippets_txt_path)
         #self.snippets_dict = snippets_dic
 
         #self.saveSnippets(snippets_dic)
@@ -3102,8 +3118,12 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.scroll_layout = QtWidgets.QVBoxLayout()
 
         for i, (key, val) in enumerate(self.snippets_dict.items()):
-            snippet_edit = SnippetEdit(key, val)
-            self.scroll_layout.insertWidget(-1, snippet_edit)
+            if re.match(r"\[custom-path-[0-9]+\]$",key):
+                file_edit = SnippetFilePath(val)
+                self.scroll_layout.insertWidget(-1, file_edit)
+            else:
+                snippet_edit = SnippetEdit(key, val)
+                self.scroll_layout.insertWidget(-1, snippet_edit)
 
         self.scroll_content.setLayout(self.scroll_layout)
 
@@ -3116,6 +3136,11 @@ class SnippetsPanel(QtWidgets.QDialog):
 
         self.layout.addWidget(self.scroll)
 
+        # File knob test
+        #self.filePath_lineEdit = SnippetFilePath(self)
+        #self.filePath_lineEdit
+        #self.layout.addWidget(self.filePath_lineEdit)
+
         # Lower buttons
         self.bottom_layout = QtWidgets.QHBoxLayout()
 
@@ -3123,6 +3148,11 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.add_btn.setToolTip("Create empty fields for an extra snippet.")
         self.add_btn.clicked.connect(self.addSnippet)
         self.bottom_layout.addWidget(self.add_btn)
+
+        self.addPath_btn = QtWidgets.QPushButton("Add custom path")
+        self.addPath_btn.setToolTip("Add a custom path to an external snippets .txt file.")
+        self.addPath_btn.clicked.connect(self.addCustomPath)
+        self.bottom_layout.addWidget(self.addPath_btn)
 
         self.bottom_layout.addStretch()
 
@@ -3152,15 +3182,33 @@ class SnippetsPanel(QtWidgets.QDialog):
 
         self.setLayout(self.layout)
 
+    def loadSnippetsDict(self, path=""):
+        ''' Load prefs. TO REMOVE '''
+        if path == "":
+            path = self.mainWidget.snippets_txt_path
+        if not os.path.isfile(self.snippets_txt_path):
+            return {}
+        else:
+            with open(self.snippets_txt_path, "r") as f:
+                self.snippets = json.load(f)
+                return self.snippets
+
     def getSnippetsAsDict(self):
         dic = {}
         num_snippets = self.scroll_layout.count()
+        path_i = 1
         for s in range(num_snippets):
             se = self.scroll_layout.itemAt(s).widget()
-            key = se.shortcut_editor.text()
-            val = se.snippet_editor.toPlainText()
-            if key != "":
-                dic[key] = val
+            if se.__class__.__name__ == "SnippetEdit":
+                key = se.shortcut_editor.text()
+                val = se.snippet_editor.toPlainText()
+                if key != "":
+                    dic[key] = val
+            else:
+                path = se.filepath_lineEdit.text()
+                if path != "":
+                    dic["[custom-path-{}]".format(str(path_i))] = path
+                    path_i += 1
         return dic
 
     def saveSnippets(self,snippets = ""):
@@ -3180,6 +3228,13 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.scroll_layout.insertWidget(0, se)
         self.show()
         return se
+
+    def addCustomPath(self,path=""):
+        # TODO open nuke file browser straightaway???
+        cpe = SnippetFilePath(path)
+        self.scroll_layout.insertWidget(0, cpe)
+        self.show()
+        return cpe
 
     def showHelp(self):
         ''' Create a new snippet, auto-completed with the help '''
@@ -3224,6 +3279,52 @@ class SnippetEdit(QtWidgets.QWidget):
 
 
         self.setLayout(self.layout)
+
+class SnippetFilePath(QtWidgets.QWidget):
+    ''' Simple widget containing a filepath lineEdit and a button to open the file browser '''
+    def __init__(self, path="", parent=None):
+        super(SnippetFilePath,self).__init__(parent)
+
+        self.layout = QtWidgets.QHBoxLayout()
+
+        self.custompath_label = QtWidgets.QLabel(self)
+        self.custompath_label.setText("Custom path: ")
+
+        self.filepath_lineEdit = QtWidgets.QLineEdit(self)
+        self.filepath_lineEdit.setText(str(path))
+        #self.snippet_editor = QtWidgets.QTextEdit(self)
+        self.filepath_lineEdit.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
+        self.script_editor_font = QtGui.QFont()
+        self.script_editor_font.setFamily("Courier")
+        self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
+        self.script_editor_font.setFixedPitch(True)
+        self.script_editor_font.setPointSize(11)
+        self.filepath_lineEdit.setFont(self.script_editor_font)
+
+        self.file_button = QtWidgets.QPushButton(self)
+        self.file_button.setText("Browse...")
+        self.file_button.clicked.connect(self.browseSnippets)
+
+        self.layout.addWidget(self.custompath_label)
+        self.layout.addWidget(self.filepath_lineEdit)
+        self.layout.addWidget(self.file_button)
+        self.layout.setContentsMargins(0,10,0,10)
+
+
+        self.setLayout(self.layout)
+
+    def browseSnippets(self):
+        ''' Opens file panel for ...snippets.txt '''
+        browseLocation = nuke.getFilename('Select snippets file', '*.txt')
+
+        if not browseLocation:
+            return
+
+        self.filepath_lineEdit.setText(browseLocation)
+        return
+
+
+
 
 #--------------------------------
 # Implementation
