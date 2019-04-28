@@ -127,7 +127,6 @@ class KnobScripter(QtWidgets.QWidget):
         #---------------------
         # 2. TOP BAR
         #---------------------
-        #TODO: only one preferences panel maximum...
         # ---
         # 2.1. Left buttons
         self.change_btn = QtWidgets.QToolButton()
@@ -147,7 +146,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.exit_node_btn.setToolTip("Exit the node, and change to Script Mode.")
         self.exit_node_btn.clicked.connect(self.exitNodeMode)
         self.current_node_label_node = QtWidgets.QLabel(" Node:")
-        self.current_node_label_name = QtWidgets.QLabel(self.node.fullName()) #TODO: This will accept click, to change the name of the node on a floating lineedit.
+        self.current_node_label_name = QtWidgets.QLabel(self.node.fullName())
         self.current_node_label_name.setStyleSheet("font-weight:bold;")
         self.current_knob_label = QtWidgets.QLabel("Knob: ")
         self.current_knob_dropdown = QtWidgets.QComboBox()
@@ -206,7 +205,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.refresh_btn.setFixedSize(self.qt_btn_size)
         self.refresh_btn.setToolTip("Refresh the dropdowns.\nShortcut: F5")
         self.refresh_btn.setShortcut('F5')
-        ##self.refresh_btn.clicked.connect(self.refreshClicked)
+        self.refresh_btn.clicked.connect(self.refreshClicked)
 
         # Reload script
         self.reload_btn = QtWidgets.QToolButton()
@@ -469,7 +468,15 @@ class KnobScripter(QtWidgets.QWidget):
         counter = 0
         for i in self.node.knobs():
             if i not in defaultKnobs and self.node.knob(i).Class() in permittedKnobClasses:
-                self.current_knob_dropdown.addItem(i, i)# + " (" + self.node.knob(i).name()+")")
+                #TODO add (*)s
+                print i
+                print self.unsavedKnobs.keys()
+                print "---"
+                if i in self.unsavedKnobs.keys():
+                    self.current_knob_dropdown.addItem(i+"(*)", i)
+                else:
+                    self.current_knob_dropdown.addItem(i, i)
+
                 counter += 1
         if counter > 0:
             self.current_knob_dropdown.insertSeparator(counter)
@@ -478,7 +485,13 @@ class KnobScripter(QtWidgets.QWidget):
             counter += 1
         for i in self.node.knobs():
             if i in defaultKnobs:
-                self.current_knob_dropdown.addItem(i, i)
+                print i
+                print self.unsavedKnobs.keys()
+                print "---"
+                if i in self.unsavedKnobs.keys():
+                    self.current_knob_dropdown.addItem(i+"(*)", i)
+                else:
+                    self.current_knob_dropdown.addItem(i, i)
                 counter += 1
         return
 
@@ -537,7 +550,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_editor.setTextCursor(cursor)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
         return
-        #TODO IMPORTANT ON change from node to script, reload the contents of the autosave.
 
     def loadAllKnobValues(self):
         ''' Load all knobs button's function '''
@@ -617,11 +629,10 @@ class KnobScripter(QtWidgets.QWidget):
 
     def setCurrentKnob(self, knobToSet):
         ''' Set current knob '''
-        KnobDropdownItems = [self.current_knob_dropdown.itemText(i).split(" (")[0] for i in range(self.current_knob_dropdown.count())]
+        KnobDropdownItems = [self.current_knob_dropdown.itemData(i).encode('UTF8') for i in range(self.current_knob_dropdown.count())]
         if knobToSet in KnobDropdownItems:
-            knobIndex = self.current_knob_dropdown.findText(knobToSet, QtCore.Qt.MatchFixedString)
-            if knobIndex >= 0:
-                self.current_knob_dropdown.setCurrentIndex(knobIndex)
+            index = KnobDropdownItems.index(knobToSet)
+            self.current_knob_dropdown.setCurrentIndex(index)
         return
 
     def updateUnsavedKnobs(self, first_time=False):
@@ -711,7 +722,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.folder_index = self.current_folder_dropdown.currentIndex()
         self.current_folder = self.current_folder_dropdown.itemData(self.folder_index)
         self.current_folder_dropdown.blockSignals(False)
-        #TODO: remember last opened folder... in a prefs file or sth
         return
 
     def updateScriptsDropdown(self):
@@ -733,7 +743,6 @@ class KnobScripter(QtWidgets.QWidget):
             found_temp_scripts = [f for f in dir_list if f.endswith(".py.autosave")]
         except:
             logging.warning("Couldn't find any scripts in the selected folder.")
-        #TODO: Check which ones have been modified (thus a modified script also exists)
         if not len(found_scripts):
             for s in defaultScripts:
                 if s+".autosave" in found_temp_scripts:
@@ -898,10 +907,7 @@ class KnobScripter(QtWidgets.QWidget):
                 del self.cursorPos[self.current_folder+"/"+self.current_script]
 
         self.setWindowTitle("KnobScripter - %s/%s" % (self.current_folder, self.current_script))
-        #log("loaded "+script_path+"\n---")
         return
-        # TODO: When opening ks, open last opened script (saving it somewhere)
-        # TODO: Make 'run script' and pin buttons
 
     def saveScriptContents(self, temp = True):
         ''' Save the current contents of the editor into the python file. If temp == True, saves a .py.autosave file '''
@@ -1501,13 +1507,24 @@ class KnobScripter(QtWidgets.QWidget):
     def refreshClicked(self):
         ''' Function to refresh the dropdowns '''
         if self.nodeMode:
+            #knob = self.knob
+            knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()).encode('UTF8')
+            self.current_knob_dropdown.blockSignals(True)
+            self.current_knob_dropdown.clear() # First remove all items
             self.updateKnobDropdown()
+            availableKnobs = [self.current_knob_dropdown.itemData(i).encode('UTF8') for i in range(self.current_knob_dropdown.count())]
+            if knob in availableKnobs:
+                self.setCurrentKnob(knob)
+            self.current_knob_dropdown.blockSignals(False)
         else:
+            folder = self.current_folder
+            script = self.current_script
             self.autosave()
+            #TODO: not change the current script..
             self.updateFoldersDropdown()
-            self.setCurrentFolder(self.current_folder)
+            self.setCurrentFolder(folder)
             self.updateScriptsDropdown()
-            self.setCurrentScript(self.current_script)
+            self.setCurrentScript(script)
             self.script_editor.setFocus()
 
     def reloadClicked(self):
@@ -1612,8 +1629,6 @@ def consoleChanged(self, ks):
     except:
         pass
     
-#nuke.tprint("Couldn't autosave???")
-
 def killPaneMargins(widget_object):
     if widget_object:
         target_widgets = set()
@@ -3326,7 +3341,6 @@ class SnippetsPanel(QtWidgets.QDialog):
         return se
 
     def addCustomPath(self,path=""):
-        # TODO open nuke file browser straightaway???
         cpe = SnippetFilePath(path)
         self.scroll_layout.insertWidget(0, cpe)
         self.show()
