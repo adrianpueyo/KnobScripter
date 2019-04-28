@@ -483,7 +483,7 @@ class KnobScripter(QtWidgets.QWidget):
         return
 
     def loadKnobValue(self, check=True, updateDict=False):
-        ''' Get the content of the knob knobChanged and populate the editor '''
+        ''' Get the content of the knob value and populate the editor '''
         if self.toLoadKnob == False:
             return
         dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
@@ -517,21 +517,27 @@ class KnobScripter(QtWidgets.QWidget):
                 self.setCurrentKnob(prev_knob)
                 return
         # If order comes from a dropdown update, update value from dictionary if possible, otherwise update normally
+        self.setWindowTitle("KnobScripter - %s %s" % (self.node.name(), self.knob))
         if updateDict:
             if self.knob in self.unsavedKnobs:
-                obtained_knobValue = self.unsavedKnobs[self.knob]
+                if self.unsavedKnobs[self.knob] == obtained_knobValue:
+                    self.script_editor.setPlainText(obtained_knobValue)
+                    self.setKnobModified(False)
+                else:
+                    obtained_knobValue = self.unsavedKnobs[self.knob]
+                    self.script_editor.setPlainText(obtained_knobValue)
+                    self.setKnobModified(True)
+            else:
+                self.script_editor.setPlainText(obtained_knobValue)
+                self.setKnobModified(False)
+
             if self.knob in self.scrollPos:
                 obtained_scrollValue = self.scrollPos[self.knob]
-        self.script_editor.setPlainText(obtained_knobValue)
         cursor = self.script_editor.textCursor()
         self.script_editor.setTextCursor(cursor)
-        self.setScriptModified(False)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
-        self.setWindowTitle("KnobScripter - %s %s" % (self.node.name(), self.knob))
         return
         #TODO IMPORTANT ON change from node to script, reload the contents of the autosave.
-        #TODO IMPORTANT on change to node, autosave too.
-        #TODO IMPORTANT store the current open script on close...
 
     def loadAllKnobValues(self):
         ''' Load all knobs button's function '''
@@ -618,7 +624,7 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_knob_dropdown.setCurrentIndex(knobIndex)
         return
 
-    def updateUnsavedKnobs(self):
+    def updateUnsavedKnobs(self, first_time=False):
         ''' Clear unchanged knobs from the dict and return the number of unsaved knobs '''
         edited_knobValue = self.script_editor.toPlainText()
         self.unsavedKnobs[self.knob] = edited_knobValue
@@ -919,9 +925,10 @@ class KnobScripter(QtWidgets.QWidget):
                 with open(script_path_temp, 'w') as script:
                     script.write(content)
             else:
+                if os.path.isfile(script_path_temp):
+                    os.remove(script_path_temp)
                 log("Nothing to save")
                 return
-            #self.setScriptModified(True)
         else:
             with open(script_path, 'w') as script:
                 script.write(self.script_editor.toPlainText())
@@ -1292,11 +1299,15 @@ class KnobScripter(QtWidgets.QWidget):
         ''' Change node '''
         nuke.menu("Nuke").findItem("Edit/Node/Update KnobScripter Context").invoke()
         selection = knobScripterSelectedNodes
-        updatedCount = self.updateUnsavedKnobs()
+        if self.nodeMode: # Only update the number of unsaved knobs if we were already in node mode
+            updatedCount = self.updateUnsavedKnobs()
+            print "NODEMODE!!!!!?????"
+        else:
+            updatedCount = 0
+            self.autosave()
         if newNode != "" and nuke.exists(newNode):
             selection = [newNode]
         elif not len(selection):
-            # TODO Panel to choose a node
             node_dialog = ChooseNodeDialog(self)
             if node_dialog.exec_():
                 # Accepted
@@ -1340,15 +1351,15 @@ class KnobScripter(QtWidgets.QWidget):
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(), self.knob))
         self.current_node_label_name.setText(self.node.fullName())
 
-        ########TODO: REMOVE AND RE-ADD THE KNOB DROPDOWN
         self.toLoadKnob = False
-        self.updateKnobDropdown()
+        self.updateKnobDropdown() #onee
         #self.current_knob_dropdown.repaint()
         ###self.current_knob_dropdown.setMinimumWidth(self.current_knob_dropdown.minimumSizeHint().width())
         self.toLoadKnob = True
         self.setCurrentKnob(self.knob)
         self.loadKnobValue(False)
         self.script_editor.setFocus()
+        self.setKnobModified(False)
         #self.current_knob_dropdown.setMinimumContentsLength(80)
         return
     
@@ -1387,10 +1398,11 @@ class KnobScripter(QtWidgets.QWidget):
         if SnippetEditPanel == "":
             SnippetEditPanel = SnippetsPanel(self)
 
+        if not SnippetEditPanel.isVisible():
+            SnippetEditPanel.reload()
+
         if SnippetEditPanel.show():
             self.snippets = self.loadSnippets(maxDepth=5)
-            print "ALL SNIPPETS:"
-            print self.snippets
             SnippetEditPanel = ""
 
     def loadSnippets(self, path="", maxDepth=5, depth=0):
@@ -1479,7 +1491,6 @@ class KnobScripter(QtWidgets.QWidget):
             else:
                 close_event.accept()
         else:
-            #TODO: add tprint on open
             self.autosave()
             if self in AllKnobScripters:
                 AllKnobScripters.remove(self)
@@ -1511,7 +1522,6 @@ class KnobScripter(QtWidgets.QWidget):
             self.saveKnobValue(False)
         else:
             self.saveScriptContents(temp = False)
-        #TODO: If script mode...
 
     def setModified(self):
         if self.nodeMode:
@@ -1585,8 +1595,6 @@ class KnobScripterPane(KnobScripter):
         return KnobScripter.hideEvent(self,the_event)
 
 #TODO VERTICAL SEPARATOR NEXT TO SAVE BUTTON
-
-#TODO IMPORTANT: WHEN CHANGING KNOBS IT SHOULDN'T BE MODIFIED BY DEFAULT. ONLY ONCE IT'S ACTUALLY CHANGED...
 
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
@@ -2471,14 +2479,9 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 text = text.replace(word,panel.text)
             else:
                 text = text.replace(word,"")
-        
-        # TODO: Add global paths for snippets and for scripts (one or more folders)
-        # OLD FROM HERE ON
-        
+                
         placeholder_to_end = self.placeholderToEnd(text,cursor_placeholder_find)
 
-        #placeholder_pos = re.search(cursor_placeholder_find, text).start()
-        #print placeholder_pos
         text = re.sub(cursor_placeholder_find, "", text)
         self.cursor.insertText(text)
         if placeholder_to_end >= 0:
@@ -3194,13 +3197,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.scroll_content = QtWidgets.QWidget()
         self.scroll_layout = QtWidgets.QVBoxLayout()
 
-        for i, (key, val) in enumerate(self.snippets_dict.items()):
-            if re.match(r"\[custom-path-[0-9]+\]$",key):
-                file_edit = SnippetFilePath(val)
-                self.scroll_layout.insertWidget(-1, file_edit)
-            else:
-                snippet_edit = SnippetEdit(key, val)
-                self.scroll_layout.insertWidget(-1, snippet_edit)
+        self.buildSnippetWidgets()
 
         self.scroll_content.setLayout(self.scroll_layout)
 
@@ -3259,6 +3256,27 @@ class SnippetsPanel(QtWidgets.QDialog):
 
         self.setLayout(self.layout)
 
+    def reload(self):
+        '''
+        Clears everything without saving and redoes the widgets etc.
+        Only to be called if the panel isn't shown meaning it's closed.
+        '''
+        for i in reversed(range(self.scroll_layout.count())): 
+            self.scroll_layout.itemAt(i).widget().deleteLater()
+
+        self.snippets_dict = self.loadSnippetsDict(path = self.snippets_txt_path)
+
+        self.buildSnippetWidgets()
+
+    def buildSnippetWidgets(self):
+        for i, (key, val) in enumerate(self.snippets_dict.items()):
+            if re.match(r"\[custom-path-[0-9]+\]$",key):
+                file_edit = SnippetFilePath(val)
+                self.scroll_layout.insertWidget(-1, file_edit)
+            else:
+                snippet_edit = SnippetEdit(key, val)
+                self.scroll_layout.insertWidget(-1, snippet_edit)
+
     def loadSnippetsDict(self, path=""):
         ''' Load prefs. TO REMOVE '''
         if path == "":
@@ -3297,6 +3315,7 @@ class SnippetsPanel(QtWidgets.QDialog):
 
     def okPressed(self):
         self.saveSnippets()
+        self.mainWidget.snippets = self.mainWidget.loadSnippets(maxDepth=5)
         self.mainWidget.loadSnippets()
         self.accept()
 
@@ -3311,6 +3330,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         cpe = SnippetFilePath(path)
         self.scroll_layout.insertWidget(0, cpe)
         self.show()
+        cpe.browseSnippets()
         return cpe
 
     def showHelp(self):
