@@ -2632,8 +2632,9 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         #BEFORE ANYTHING ELSE, IF SPECIAL MODIFIERS SIMPLY IGNORE THE REST
         if not self._completerShowing and (ctrl or shift or alt):
             #Bypassed!
-            KnobScripterTextEdit.keyPressEvent(self,event)
-            return
+            if key not in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
+                KnobScripterTextEdit.keyPressEvent(self,event)
+                return
         
         #If the completer is showing
         if self._completerShowing :
