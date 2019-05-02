@@ -1955,25 +1955,16 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         Custom actions for specific keystrokes
         '''
         key = event.key()
-        ctrl = event.modifiers() and Qt.ControlModifier #TODO: I HAVE TO FIX THIS SHIT
-        alt = event.modifiers() and Qt.AltModifier #TODO: I HAVE TO FIX THIS SHIT
-        shift = event.modifiers() and Qt.ShiftModifier #TODO: I HAVE TO FIX THIS SHIT
+        ctrl = bool(event.modifiers() & Qt.ControlModifier)
+        alt = bool(event.modifiers() & Qt.AltModifier)
+        shift = bool(event.modifiers() & Qt.ShiftModifier)
         #modifiers = QtWidgets.QApplication.keyboardModifiers()
         #ctrl = (modifiers == Qt.ControlModifier)
         #shift = (modifiers == Qt.ShiftModifier)
 
         up_arrow = 16777235
         down_arrow = 16777237
-        print ctrl
-        print shift
 
-        if key == up_arrow:
-            #TODO FIX THIS SHIT
-            pass
-
-        if key == up_arrow and ctrl and shift:
-            #TODO FIX THIS SHIT
-            pass
 
         #if Tab convert to Space
         if key == 16777217:
@@ -1987,9 +1978,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         elif key == 16777219:
             if not self.unindentBackspace():
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-        #if enter or return, match indent level
-        elif key in [16777220 ,16777221]:
-            self.indentNewLine()
         else:
             ### COOL BEHAVIORS SIMILAR TO SUBLIME GO NEXT!
             #print key
@@ -2013,6 +2001,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
             text_before_lines = text_all[:linestart_pos]
             text_after_lines = text_all[lineend_pos:]
+            if len(text_after_lines) and text_after_lines.startswith("\n"):
+                text_after_lines = text_after_lines[1:]
             text_lines = text_all[linestart_pos:lineend_pos]
 
             if cursor.hasSelection():
@@ -2080,12 +2070,12 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == 68 and ctrl and shift: #Ctrl+Shift+D, to duplicate text or line/s
 
                 if not len(selection):
-                    self.setPlainText(text_before_lines + text_lines+"\n"+text_lines + text_after_lines)
+                    self.setPlainText(text_before_lines + text_lines+"\n"+text_lines+"\n" + text_after_lines)
                     cursor.setPosition(apos+len(text_lines)+1, QtGui.QTextCursor.MoveAnchor)
                     cursor.setPosition(cpos+len(text_lines)+1, QtGui.QTextCursor.KeepAnchor)
                     self.setTextCursor(cursor)
                 else:
-                    if text_after_cursor.startswith("\n"):
+                    if text_before_cursor.endswith("\n") and not selection.startswith("\n"):
                         cursor.insertText(selection+"\n"+selection)
                         cursor.setPosition(apos+len(selection)+1, QtGui.QTextCursor.MoveAnchor)
                         cursor.setPosition(cpos+len(selection)+1, QtGui.QTextCursor.KeepAnchor)
@@ -2095,56 +2085,71 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                         cursor.setPosition(cpos+len(selection), QtGui.QTextCursor.KeepAnchor)
                     self.setTextCursor(cursor)
 
-            elif key == up_arrow and ctrl and shift: #Ctrl+Shift+Up, to move the selected line/s up
-                prev_line_start_distance = text_before_lines[::-1].find("\n")
+            elif key == up_arrow and ctrl and shift and len(text_before_lines): #Ctrl+Shift+Up, to move the selected line/s up
+                prev_line_start_distance = text_before_lines[:-1][::-1].find("\n")
                 if prev_line_start_distance == -1:
                     prev_line_start_pos = 0 #Position of the start of the previous line
                 else:
-                    prev_line_start_pos = len(text_before_lines) - prev_line_start_distance
-                if not len(selection):
-                    #TODO MOVE FULL LINE
-                    pass
+                    prev_line_start_pos = len(text_before_lines)-1 - prev_line_start_distance
                 prev_line = text_before_lines[prev_line_start_pos:]
-                text_before_prev_line = text_before_lines[:prev_line_start_pos]
-                self.setPlainText(text_before_prev_line + text_lines + prev_line + text_after_lines)
 
-            elif key == down_arrow and ctrl and shift: #Ctrl+Shift+Down, to move the selected line/s down
+                text_before_prev_line = text_before_lines[:prev_line_start_pos]
+
+                if prev_line.endswith("\n"):
+                    prev_line = prev_line[:-1]
+
+                if len(text_after_lines):
+                    text_after_lines = "\n"+text_after_lines
+
+                self.setPlainText(text_before_prev_line + text_lines + "\n" + prev_line + text_after_lines)
+                cursor.setPosition(apos-len(prev_line)-1, QtGui.QTextCursor.MoveAnchor)
+                cursor.setPosition(cpos-len(prev_line)-1, QtGui.QTextCursor.KeepAnchor)
+                self.setTextCursor(cursor)
+                return
+
+            elif key == down_arrow and ctrl and shift: #Ctrl+Shift+Up, to move the selected line/s up
+                if not len(text_after_lines):
+                    text_after_lines = ""
                 next_line_end_distance = text_after_lines.find("\n")
                 if next_line_end_distance == -1:
-                    next_line_end_pos = len(text_all) #Position of the start of the previous line
+                    next_line_end_pos = len(text_all)
                 else:
-                    next_line_end_pos = lineend_pos + next_line_end_distance
-                if not len(selection):
-                    #TODO MOVE FULL LINE
-                    pass
-                next_line = text_after_lines[next_line_end_pos:]
-                text_before_prev_line = text_after_lines[:next_line_end_pos]
-                self.setPlainText(text_before_prev_line + text_lines + prev_line + text_after_lines)
+                    next_line_end_pos = next_line_end_distance
+                next_line = text_after_lines[:next_line_end_pos]
+                text_after_next_line = text_after_lines[next_line_end_pos:]
 
+                self.setPlainText(text_before_lines + next_line + "\n" + text_lines + text_after_next_line)
+                cursor.setPosition(apos+len(next_line)+1, QtGui.QTextCursor.MoveAnchor)
+                cursor.setPosition(cpos+len(next_line)+1, QtGui.QTextCursor.KeepAnchor)
+                self.setTextCursor(cursor)
+                return
 
-
-
-                '''
-            #TODO fix this:
-            elif key == up_arrow: # If up key and nothing happens, go to start
-                QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-                QtWidgets.QApplication.processEvents()
-                new_pos = cursor.position()
-                print new_pos, cpos
-                if new_pos == cpos:
-                    cursor.setPosition(0)
+            elif key == up_arrow and not len(text_before_lines): # If up key and nothing happens, go to start
+                if not shift:
+                    cursor.setPosition(0, QtGui.QTextCursor.MoveAnchor)
                     self.setTextCursor(cursor)
-            elif key == Qt.Key_Down: # Opposite happens, go to end
-                QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-                new_pos = cursor.position()
-                if new_pos == cpos:
-                    cursor.movePosition(QtGui.QTextCursor.End)
+                else:
+                    cursor.setPosition(0, QtGui.QTextCursor.KeepAnchor)
                     self.setTextCursor(cursor)
-                '''
+
+            elif key == down_arrow and not len(text_after_lines): # If up key and nothing happens, go to start
+                if not shift:
+                    cursor.setPosition(len(text_all), QtGui.QTextCursor.MoveAnchor)
+                    self.setTextCursor(cursor)
+                else:
+                    cursor.setPosition(len(text_all), QtGui.QTextCursor.KeepAnchor)
+                    self.setTextCursor(cursor)
+
+            #if enter or return, match indent level
+            elif key in [16777220 ,16777221]:
+                self.indentNewLine()
             else:
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
-            
-            #print key
+
+            #TODO IMPORTANT: click on new script when on Untitled, create the new script with the current text instead of blank
+            #TODO IMPORTANT: If state txt has scripts that don't exist, don't crash (lol)
+            #TODO: Change node + selection panel -> GRAB THE PROPER NAME!!!! Fot nuke.root for example it's not working properly.
+
 
             
         self.scrollToCursor()
@@ -2601,14 +2606,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def keyPressEvent(self,event):
 
         # ADAPTED FROM NUKE's SCRIPT EDITOR
-        ctrl = (event.modifiers() and Qt.ControlModifier) #TODO: I HAVE TO FIX THIS SHIT
-        alt = (event.modifiers() and Qt.AltModifier) #TODO: I HAVE TO FIX THIS SHIT
-        shift = event.modifiers() and Qt.ShiftModifier #TODO: I HAVE TO FIX THIS SHIT
-        print event.modifiers() == Qt.ControlModifier
-        return
-        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
-        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
-        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        
+        ctrl = bool(event.modifiers() & Qt.ControlModifier)
+        alt = bool(event.modifiers() & Qt.AltModifier)
+        shift = bool(event.modifiers() & Qt.ShiftModifier)
         key = event.key()
 
 
@@ -2617,7 +2618,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
         #BEFORE ANYTHING ELSE, IF SPECIAL MODIFIERS SIMPLY IGNORE THE REST
         if not self._completerShowing and (ctrl or shift or alt):
-            print "bypassed!"
+            #Bypassed!
             KnobScripterTextEdit.keyPressEvent(self,event)
             return
         
