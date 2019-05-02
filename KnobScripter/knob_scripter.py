@@ -1955,14 +1955,21 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         Custom actions for specific keystrokes
         '''
         key = event.key()
-        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0) #TODO: I HAVE TO FIX THIS SHIT
-        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)#TODO: I HAVE TO FIX THIS SHIT
-        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)#TODO: I HAVE TO FIX THIS SHIT
+        ctrl = event.modifiers() and Qt.ControlModifier #TODO: I HAVE TO FIX THIS SHIT
+        alt = event.modifiers() and Qt.AltModifier #TODO: I HAVE TO FIX THIS SHIT
+        shift = event.modifiers() and Qt.ShiftModifier #TODO: I HAVE TO FIX THIS SHIT
+        #modifiers = QtWidgets.QApplication.keyboardModifiers()
+        #ctrl = (modifiers == Qt.ControlModifier)
+        #shift = (modifiers == Qt.ShiftModifier)
+
         up_arrow = 16777235
         down_arrow = 16777237
+        print ctrl
+        print shift
 
         if key == up_arrow:
             #TODO FIX THIS SHIT
+            pass
 
         if key == up_arrow and ctrl and shift:
             #TODO FIX THIS SHIT
@@ -2088,16 +2095,30 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                         cursor.setPosition(cpos+len(selection), QtGui.QTextCursor.KeepAnchor)
                     self.setTextCursor(cursor)
 
-            elif key == up_arrow and ctrl and shift: #Ctrl+Shift+Up, to move the selected line/s up or down
+            elif key == up_arrow and ctrl and shift: #Ctrl+Shift+Up, to move the selected line/s up
                 prev_line_start_distance = text_before_lines[::-1].find("\n")
                 if prev_line_start_distance == -1:
                     prev_line_start_pos = 0 #Position of the start of the previous line
                 else:
                     prev_line_start_pos = len(text_before_lines) - prev_line_start_distance
                 if not len(selection):
+                    #TODO MOVE FULL LINE
                     pass
                 prev_line = text_before_lines[prev_line_start_pos:]
                 text_before_prev_line = text_before_lines[:prev_line_start_pos]
+                self.setPlainText(text_before_prev_line + text_lines + prev_line + text_after_lines)
+
+            elif key == down_arrow and ctrl and shift: #Ctrl+Shift+Down, to move the selected line/s down
+                next_line_end_distance = text_after_lines.find("\n")
+                if next_line_end_distance == -1:
+                    next_line_end_pos = len(text_all) #Position of the start of the previous line
+                else:
+                    next_line_end_pos = lineend_pos + next_line_end_distance
+                if not len(selection):
+                    #TODO MOVE FULL LINE
+                    pass
+                next_line = text_after_lines[next_line_end_pos:]
+                text_before_prev_line = text_after_lines[:next_line_end_pos]
                 self.setPlainText(text_before_prev_line + text_lines + prev_line + text_after_lines)
 
 
@@ -2580,6 +2601,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def keyPressEvent(self,event):
 
         # ADAPTED FROM NUKE's SCRIPT EDITOR
+        ctrl = (event.modifiers() and Qt.ControlModifier) #TODO: I HAVE TO FIX THIS SHIT
+        alt = (event.modifiers() and Qt.AltModifier) #TODO: I HAVE TO FIX THIS SHIT
+        shift = event.modifiers() and Qt.ShiftModifier #TODO: I HAVE TO FIX THIS SHIT
+        print event.modifiers() == Qt.ControlModifier
+        return
         ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
         alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
         shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
