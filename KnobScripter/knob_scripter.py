@@ -98,7 +98,7 @@ class KnobScripter(QtWidgets.QWidget):
                 self.tabSpaces = self.loadedPrefs['tab_spaces']
                 self.pinned = self.loadedPrefs['pin_default']
             except TypeError:
-                logging.warning("KnobScripter: Failed to load preferences.")
+                log("KnobScripter: Failed to load preferences.")
 
         # Load snippets
         self.snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Snippets.txt"))
@@ -492,7 +492,7 @@ class KnobScripter(QtWidgets.QWidget):
         ''' Get the content of the knob value and populate the editor '''
         if self.toLoadKnob == False:
             return
-        dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
+        dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()) # knobChanged...
         try:
             obtained_knobValue = str(self.node[dropdown_value].value())
             obtained_scrollValue = 0
@@ -506,10 +506,10 @@ class KnobScripter(QtWidgets.QWidget):
         if updateDict==True:
             self.unsavedKnobs[self.knob] = edited_knobValue
             self.scrollPos[self.knob] = self.script_editor.verticalScrollBar().value()
-        prev_knob = self.knob
+        prev_knob = self.knob # knobChanged...
 
-        self.knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
-        #self.knob = self.current_knob_dropdown.currentText().split(" (")[0]
+        self.knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()) # knobChanged...
+
         if check and obtained_knobValue != edited_knobValue:
             msgBox = QtWidgets.QMessageBox()
             msgBox.setText("The Script Editor has been modified.")
@@ -539,6 +539,9 @@ class KnobScripter(QtWidgets.QWidget):
 
             if self.knob in self.scrollPos:
                 obtained_scrollValue = self.scrollPos[self.knob]
+        else:
+            self.script_editor.setPlainText(obtained_knobValue)
+
         cursor = self.script_editor.textCursor()
         self.script_editor.setTextCursor(cursor)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
@@ -617,16 +620,22 @@ class KnobScripter(QtWidgets.QWidget):
             errorBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
             reply = errorBox.exec_()
         else:
-            logging.info("KnobScripter: %s knobs saved" % str(savedCount))
+            log("KnobScripter: %s knobs saved" % str(savedCount))
         return
 
     def setCurrentKnob(self, knobToSet):
         ''' Set current knob '''
-        KnobDropdownItems = [self.current_knob_dropdown.itemData(i).encode('UTF8') for i in range(self.current_knob_dropdown.count())]
+        KnobDropdownItems = []
+        for i in range(self.current_knob_dropdown.count()):
+            if self.current_knob_dropdown.itemData(i) is not None:
+                KnobDropdownItems.append(self.current_knob_dropdown.itemData(i))
+            else:
+                KnobDropdownItems.append("---")
         if knobToSet in KnobDropdownItems:
             index = KnobDropdownItems.index(knobToSet)
             self.current_knob_dropdown.setCurrentIndex(index)
         return
+        #TODO IMPORTANT on changing node, reload the contents of scripteditor!!!!!!
 
     def updateUnsavedKnobs(self, first_time=False):
         ''' Clear unchanged knobs from the dict and return the number of unsaved knobs '''
@@ -694,7 +703,7 @@ class KnobScripter(QtWidgets.QWidget):
         try:
             scriptFolders = sorted([f for f in os.listdir(self.scripts_dir) if os.path.isdir(os.path.join(self.scripts_dir, f))]) # Accepts symlinks!!!
         except:
-            logging.warning("Couldn't read any script folders.")
+            log("Couldn't read any script folders.")
 
         for f in scriptFolders:
             fname = f.split("/")[-1]
@@ -736,7 +745,7 @@ class KnobScripter(QtWidgets.QWidget):
             found_scripts = sorted([f for f in dir_list if f.endswith(".py")])
             found_temp_scripts = [f for f in dir_list if f.endswith(".py.autosave")]
         except:
-            logging.warning("Couldn't find any scripts in the selected folder.")
+            log("Couldn't find any scripts in the selected folder.")
         if not len(found_scripts):
             for s in defaultScripts:
                 if s+".autosave" in found_temp_scripts:
@@ -1021,13 +1030,11 @@ class KnobScripter(QtWidgets.QWidget):
 
         elif fd_data == "add custom path":
             folder_path = nuke.getFilename('Select custom folder.')
-            print folder_path
             if folder_path is not None:
                 if folder_path.endswith("/"):
                     aliasName = folder_path.split("/")[-2]
                 else:
                     aliasName = folder_path.split("/")[-1]
-                print aliasName
                 if not os.path.isdir(folder_path):
                     self.messageBox("Folder not found. Please try again with the full path to a folder.")
                 elif not len(aliasName):
@@ -1304,7 +1311,6 @@ class KnobScripter(QtWidgets.QWidget):
         selection = knobScripterSelectedNodes
         if self.nodeMode: # Only update the number of unsaved knobs if we were already in node mode
             updatedCount = self.updateUnsavedKnobs()
-            print "NODEMODE!!!!!?????"
         else:
             updatedCount = 0
             self.autosave()
@@ -1347,6 +1353,7 @@ class KnobScripter(QtWidgets.QWidget):
         if len(selection) > 1:
             self.messageBox("More than one node selected.\nChanging knobChanged editor to %s" % selection[0].fullName())
         # Reinitialise everything, wooo!
+        self.current_knob_dropdown.blockSignals(True)
         self.node = selection[0]
         self.script_editor.setPlainText("")
         self.unsavedKnobs = {}
@@ -1363,6 +1370,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.loadKnobValue(False)
         self.script_editor.setFocus()
         self.setKnobModified(False)
+        self.current_knob_dropdown.blockSignals(False)
         #self.current_knob_dropdown.setMinimumContentsLength(80)
         return
     
@@ -2054,7 +2062,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                     cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                     cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            elif key == 35: # # (yes, a hash)
+            elif key == 35 and len(selection): # # (yes, a hash)
                 # If there's a selection, insert a hash at the start of each line.. how the fuck?
                 if selection != "":
                     #TODO Implement an "iscommented" function somewhere? or better, find a way to differentiate the line from the newline character. not sure how but whatever
