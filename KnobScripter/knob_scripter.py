@@ -468,10 +468,6 @@ class KnobScripter(QtWidgets.QWidget):
         counter = 0
         for i in self.node.knobs():
             if i not in defaultKnobs and self.node.knob(i).Class() in permittedKnobClasses:
-                #TODO add (*)s
-                print i
-                print self.unsavedKnobs.keys()
-                print "---"
                 if i in self.unsavedKnobs.keys():
                     self.current_knob_dropdown.addItem(i+"(*)", i)
                 else:
@@ -485,9 +481,6 @@ class KnobScripter(QtWidgets.QWidget):
             counter += 1
         for i in self.node.knobs():
             if i in defaultKnobs:
-                print i
-                print self.unsavedKnobs.keys()
-                print "---"
                 if i in self.unsavedKnobs.keys():
                     self.current_knob_dropdown.addItem(i+"(*)", i)
                 else:
@@ -1064,7 +1057,6 @@ class KnobScripter(QtWidgets.QWidget):
 
             self.loadScriptState()
             self.setScriptState()
-            # TODO IMPORTANT REFRESH BUTTON TO WORK. RUN SCRIPT BUTTON.
 
         return
 
@@ -1507,7 +1499,6 @@ class KnobScripter(QtWidgets.QWidget):
     def refreshClicked(self):
         ''' Function to refresh the dropdowns '''
         if self.nodeMode:
-            #knob = self.knob
             knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()).encode('UTF8')
             self.current_knob_dropdown.blockSignals(True)
             self.current_knob_dropdown.clear() # First remove all items
@@ -1520,7 +1511,6 @@ class KnobScripter(QtWidgets.QWidget):
             folder = self.current_folder
             script = self.current_script
             self.autosave()
-            #TODO: not change the current script..
             self.updateFoldersDropdown()
             self.setCurrentFolder(folder)
             self.updateScriptsDropdown()
