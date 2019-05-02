@@ -721,6 +721,7 @@ class KnobScripter(QtWidgets.QWidget):
         ''' Populate py scripts dropdown list '''
         self.current_script_dropdown.blockSignals(True)
         self.current_script_dropdown.clear() # First remove all items
+        QtWidgets.QApplication.processEvents()
         log("# Updating scripts dropdown...")
         log("scripts dir:"+self.scripts_dir)
         log("current folder:"+self.current_folder)
@@ -748,6 +749,8 @@ class KnobScripter(QtWidgets.QWidget):
                 if s+".autosave" in found_temp_scripts:
                     self.current_script_dropdown.addItem(s+"(*)",s)
             for s in found_scripts:
+                if s in defaultScripts:
+                    continue
                 sname = s.split("/")[-1]
                 if s+".autosave" in found_temp_scripts:
                     self.current_script_dropdown.addItem(sname+"(*)", sname)
@@ -756,10 +759,10 @@ class KnobScripter(QtWidgets.QWidget):
                 counter += 1
         ##else: #Add the found scripts to the dropdown
         if counter > 0:
-            self.current_script_dropdown.insertSeparator(counter)
             counter += 1
             self.current_script_dropdown.insertSeparator(counter)
             counter += 1
+            self.current_script_dropdown.insertSeparator(counter)
         self.current_script_dropdown.addItem("New", "create new")
         self.current_script_dropdown.addItem("Duplicate", "create duplicate")
         self.current_script_dropdown.addItem("Delete", "delete script")
@@ -1083,9 +1086,11 @@ class KnobScripter(QtWidgets.QWidget):
                     # Success creating the folder
                     self.saveScriptContents(temp = True)
                     self.updateScriptsDropdown()
-                    self.script_editor.setPlainText("")
+                    if self.current_script != "Untitled.py":
+                        self.script_editor.setPlainText("")
                     self.current_script = script_name
                     self.setCurrentScript(script_name)
+                    self.saveScriptContents(temp=False)
                     #self.loadScriptContents()
                 else:
                     self.messageBox("There was a problem creating the script.")
