@@ -2021,6 +2021,25 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                     cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                     cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
+            elif key == 35: # # (yes, a hash)
+                # If there's a selection, insert a hash at the start of each line.. how the fuck?
+                if selection != "":
+                    #TODO Implement an "iscommented" function somewhere? or better, find a way to differentiate the line from the newline character. not sure how but whatever
+                    selection_split = selection.split("\n")
+                    #TODO check if it's already commented in order to uncomment it.
+                    if all(i.startswith("#") for i in selection_split):
+                        selection_commented = "\n".join([s[1:] for s in selection_split]) # Uncommented
+                    else:
+                        selection_commented = "#"+"\n#".join(selection_split)
+                    cursor.insertText(selection_commented)
+                    if apos > cpos:
+                        cursor.setPosition(apos+len(selection_commented)-len(selection), QtGui.QTextCursor.MoveAnchor)
+                        cursor.setPosition(cpos, QtGui.QTextCursor.KeepAnchor)
+                    else:
+                        cursor.setPosition(apos, QtGui.QTextCursor.MoveAnchor)
+                        cursor.setPosition(cpos+len(selection_commented)-len(selection), QtGui.QTextCursor.KeepAnchor)
+                    self.setTextCursor(cursor)
+
                 '''
             elif key == Qt.Key_Up: # If up key and nothing happens, go to start
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
