@@ -1,9 +1,9 @@
 #-------------------------------------------------
 # Knob Scripter by Adrian Pueyo
-# Script editor for python and callback knobs
+# Complete sript editor for Nuke
 # adrianpueyo.com, 2017-2019
-version = "1.3BETA"
-date = "April 22 2019"
+version = "2.0 BETA 1"
+date = "May 7 2019"
 #-------------------------------------------------
 
 import nuke
@@ -409,6 +409,8 @@ class KnobScripter(QtWidgets.QWidget):
 
         # Actions
         self.echoAct = QtWidgets.QAction("Echo python commands", self, checkable=True, statusTip="Toggle nuke's 'Echo all python commands to ScriptEditor'", triggered=self.toggleEcho)
+        if nuke.toNode("preferences").knob("echoAllCommands").value():
+            self.echoAct.toggle()
         self.pinAct = QtWidgets.QAction("Always on top", self, checkable=True, statusTip="Keeps the KnobScripter window always on top or not.", triggered=self.togglePin)
         if self.pinned:
             self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
@@ -635,7 +637,6 @@ class KnobScripter(QtWidgets.QWidget):
             index = KnobDropdownItems.index(knobToSet)
             self.current_knob_dropdown.setCurrentIndex(index)
         return
-        #TODO IMPORTANT on changing node, reload the contents of scripteditor!!!!!!
 
     def updateUnsavedKnobs(self, first_time=False):
         ''' Clear unchanged knobs from the dict and return the number of unsaved knobs '''
@@ -757,6 +758,8 @@ class KnobScripter(QtWidgets.QWidget):
             for s in defaultScripts:
                 if s+".autosave" in found_temp_scripts:
                     self.current_script_dropdown.addItem(s+"(*)",s)
+                elif s in found_scripts:
+                    self.current_script_dropdown.addItem(s,s)
             for s in found_scripts:
                 if s in defaultScripts:
                     continue
@@ -1139,8 +1142,6 @@ class KnobScripter(QtWidgets.QWidget):
                 self.current_script_dropdown.setCurrentIndex(self.script_index)
 
             self.current_script_dropdown.blockSignals(False)
-
-        #TODO add "Rename" option?
 
         elif sd_data == "open in browser":
             current_script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
@@ -1608,13 +1609,11 @@ class KnobScripterPane(KnobScripter):
         except:
             pass
         return KnobScripter.showEvent(self,the_event)
-    #TODO: catch ctrl+s etc if possible
 
     def hideEvent(self, the_event):
         self.autosave()
         return KnobScripter.hideEvent(self,the_event)
 
-#TODO VERTICAL SEPARATOR NEXT TO SAVE BUTTON
 
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
@@ -2022,7 +2021,10 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 selection = cursor.selection().toPlainText()
             else:
                 selection = ""
-            if key == Qt.Key_ParenLeft: # (
+            if key == Qt.Key_ParenLeft and (len(selection)>0 or re.match(r"[\S]+", text_after_cursor)): # (
+                # Only if len(selection) or the text after the cursor is not a non-space character...
+                #TODO Echo commands button should pick the nuke's state by default... or click on the prefs menu should update what's the state of nuke's echo
+                #TODO link to the proper documentation, about me etc.
                 cursor.insertText("("+selection+")")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
@@ -2030,12 +2032,20 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == Qt.Key_ParenRight and text_after_cursor.startswith(")"): # )
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key == 91: #[
+            elif key == Qt.Key_BracketLeft and (len(selection) or re.match(r"[\S]+", text_after_cursor)): #[
                 cursor.insertText("["+selection+"]")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            elif key == 93 and text_after_cursor.startswith("]"): # ]
+            elif key == Qt.Key_BracketRight and text_after_cursor.startswith("]"): # ]
+                cursor.movePosition(QtGui.QTextCursor.NextCharacter)
+                self.setTextCursor(cursor)
+            elif key == Qt.Key_BraceLeft and (len(selection) or re.match(r"[\S]+", text_after_cursor)): #{
+                cursor.insertText("{"+selection+"}")
+                cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
+                cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
+                self.setTextCursor(cursor)
+            elif key == Qt.Key_BraceRight and text_after_cursor.startswith("}"): # }
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
             elif key == 34: # "
@@ -2065,7 +2075,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == 35 and len(selection): # # (yes, a hash)
                 # If there's a selection, insert a hash at the start of each line.. how the fuck?
                 if selection != "":
-                    #TODO Implement an "iscommented" function somewhere? or better, find a way to differentiate the line from the newline character. not sure how but whatever
                     selection_split = selection.split("\n")
                     if all(i.startswith("#") for i in selection_split):
                         selection_commented = "\n".join([s[1:] for s in selection_split]) # Uncommented
@@ -2159,12 +2168,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             else:
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
 
-            #TODO IMPORTANT: click on new script when on Untitled, create the new script with the current text instead of blank
-            #TODO IMPORTANT: If state txt has scripts that don't exist, don't crash (lol)
-            #TODO: Change node + selection panel -> GRAB THE PROPER NAME!!!! Fot nuke.root for example it's not working properly.
-
-
-            
         self.scrollToCursor()
 
     def scrollToCursor(self):
@@ -2769,8 +2772,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                     if x.startswith(searchString) :
                         matching.append(x)
                 return matching
-            else : 
-                try : 
+            else:
+                try:
                     if sys.modules.has_key(searchString) :
                         return dir(sys.modules['%s' % searchString])
                     elif globals().has_key(searchString): 
