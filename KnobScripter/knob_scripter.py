@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2017-2019
 version = "2.0 BETA 1"
-date = "May 7 2019"
+date = "May 8 2019"
 #-------------------------------------------------
 
 import nuke
@@ -1421,6 +1421,7 @@ class KnobScripter(QtWidgets.QWidget):
         '''
         Load prefs recursive. When maximum recursion depth, ignores paths.
         '''
+        #TODO IMPORTANT: ALWAYS KEEP CURSOR POSITION VISIBLE ON THE SCROLL! Even if we're simply selecting the text upwards
         max_depth = maxDepth
         cur_depth = depth
         if path == "":
@@ -2570,7 +2571,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         match_key = None
         match_snippet = ""
         for key, val in dic.items():
-            match = re.search(r"[\s.({\[,;=+-]"+key+r"(?:[\s)\]\"]+|$)",text)
+            #match = re.search(r"[\s\.({\[,;=+-]"+key+r"(?:[\s)\]\"]+|$)",text)
+            match = re.search(r"[\s\.({\[,;=+-]"+key+r"$",text)
             if match or text == key:
                 if len(key) > longest:
                     longest = len(key)
