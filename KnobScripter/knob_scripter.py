@@ -395,10 +395,13 @@ class KnobScripter(QtWidgets.QWidget):
 
         # Set default values based on mode
         if self.nodeMode:
+            self.current_knob_dropdown.blockSignals(True)
             self.node_mode_bar.setVisible(True)
             self.script_mode_bar.setVisible(False)
             self.setCurrentKnob(self.knob)
             self.loadKnobValue(check = False)
+            self.setKnobModified(False)
+            self.current_knob_dropdown.blockSignals(False)
             self.splitter.setSizes([0,1])
         else:
             self.exitNodeMode()
@@ -640,6 +643,9 @@ class KnobScripter(QtWidgets.QWidget):
 
     def updateUnsavedKnobs(self, first_time=False):
         ''' Clear unchanged knobs from the dict and return the number of unsaved knobs '''
+        if not self.node:
+            # Node has been deleted, so simply return 0. Who cares.
+            return 0
         edited_knobValue = self.script_editor.toPlainText()
         self.unsavedKnobs[self.knob] = edited_knobValue
         if len(self.unsavedKnobs) > 0:
@@ -1308,10 +1314,20 @@ class KnobScripter(QtWidgets.QWidget):
 
     def changeClicked(self, newNode=""):
         ''' Change node '''
+        try:
+            print self.node
+        except:
+            self.node = None
+            if not len(nuke.selectedNodes()):
+                self.exitNodeMode()
+                return
         nuke.menu("Nuke").findItem("Edit/Node/Update KnobScripter Context").invoke()
         selection = knobScripterSelectedNodes
         if self.nodeMode: # Only update the number of unsaved knobs if we were already in node mode
-            updatedCount = self.updateUnsavedKnobs()
+            if self.node is not None:
+                updatedCount = self.updateUnsavedKnobs()
+            else:
+                updatedCount = 0
         else:
             updatedCount = 0
             self.autosave()
@@ -1334,9 +1350,13 @@ class KnobScripter(QtWidgets.QWidget):
             self.saveScriptState()
             self.splitter.setSizes([0,1])
         self.nodeMode = True
+        print "self.node:"
+        print self.node
+        print "selection 0 fullname:"
+        print selection[0].fullName()
 
         # If already selected, pass
-        if selection[0].fullName() == self.node.fullName():
+        if self.node is not None and selection[0].fullName() == self.node.fullName():
             self.messageBox("Please select a different node first!")
             return
         elif updatedCount > 0:
@@ -1355,7 +1375,10 @@ class KnobScripter(QtWidgets.QWidget):
             self.messageBox("More than one node selected.\nChanging knobChanged editor to %s" % selection[0].fullName())
         # Reinitialise everything, wooo!
         self.current_knob_dropdown.blockSignals(True)
+        print "selection:"
+        print selection
         self.node = selection[0]
+
         self.script_editor.setPlainText("")
         self.unsavedKnobs = {}
         self.scrollPos = {}
@@ -3376,7 +3399,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.apply_btn = QtWidgets.QPushButton('Apply')
         self.apply_btn.setToolTip("Save the snippets into a json file.")
         self.apply_btn.setShortcut('Ctrl+S')
-        self.apply_btn.clicked.connect(self.saveSnippets)
+        self.apply_btn.clicked.connect(self.applySnippets)
         self.bottom_layout.addWidget(self.apply_btn)
 
         self.help_btn = QtWidgets.QPushButton('Help')
@@ -3446,10 +3469,13 @@ class SnippetsPanel(QtWidgets.QDialog):
             prefs = json.dump(snippets, f, sort_keys=True, indent=4)
         return prefs
 
-    def okPressed(self):
+    def applySnippets(self):
         self.saveSnippets()
         self.mainWidget.snippets = self.mainWidget.loadSnippets(maxDepth=5)
         self.mainWidget.loadSnippets()
+
+    def okPressed(self):
+        self.applySnippets()
         self.accept()
 
     def addSnippet(self, key="", val=""):
