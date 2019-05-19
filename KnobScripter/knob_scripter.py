@@ -1,9 +1,9 @@
 #-------------------------------------------------
 # Knob Scripter by Adrian Pueyo
 # Complete sript editor for Nuke
-# adrianpueyo.com, 2017-2019
-version = "2.0 BETA 1"
-date = "May 8 2019"
+# adrianpueyo.com, 2016-2019
+version = "2.0"
+date = "May 19 2019"
 #-------------------------------------------------
 
 import nuke
@@ -19,7 +19,6 @@ import subprocess
 import platform
 from threading import Event, Thread
 from webbrowser import open as openUrl
-#import logging
 
 try:
     from PySide import QtCore, QtGui, QtGui as QtWidgets
@@ -460,7 +459,7 @@ class KnobScripter(QtWidgets.QWidget):
         openUrl("https://github.com/adrianpueyo/KnobScripter")
 
     def showHelp(self):
-        openUrl("http://www.adrianpueyo.com/")
+        openUrl("https://vimeo.com/adrianpueyo/knobscripter2")
 
 
     # Node Mode
@@ -1350,10 +1349,6 @@ class KnobScripter(QtWidgets.QWidget):
             self.saveScriptState()
             self.splitter.setSizes([0,1])
         self.nodeMode = True
-        print "self.node:"
-        print self.node
-        print "selection 0 fullname:"
-        print selection[0].fullName()
 
         # If already selected, pass
         if self.node is not None and selection[0].fullName() == self.node.fullName():
@@ -1375,8 +1370,6 @@ class KnobScripter(QtWidgets.QWidget):
             self.messageBox("More than one node selected.\nChanging knobChanged editor to %s" % selection[0].fullName())
         # Reinitialise everything, wooo!
         self.current_knob_dropdown.blockSignals(True)
-        print "selection:"
-        print selection
         self.node = selection[0]
 
         self.script_editor.setPlainText("")
@@ -1444,7 +1437,6 @@ class KnobScripter(QtWidgets.QWidget):
         '''
         Load prefs recursive. When maximum recursion depth, ignores paths.
         '''
-        #TODO IMPORTANT: ALWAYS KEEP CURSOR POSITION VISIBLE ON THE SCROLL! Even if we're simply selecting the text upwards
         max_depth = maxDepth
         cur_depth = depth
         if path == "":
@@ -1638,7 +1630,6 @@ class KnobScripterPane(KnobScripter):
         self.autosave()
         return KnobScripter.hideEvent(self,the_event)
 
-
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
     try:
@@ -1678,8 +1669,7 @@ def debug(lev=0):
     DebugMode = True
 
 def log(text):
-    ''' Display a debug info message'''
-    #logging.info(text)
+    ''' Display a debug info message. Yes, in a stupid way. I know.'''
     global DebugMode
     if DebugMode:
         print(text)
@@ -2046,9 +2036,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 selection = cursor.selection().toPlainText()
             else:
                 selection = ""
-            if key == Qt.Key_ParenLeft and (len(selection)>0 or re.match(r"[\s]+", text_after_cursor)): # (
+            if key == Qt.Key_ParenLeft and (len(selection)>0 or not re.match(r"[\S]+", text_after_cursor)): # (
                 # Only if len(selection) or the text after the cursor is not a non-space character...
-                #TODO link to the proper documentation, about me etc.
                 cursor.insertText("("+selection+")")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
@@ -2056,7 +2045,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == Qt.Key_ParenRight and text_after_cursor.startswith(")"): # )
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BracketLeft and (len(selection) or re.match(r"[\s]+", text_after_cursor)): #[
+            elif key == Qt.Key_BracketLeft and (len(selection) or not re.match(r"[\S]+", text_after_cursor)): #[
                 cursor.insertText("["+selection+"]")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
@@ -2064,7 +2053,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == Qt.Key_BracketRight and text_after_cursor.startswith("]"): # ]
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BraceLeft and (len(selection) or re.match(r"[\s]+", text_after_cursor)): #{
+            elif key == Qt.Key_BraceLeft and (len(selection) or not re.match(r"[\S]+", text_after_cursor)): #{
                 cursor.insertText("{"+selection+"}")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
@@ -2073,7 +2062,11 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
             elif key == 34: # "
-                if text_after_cursor.startswith('"') and '"' in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
+                if len(selection)>0:
+                    cursor.insertText('"'+selection+'"')
+                    cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
+                    cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
+                elif text_after_cursor.startswith('"') and '"' in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
                     cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
                     QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
@@ -2085,7 +2078,11 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                     cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
             elif key == 39: # '
-                if text_after_cursor.startswith("'") and "'" in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
+                if len(selection)>0:
+                    cursor.insertText("'"+selection+"'")
+                    cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
+                    cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
+                elif text_after_cursor.startswith("'") and "'" in text_before_cursor.split("\n")[-1]:# and not re.search(r"(?:[\s)\]]+|$)",text_before_cursor):
                     cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 elif not re.match(r"(?:[\s)\]]+|$)",text_after_cursor): # If chars after cursor, act normal
                     QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
@@ -2375,6 +2372,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         extraSelections.append(selection)
 
         self.setExtraSelections(extraSelections)
+        self.scrollToCursor()
 
 class KSLineNumberArea(QtWidgets.QWidget):
     def __init__(self, scriptEditor):
@@ -2647,7 +2645,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
     def keyPressEvent(self,event):
 
-        # ADAPTED FROM NUKE's SCRIPT EDITOR
         
         ctrl = bool(event.modifiers() & Qt.ControlModifier)
         alt = bool(event.modifiers() & Qt.AltModifier)
@@ -2655,6 +2652,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         key = event.key()
 
 
+        #ADAPTED FROM NUKE's SCRIPT EDITOR:
         #Get completer state
         self.nukeCompleterShowing = self.nukeCompleter.popup().isVisible()
 
@@ -2731,7 +2729,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                         self.cursor.deletePreviousChar()
                     self.addSnippetText(match_snippet) # This function takes care of adding the appropriate snippet and moving the cursor...
                 except: # Meaning snippet not found...
-                    # FROM NUKE's SCRIPT EDITOR START
+                    # ADAPTED FROM NUKE's SCRIPT EDITOR:
                     tc = self.textCursor()
                     allCode = self.toPlainText()
                     colNum = tc.columnNumber()
@@ -2784,7 +2782,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
     # Nuke script editor's modules completer
     def completionsForcompletionPart(self, completionPart):
-        #TODO: refactor all the snippets part
         def findModules(searchString):
             sysModules =  sys.modules
             globalModules = globals()
