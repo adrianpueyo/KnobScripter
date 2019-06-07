@@ -2,8 +2,8 @@
 # Knob Scripter by Adrian Pueyo
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.0.1"
-date = "June 7 2019"
+version = "2.0"
+date = "May 19 2019"
 #-------------------------------------------------
 
 import nuke
@@ -1985,6 +1985,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         ctrl = bool(event.modifiers() & Qt.ControlModifier)
         alt = bool(event.modifiers() & Qt.AltModifier)
         shift = bool(event.modifiers() & Qt.ShiftModifier)
+        pre_scroll = self.verticalScrollBar().value()
         #modifiers = QtWidgets.QApplication.keyboardModifiers()
         #ctrl = (modifiers == Qt.ControlModifier)
         #shift = (modifiers == Qt.ShiftModifier)
@@ -2117,6 +2118,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                     cursor.setPosition(apos+len(text_lines)+1, QtGui.QTextCursor.MoveAnchor)
                     cursor.setPosition(cpos+len(text_lines)+1, QtGui.QTextCursor.KeepAnchor)
                     self.setTextCursor(cursor)
+                    self.verticalScrollBar().setValue(pre_scroll)
+                    self.scrollToCursor()
                 else:
                     if text_before_cursor.endswith("\n") and not selection.startswith("\n"):
                         cursor.insertText(selection+"\n"+selection)
@@ -2148,6 +2151,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.setPosition(apos-len(prev_line)-1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos-len(prev_line)-1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
+                self.verticalScrollBar().setValue(pre_scroll)
+                self.scrollToCursor()
                 return
 
             elif key == down_arrow and ctrl and shift: #Ctrl+Shift+Up, to move the selected line/s up
@@ -2165,6 +2170,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.setPosition(apos+len(next_line)+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+len(next_line)+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
+                self.verticalScrollBar().setValue(pre_scroll)
+                self.scrollToCursor() #DONE: Improved auto-scroll behavior
                 return
 
             elif key == up_arrow and not len(text_before_lines): # If up key and nothing happens, go to start
