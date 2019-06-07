@@ -2,8 +2,8 @@
 # Knob Scripter by Adrian Pueyo
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.0"
-date = "May 19 2019"
+version = "2.0.1"
+date = "June 7 2019"
 #-------------------------------------------------
 
 import nuke
@@ -2274,6 +2274,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
     def indentation(self, mode):
 
+        pre_scroll = self.verticalScrollBar().value()
         self.getCursorInfo()
 
         #if nothing is selected and mode is set to indent, simply insert as many
@@ -2323,6 +2324,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             self.cursor.movePosition(lastBlockSnap,QtGui.QTextCursor.KeepAnchor)
 
         self.setTextCursor(self.cursor)
+        self.verticalScrollBar().setValue(pre_scroll) #DONE: Unindent keeps scroll value
+
 
     def findBlocks(self, first = 0, last = None, exclude = []):
         blocks = []
