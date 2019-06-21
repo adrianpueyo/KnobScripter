@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.0"
-date = "May 19 2019"
+date = "Jun 21 2019"
 #-------------------------------------------------
 
 import nuke
@@ -64,6 +64,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.scrollPos = {}
         self.cursorPos = {}
         self.fontSize = 11
+        self.font = "Courier"
         self.tabSpaces = 4
         self.windowDefaultSize = [500, 300]
         self.pinned = 1
@@ -92,10 +93,13 @@ class KnobScripter(QtWidgets.QWidget):
         self.loadedPrefs = self.loadPrefs()
         if self.loadedPrefs != []:
             try:
-                self.fontSize = self.loadedPrefs['font_size']
+                if "font_size" in self.loadedPrefs:
+                    self.fontSize = self.loadedPrefs['font_size']
                 self.windowDefaultSize = [self.loadedPrefs['window_default_w'], self.loadedPrefs['window_default_h']]
                 self.tabSpaces = self.loadedPrefs['tab_spaces']
                 self.pinned = self.loadedPrefs['pin_default']
+                if "font" in self.loadedPrefs:
+                    self.font = self.loadedPrefs['font']
             except TypeError:
                 log("KnobScripter: Failed to load preferences.")
 
@@ -347,7 +351,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_editor.textChanged.connect(self.setModified)
         KSScriptEditorHighlighter(self.script_editor.document())
         self.script_editor_font = QtGui.QFont()
-        self.script_editor_font.setFamily("Courier")
+        self.script_editor_font.setFamily(self.font)
         self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
         self.script_editor_font.setFixedPitch(True)
         self.script_editor_font.setPointSize(self.fontSize)
@@ -2421,7 +2425,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'del', 'elif', 'else', 'except', 'exec', 'finally',
             'for', 'from', 'global', 'if', 'import', 'in',
             'is', 'lambda', 'not', 'or', 'pass', 'print',
-            'raise', 'return', 'try', 'while', 'yield'
+            'raise', 'return', 'try', 'while', 'yield', 'with'
             ]
 
         self.operatorKeywords = [
@@ -2935,6 +2939,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.prefs_txt = self.knobScripter.prefs_txt
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.oldFontSize = self.knobScripter.script_editor_font.pointSize()
+        self.oldFont = self.knobScripter.script_editor_font.family()
+        self.font = self.oldFont
         self.oldDefaultW = self.knobScripter.windowDefaultSize[0]
         self.oldDefaultH = self.knobScripter.windowDefaultSize[1]
 
@@ -2961,6 +2967,16 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         kspSignature.setAlignment(QtCore.Qt.AlignRight)
 
 
+        #TODO: Font selector
+        fontLabel = QtWidgets.QLabel("Font:")
+        self.fontBox = QtWidgets.QFontComboBox()
+        #self.fontBox.setFontFilters(QtWidgets.QFontComboBox.MonospacedFonts)
+        self.fontBox.setCurrentFont(QtGui.QFont(self.font))
+        #self.fontSizeBox.setMinimum(6)
+        #self.fontSizeBox.setMaximum(100)
+        self.fontBox.currentFontChanged.connect(self.fontChanged)
+
+
         fontSizeLabel = QtWidgets.QLabel("Font size:")
         self.fontSizeBox = QtWidgets.QSpinBox()
         self.fontSizeBox.setValue(self.oldFontSize)
@@ -2983,6 +2999,9 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.windowHBox.setMinimum(100)
         self.windowHBox.setMaximum(2000)
         self.windowHBox.setToolTip("Default window height in pixels")
+
+        #TODO: "Grab current dimensions" button
+        #TODO: Option to Display knob labels too
         
         tabSpaceLabel = QtWidgets.QLabel("Tab spaces:")
         tabSpaceLabel.setToolTip("Number of spaces to add with the tab key.")
@@ -3007,6 +3026,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.pinDefaultOff.clicked.connect(lambda:self.knobScripter.pin(False))
 
 
+
+
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         self.buttonBox.accepted.connect(self.savePrefs)
         self.buttonBox.rejected.connect(self.cancelPrefs)
@@ -3027,6 +3048,10 @@ class KnobScripterPrefs(QtWidgets.QDialog):
                 pass
 
         # Layouts
+        font_layout = QtWidgets.QHBoxLayout()
+        font_layout.addWidget(fontLabel)
+        font_layout.addWidget(self.fontBox)
+        
         fontSize_layout = QtWidgets.QHBoxLayout()
         fontSize_layout.addWidget(fontSizeLabel)
         fontSize_layout.addWidget(self.fontSizeBox)
@@ -3058,6 +3083,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.master_layout.addWidget(kspTitle)
         self.master_layout.addWidget(kspSignature)
         self.master_layout.addWidget(kspLine)
+        self.master_layout.addLayout(font_layout)
         self.master_layout.addLayout(fontSize_layout)
         self.master_layout.addLayout(windowW_layout)
         self.master_layout.addLayout(windowH_layout)
@@ -3068,14 +3094,18 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.setFixedSize(self.minimumSize())
 
     def savePrefs(self):
+        self.font = self.fontBox.currentFont().family()
         ks_prefs = {
             'font_size': self.fontSizeBox.value(),
             'window_default_w': self.windowWBox.value(),
             'window_default_h': self.windowHBox.value(),
             'tab_spaces': self.tabSpaceValue(),
-            'pin_default': self.pinDefaultValue()
+            'pin_default': self.pinDefaultValue(),
+            'font': self.font
         }
+        self.knobScripter.script_editor_font.setFamily(self.font)
         self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
+        self.knobScripter.font = self.font
         self.knobScripter.tabSpaces = self.tabSpaceValue()
         self.knobScripter.script_editor.tabSpaces = self.tabSpaceValue()
         with open(self.prefs_txt,"w") as f:
@@ -3092,8 +3122,16 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.knobScripter.script_editor_font.setPointSize(self.fontSizeBox.value())
         self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
         return
+
+    def fontChanged(self):
+        self.font = self.fontBox.currentFont().family()
+        self.knobScripter.script_editor_font.setFamily(self.font)
+        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
+        return
+
     def tabSpaceValue(self):
         return 2 if self.tabSpace2.isChecked() else 4
+
     def pinDefaultValue(self):
         return 1 if self.pinDefaultOn.isChecked() else 0
 
@@ -3115,6 +3153,7 @@ def updateContext():
 #--------------------------------
 class FindReplaceWidget(QtWidgets.QWidget):
     ''' SearchReplace Widget for the knobscripter. FindReplaceWidget(editor = QPlainTextEdit) '''
+
     def __init__(self, parent):
         super(FindReplaceWidget,self).__init__(parent)
 
