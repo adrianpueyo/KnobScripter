@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.0"
-date = "Jun 21 2019"
+date = "May 19 2019"
 #-------------------------------------------------
 
 import nuke
@@ -67,6 +67,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.font = "Courier"
         self.tabSpaces = 4
         self.windowDefaultSize = [500, 300]
+        self.color_scheme = "sublime" # Can be nuke or sublime
         self.pinned = 1
         self.toLoadKnob = True
         self.frw_open = False # Find replace widget closed by default
@@ -349,7 +350,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
-        KSScriptEditorHighlighter(self.script_editor.document())
+        KSScriptEditorHighlighter(self.script_editor.document(), self)
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily(self.font)
         self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
@@ -2409,15 +2410,17 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
     modifications to make it fit my needs.
     '''
 
-    def __init__(self, document):
+    def __init__(self, document, parent=None):
 
         super(KSScriptEditorHighlighter, self).__init__(document)
+        self.knobScripter = parent
 
         self.styles = {
             'keyword': self.format([238,117,181],'bold'),
             'string': self.format([242, 136, 135]),
             'comment': self.format([143, 221, 144 ]),
-            'numbers': self.format([174, 129, 255])
+            'numbers': self.format([174, 129, 255]),
+            'custom': self.format([255, 170, 0],'italic'),
             }
 
         self.keywords = [
@@ -2425,7 +2428,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'del', 'elif', 'else', 'except', 'exec', 'finally',
             'for', 'from', 'global', 'if', 'import', 'in',
             'is', 'lambda', 'not', 'or', 'pass', 'print',
-            'raise', 'return', 'try', 'while', 'yield', 'with'
+            'raise', 'return', 'try', 'while', 'yield', 'with', 'as'
             ]
 
         self.operatorKeywords = [
@@ -2439,6 +2442,9 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
 
         self.tri_single = (QtCore.QRegExp("'''"), 1, self.styles['comment'])
         self.tri_double = (QtCore.QRegExp('"""'), 2, self.styles['comment'])
+
+        #TODO: Choose text style: sublime or nuke in prefs
+        self.loadAltStyles()
 
         #rules
         rules = []
@@ -2460,7 +2466,65 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             ]
 
         # Build a QRegExp for each pattern
-        self.rules = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
+        self.rules_nuke = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
+        self.rules = self.rules_nuke
+
+    def loadAltStyles(self):
+        ''' Loads other color styles apart from Nuke's default. '''
+        self.styles_sublime = {
+            'keyword': self.format([238,117,181],'bold'),
+            'string': self.format([242, 136, 135]),
+            'comment': self.format([143, 221, 144 ]),
+            'numbers': self.format([174, 129, 255]),
+            'functions': self.format([255, 170, 0],'italic'),
+            'custom': self.format([255, 170, 0],'bold italic'),
+            }
+
+        self.keywords_sublime = [
+            'and', 'assert', 'break', 'class', 'continue', 'def',
+            'del', 'elif', 'else', 'except', 'exec', 'finally',
+            'for', 'from', 'global', 'if', 'import', 'in',
+            'is', 'lambda', 'not', 'or', 'pass', 'print',
+            'raise', 'return', 'try', 'while', 'yield', 'with', 'as'
+            ]
+        self.operatorKeywords_sublime = [
+            '=','==', '!=', '<', '<=', '>', '>=',
+            '\+', '-', '\*', '/', '//', '\%', '\*\*',
+            '\+=', '-=', '\*=', '/=', '\%=',
+            '\^', '\|', '\&', '\~', '>>', '<<'
+            ]
+
+        self.customKeywords_sublime = [
+            'nuke',
+            ]
+
+        self.numbers_sublime = ['True','False','None']
+
+        #rules
+
+        rules = []
+
+        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['keyword']) for i in self.keywords_sublime]
+        rules += [(i, 0, self.styles_sublime['keyword']) for i in self.operatorKeywords_sublime]
+        rules += [(i, 0, self.styles_sublime['custom']) for i in self.customKeywords_sublime]
+        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['numbers']) for i in self.numbers_sublime]
+
+        rules += [
+
+            # integers
+            (r'\b[0-9]+\b', 0, self.styles_sublime['numbers']),
+            # Double-quoted string, possibly containing escape sequences
+            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, self.styles_sublime['string']),
+            # Single-quoted string, possibly containing escape sequences
+            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, self.styles_sublime['string']),
+            # From '#' until a newline
+            (r'#[^\n]*', 0, self.styles_sublime['comment']),
+            # Function definitions
+            (r"def ([\w]+)", 1, self.styles_sublime['functions']),
+            ]
+
+        # Build a QRegExp for each pattern
+        self.rules_sublime = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
 
     def format(self,rgb, style=''):
         '''
@@ -2483,6 +2547,18 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         Apply syntax highlighting to the given block of text.
         '''
         # Do other syntax formatting
+        #TODO: pick the correct style here based on chosen one
+
+        if self.knobScripter.color_scheme:
+            self.color_scheme = self.knobScripter.color_scheme
+        else:
+            self.color_scheme = "nuke"
+
+        if self.color_scheme == "nuke":
+            self.rules = self.rules_nuke
+        elif self.color_scheme == "sublime":
+            self.rules = self.rules_sublime
+
         for expression, nth, format in self.rules:
             index = expression.indexIn(text, 0)
 
