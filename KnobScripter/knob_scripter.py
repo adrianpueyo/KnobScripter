@@ -63,8 +63,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.modifiedKnobs = set()
         self.scrollPos = {}
         self.cursorPos = {}
-        self.fontSize = 11
-        self.font = "Courier"
+        self.fontSize = 10
+        self.font = "Monospace"
         self.tabSpaces = 4
         self.windowDefaultSize = [500, 300]
         self.color_scheme = "sublime" # Can be nuke or sublime
@@ -101,6 +101,8 @@ class KnobScripter(QtWidgets.QWidget):
                 self.pinned = self.loadedPrefs['pin_default']
                 if "font" in self.loadedPrefs:
                     self.font = self.loadedPrefs['font']
+                if "color_scheme" in self.loadedPrefs:
+                    self.color_scheme = self.loadedPrefs['color_scheme']
             except TypeError:
                 log("KnobScripter: Failed to load preferences.")
 
@@ -350,7 +352,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
-        KSScriptEditorHighlighter(self.script_editor.document(), self)
+        self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily(self.font)
         self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
@@ -3029,6 +3031,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.oldFontSize = self.knobScripter.script_editor_font.pointSize()
         self.oldFont = self.knobScripter.script_editor_font.family()
+        self.oldScheme = self.knobScripter.color_scheme
         self.font = self.oldFont
         self.oldDefaultW = self.knobScripter.windowDefaultSize[0]
         self.oldDefaultH = self.knobScripter.windowDefaultSize[1]
@@ -3114,7 +3117,16 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.pinDefaultOn.clicked.connect(lambda:self.knobScripter.pin(True))
         self.pinDefaultOff.clicked.connect(lambda:self.knobScripter.pin(False))
 
-
+        colorSchemeLabel = QtWidgets.QLabel("Color scheme:")
+        colorSchemeLabel.setToolTip("Syntax highlighting text style.")
+        self.colorSchemeSublime = QtWidgets.QRadioButton("sublime")
+        self.colorSchemeNuke = QtWidgets.QRadioButton("nuke")
+        colorSchemeButtonGroup = QtWidgets.QButtonGroup(self)
+        colorSchemeButtonGroup.addButton(self.colorSchemeSublime)
+        colorSchemeButtonGroup.addButton(self.colorSchemeNuke)
+        colorSchemeButtonGroup.buttonClicked.connect(self.colorSchemeChanged)
+        self.colorSchemeSublime.setChecked(self.knobScripter.color_scheme == "sublime")
+        self.colorSchemeNuke.setChecked(self.knobScripter.color_scheme == "nuke")
 
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
@@ -3132,7 +3144,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
                 self.tabSpace4.setChecked(self.ksPrefs['tab_spaces'] == 4)
                 self.pinDefaultOn.setChecked(self.ksPrefs['pin_default'] == 1)
                 self.pinDefaultOff.setChecked(self.ksPrefs['pin_default'] == 0)
-                
+                self.colorSchemeSublime.setChecked(self.ksPrefs['color_scheme'] == "sublime")
+                self.colorSchemeNuke.setChecked(self.ksPrefs['color_scheme'] == "nuke")
             except:
                 pass
 
@@ -3166,6 +3179,13 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         pinDefault_layout = QtWidgets.QHBoxLayout()
         pinDefault_layout.addWidget(pinDefaultLabel)
         pinDefault_layout.addLayout(pinDefaultButtons_layout)
+
+        colorSchemeButtons_layout = QtWidgets.QHBoxLayout()
+        colorSchemeButtons_layout.addWidget(self.colorSchemeSublime)
+        colorSchemeButtons_layout.addWidget(self.colorSchemeNuke)
+        colorScheme_layout = QtWidgets.QHBoxLayout()
+        colorScheme_layout.addWidget(colorSchemeLabel)
+        colorScheme_layout.addLayout(colorSchemeButtons_layout)
         
 
         self.master_layout = QtWidgets.QVBoxLayout()
@@ -3178,6 +3198,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.master_layout.addLayout(windowH_layout)
         self.master_layout.addLayout(tabSpaces_layout)
         self.master_layout.addLayout(pinDefault_layout)
+        self.master_layout.addLayout(colorScheme_layout)
         self.master_layout.addWidget(self.buttonBox)
         self.setLayout(self.master_layout)
         self.setFixedSize(self.minimumSize())
@@ -3190,21 +3211,26 @@ class KnobScripterPrefs(QtWidgets.QDialog):
             'window_default_h': self.windowHBox.value(),
             'tab_spaces': self.tabSpaceValue(),
             'pin_default': self.pinDefaultValue(),
-            'font': self.font
+            'font': self.font,
+            'color_scheme': self.colorSchemeValue(),
         }
         self.knobScripter.script_editor_font.setFamily(self.font)
         self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
         self.knobScripter.font = self.font
+        self.knobScripter.color_scheme = self.colorSchemeValue()
         self.knobScripter.tabSpaces = self.tabSpaceValue()
         self.knobScripter.script_editor.tabSpaces = self.tabSpaceValue()
         with open(self.prefs_txt,"w") as f:
             prefs = json.dump(ks_prefs, f, sort_keys=True, indent=4)
-            self.accept()
+        self.accept()
+        self.knobScripter.highlighter.rehighlight()
         return prefs
 
     def cancelPrefs(self):
         self.knobScripter.script_editor_font.setPointSize(self.oldFontSize)
         self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
+        self.knobScripter.color_scheme = self.oldScheme
+        self.knobScripter.highlighter.rehighlight()
         self.reject()
 
     def fontSizeChanged(self):
@@ -3218,11 +3244,19 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
         return
 
+    def colorSchemeChanged(self):
+        self.knobScripter.color_scheme = self.colorSchemeValue()
+        self.knobScripter.highlighter.rehighlight()
+        return
+
     def tabSpaceValue(self):
         return 2 if self.tabSpace2.isChecked() else 4
 
     def pinDefaultValue(self):
         return 1 if self.pinDefaultOn.isChecked() else 0
+
+    def colorSchemeValue(self):
+        return "nuke" if self.colorSchemeNuke.isChecked() else "sublime"
 
     def closeEvent(self,event):
         self.cancelPrefs()
@@ -3649,7 +3683,7 @@ class SnippetEdit(QtWidgets.QWidget):
         self.snippet_editor = KnobScripterTextEdit()
         self.snippet_editor.setMinimumHeight(100)
         self.snippet_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
-        KSScriptEditorHighlighter(self.snippet_editor.document())
+        self.highlighter = KSScriptEditorHighlighter(self.snippet_editor.document())
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily("Courier")
         self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
