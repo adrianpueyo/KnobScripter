@@ -1592,7 +1592,7 @@ class KnobScripter(QtWidgets.QWidget):
     def findScriptEditors(self):
         script_editors = []
         for widget in QtWidgets.QApplication.allWidgets():
-            if "Script Editor" in widget.windowTitle():
+            if "Script Editor" in widget.windowTitle() and len(widget.children())>5: #DONE: Fixed error on opening KS when Blinkscript node properties are open too.
                 script_editors.append(widget)
         return script_editors
 
@@ -2472,16 +2472,18 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
     def loadAltStyles(self):
         ''' Loads other color styles apart from Nuke's default. '''
         self.styles_sublime = {
-            'keyword': self.format([238,117,181],'bold'),
-            'string': self.format([242, 136, 135]),
-            'comment': self.format([143, 221, 144 ]),
-            'numbers': self.format([174, 129, 255]),
-            'functions': self.format([255, 170, 0],'italic'),
+            'keyword': self.format([237, 36, 110]),
+            'string': self.format([237, 229, 122]),
+            'comment': self.format([125, 125, 125]),
+            'numbers': self.format([165, 120, 255]),
+            'functions': self.format([184, 237, 54]),
+            'blue': self.format([130, 226, 255], 'italic'),
+            'arguments': self.format([255, 170, 10], 'italic'),
             'custom': self.format([255, 170, 0],'bold italic'),
             }
 
         self.keywords_sublime = [
-            'and', 'assert', 'break', 'class', 'continue', 'def',
+            'and', 'assert', 'break', 'continue',
             'del', 'elif', 'else', 'except', 'exec', 'finally',
             'for', 'from', 'global', 'if', 'import', 'in',
             'is', 'lambda', 'not', 'or', 'pass', 'print',
@@ -2498,6 +2500,14 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'nuke',
             ]
 
+        self.blueKeywords_sublime = [
+            'def', 'class',
+            ]
+
+        self.argKeywords_sublime = [
+            'self',
+            ]
+
         self.numbers_sublime = ['True','False','None']
 
         #rules
@@ -2507,6 +2517,8 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         rules += [(r'\b%s\b' % i, 0, self.styles_sublime['keyword']) for i in self.keywords_sublime]
         rules += [(i, 0, self.styles_sublime['keyword']) for i in self.operatorKeywords_sublime]
         rules += [(i, 0, self.styles_sublime['custom']) for i in self.customKeywords_sublime]
+        rules += [(i, 0, self.styles_sublime['blue']) for i in self.blueKeywords_sublime]
+        rules += [(i, 0, self.styles_sublime['arguments']) for i in self.argKeywords_sublime]
         rules += [(r'\b%s\b' % i, 0, self.styles_sublime['numbers']) for i in self.numbers_sublime]
 
         rules += [
@@ -2521,6 +2533,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             (r'#[^\n]*', 0, self.styles_sublime['comment']),
             # Function definitions
             (r"def ([\w]+)", 1, self.styles_sublime['functions']),
+            #TODO arguments also pick their style...
             ]
 
         # Build a QRegExp for each pattern
