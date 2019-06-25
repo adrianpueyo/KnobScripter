@@ -2,8 +2,8 @@
 # Knob Scripter by Adrian Pueyo
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.0"
-date = "May 19 2019"
+version = "2.1 BETA"
+date = "June 25 2019"
 #-------------------------------------------------
 
 import nuke
@@ -3119,7 +3119,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
 
         colorSchemeLabel = QtWidgets.QLabel("Color scheme:")
         colorSchemeLabel.setToolTip("Syntax highlighting text style.")
-        self.colorSchemeSublime = QtWidgets.QRadioButton("sublime")
+        self.colorSchemeSublime = QtWidgets.QRadioButton("subl")
         self.colorSchemeNuke = QtWidgets.QRadioButton("nuke")
         colorSchemeButtonGroup = QtWidgets.QButtonGroup(self)
         colorSchemeButtonGroup.addButton(self.colorSchemeSublime)
