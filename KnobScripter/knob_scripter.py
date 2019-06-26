@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "June 25 2019"
+date = "June 26 2019"
 #-------------------------------------------------
 
 import nuke
@@ -2474,6 +2474,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
     def loadAltStyles(self):
         ''' Loads other color styles apart from Nuke's default. '''
         self.styles_sublime = {
+            'base': self.format([255,255,255]),
             'keyword': self.format([237, 36, 110]),
             'string': self.format([237, 229, 122]),
             'comment': self.format([125, 125, 125]),
@@ -2498,6 +2499,10 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             '\^', '\|', '\&', '\~', '>>', '<<'
             ]
 
+        self.baseKeywords_sublime = [
+            ',',
+            ]
+
         self.customKeywords_sublime = [
             'nuke',
             ]
@@ -2510,12 +2515,20 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'self',
             ]
 
+        self.tri_single_sublime = (QtCore.QRegExp("'''"), 1, self.styles_sublime['comment'])
+        self.tri_double_sublime = (QtCore.QRegExp('"""'), 2, self.styles_sublime['comment'])
         self.numbers_sublime = ['True','False','None']
 
         #rules
 
         rules = []
+        # First turn everything inside parentheses orange
+        rules += [(r"def [\w]+[\s]*\((.*)\)", 1, self.styles_sublime['arguments'])]
+        # Now restore unwanted stuff...
+        rules += [(i, 0, self.styles_sublime['base']) for i in self.baseKeywords_sublime]
+        rules += [(r"[^\(\w),.][\s]*[\w]+", 0, self.styles_sublime['base'])]
 
+        #Everything else
         rules += [(r'\b%s\b' % i, 0, self.styles_sublime['keyword']) for i in self.keywords_sublime]
         rules += [(i, 0, self.styles_sublime['keyword']) for i in self.operatorKeywords_sublime]
         rules += [(i, 0, self.styles_sublime['custom']) for i in self.customKeywords_sublime]
@@ -2534,8 +2547,9 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             # From '#' until a newline
             (r'#[^\n]*', 0, self.styles_sublime['comment']),
             # Function definitions
-            (r"def ([\w]+)", 1, self.styles_sublime['functions']),
+            (r"def[\s]+([\w]+)", 1, self.styles_sublime['functions']),
             #TODO arguments also pick their style...
+            (r"def[\s]+[\w]+[\s]*\(([\w]+)", 1, self.styles_sublime['arguments']),
             ]
 
         # Build a QRegExp for each pattern
@@ -2562,7 +2576,6 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         Apply syntax highlighting to the given block of text.
         '''
         # Do other syntax formatting
-        #TODO: pick the correct style here based on chosen one
 
         if self.knobScripter.color_scheme:
             self.color_scheme = self.knobScripter.color_scheme
@@ -2586,10 +2599,17 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
 
         self.setCurrentBlockState(0)
 
-        # Do multi-line strings
-        in_multiline = self.match_multiline(text, *self.tri_single)
-        if not in_multiline:
-            in_multiline = self.match_multiline(text, *self.tri_double)
+        # Multi-line strings etc. based on selected scheme
+        if self.color_scheme == "nuke":
+            in_multiline = self.match_multiline(text, *self.tri_single)
+            if not in_multiline:
+                in_multiline = self.match_multiline(text, *self.tri_double)
+        elif self.color_scheme == "sublime":
+            in_multiline = self.match_multiline(text, *self.tri_single_sublime)
+            if not in_multiline:
+                in_multiline = self.match_multiline(text, *self.tri_double_sublime)
+            #TODO Function arguments
+        
 
     def match_multiline(self, text, delimiter, in_state, style):
         '''
