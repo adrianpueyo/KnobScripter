@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "June 26 2019"
+date = "June 29 2019"
 #-------------------------------------------------
 
 import nuke
@@ -59,6 +59,7 @@ class KnobScripter(QtWidgets.QWidget):
 
         self.isPane = False
         self.knob = knob
+        self.show_labels = False # For the option to also display the knob labels on the knob dropdown
         self.unsavedKnobs = {}
         self.modifiedKnobs = set()
         self.scrollPos = {}
@@ -103,6 +104,8 @@ class KnobScripter(QtWidgets.QWidget):
                     self.font = self.loadedPrefs['font']
                 if "color_scheme" in self.loadedPrefs:
                     self.color_scheme = self.loadedPrefs['color_scheme']
+                if "show_labels" in self.loadedPrefs:
+                    self.show_labels = self.loadedPrefs['show_labels']
             except TypeError:
                 log("KnobScripter: Failed to load preferences.")
 
@@ -429,6 +432,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
         self.snippetsAct = QtWidgets.QAction("Snippets", self, statusTip="Open the Snippets editor.", triggered=self.openSnippets)
         self.snippetsAct.setIcon(QtGui.QIcon(icons_path+"icon_snippets.png"))
+        #self.snippetsAct = QtWidgets.QAction("Keywords", self, statusTip="Add custom keywords.", triggered=self.openSnippets) #TODO THIS
         self.prefsAct = QtWidgets.QAction("Preferences", self, statusTip="Open the Preferences panel.", triggered=self.openPrefs)
         self.prefsAct.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
 
@@ -479,10 +483,15 @@ class KnobScripter(QtWidgets.QWidget):
         counter = 0
         for i in self.node.knobs():
             if i not in defaultKnobs and self.node.knob(i).Class() in permittedKnobClasses:
-                if i in self.unsavedKnobs.keys():
-                    self.current_knob_dropdown.addItem(i+"(*)", i)
+                if self.show_labels: #DONE: display the knob labels on dropdown if chosen.
+                    i_full = "{} ({})".format(self.node.knob(i).label(), i)
                 else:
-                    self.current_knob_dropdown.addItem(i, i)
+                    i_full = i
+
+                if i in self.unsavedKnobs.keys():
+                    self.current_knob_dropdown.addItem(i_full+"(*)", i)
+                else:
+                    self.current_knob_dropdown.addItem(i_full, i)
 
                 counter += 1
         if counter > 0:
@@ -692,6 +701,8 @@ class KnobScripter(QtWidgets.QWidget):
             knobs_dropdown = self.current_knob_dropdown
             kd_index = knobs_dropdown.currentIndex()
             kd_data = knobs_dropdown.itemData(kd_index)
+            if self.show_labels and i not in defaultKnobs: #DONE: display the knob labels on dropdown if chosen.
+                kd_data = "{} ({})".format(self.node.knob(kd_data).label(), kd_data)
             if modified == False:
                 knobs_dropdown.setItemText(kd_index, kd_data)
             else:
@@ -1540,7 +1551,10 @@ class KnobScripter(QtWidgets.QWidget):
             self.current_knob_dropdown.blockSignals(True)
             self.current_knob_dropdown.clear() # First remove all items
             self.updateKnobDropdown()
-            availableKnobs = [self.current_knob_dropdown.itemData(i).encode('UTF8') for i in range(self.current_knob_dropdown.count())]
+            availableKnobs = []
+            for i in range(self.current_knob_dropdown.count()):
+                if self.current_knob_dropdown.itemData(i) is not None:
+                    availableKnobs.append(self.current_knob_dropdown.itemData(i).encode('UTF8'))
             if knob in availableKnobs:
                 self.setCurrentKnob(knob)
             self.current_knob_dropdown.blockSignals(False)
@@ -2547,7 +2561,11 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             # From '#' until a newline
             (r'#[^\n]*', 0, self.styles_sublime['comment']),
             # Function definitions
-            (r"def[\s]+([\w]+)", 1, self.styles_sublime['functions']),
+            (r"def[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
+            # Class definitions
+            (r"class[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
+            # Class argument (which is also a class so must be green)
+            (r"class[\s]+[\w\.]+[\s]*\((.*)\)", 1, self.styles_sublime['functions']),
             #TODO arguments also pick their style...
             (r"def[\s]+[\w]+[\s]*\(([\w]+)", 1, self.styles_sublime['arguments']),
             ]
@@ -3148,6 +3166,17 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.colorSchemeSublime.setChecked(self.knobScripter.color_scheme == "sublime")
         self.colorSchemeNuke.setChecked(self.knobScripter.color_scheme == "nuke")
 
+        showLabelsLabel = QtWidgets.QLabel("Show labels:")
+        showLabelsLabel.setToolTip("Display knob labels on the knob dropdown\nOtherwise, shows the internal name only.")
+        self.showLabelsOn = QtWidgets.QRadioButton("On")
+        self.showLabelsOff = QtWidgets.QRadioButton("Off")
+        showLabelsButtonGroup = QtWidgets.QButtonGroup(self)
+        showLabelsButtonGroup.addButton(self.showLabelsOn)
+        showLabelsButtonGroup.addButton(self.showLabelsOff)
+        self.showLabelsOn.setChecked(self.knobScripter.pinned == True)
+        self.showLabelsOff.setChecked(self.knobScripter.pinned == False)
+        self.showLabelsOn.clicked.connect(lambda:self.knobScripter.pin(True))
+        self.showLabelsOff.clicked.connect(lambda:self.knobScripter.pin(False))
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         self.buttonBox.accepted.connect(self.savePrefs)
@@ -3164,6 +3193,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
                 self.tabSpace4.setChecked(self.ksPrefs['tab_spaces'] == 4)
                 self.pinDefaultOn.setChecked(self.ksPrefs['pin_default'] == 1)
                 self.pinDefaultOff.setChecked(self.ksPrefs['pin_default'] == 0)
+                self.showLabelsOn.setChecked(self.ksPrefs['show_labels'] == 1)
+                self.showLabelsOff.setChecked(self.ksPrefs['show_labels'] == 0)
                 self.colorSchemeSublime.setChecked(self.ksPrefs['color_scheme'] == "sublime")
                 self.colorSchemeNuke.setChecked(self.ksPrefs['color_scheme'] == "nuke")
             except:
@@ -3200,6 +3231,13 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         pinDefault_layout.addWidget(pinDefaultLabel)
         pinDefault_layout.addLayout(pinDefaultButtons_layout)
 
+        showLabelsButtons_layout = QtWidgets.QHBoxLayout()
+        showLabelsButtons_layout.addWidget(self.showLabelsOn)
+        showLabelsButtons_layout.addWidget(self.showLabelsOff)
+        showLabels_layout = QtWidgets.QHBoxLayout()
+        showLabels_layout.addWidget(showLabelsLabel)
+        showLabels_layout.addLayout(showLabelsButtons_layout)
+
         colorSchemeButtons_layout = QtWidgets.QHBoxLayout()
         colorSchemeButtons_layout.addWidget(self.colorSchemeSublime)
         colorSchemeButtons_layout.addWidget(self.colorSchemeNuke)
@@ -3218,6 +3256,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.master_layout.addLayout(windowH_layout)
         self.master_layout.addLayout(tabSpaces_layout)
         self.master_layout.addLayout(pinDefault_layout)
+        self.master_layout.addLayout(showLabels_layout)
         self.master_layout.addLayout(colorScheme_layout)
         self.master_layout.addWidget(self.buttonBox)
         self.setLayout(self.master_layout)
@@ -3231,6 +3270,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
             'window_default_h': self.windowHBox.value(),
             'tab_spaces': self.tabSpaceValue(),
             'pin_default': self.pinDefaultValue(),
+            'show_labels': self.showLabelsValue(),
             'font': self.font,
             'color_scheme': self.colorSchemeValue(),
         }
@@ -3244,6 +3284,9 @@ class KnobScripterPrefs(QtWidgets.QDialog):
             prefs = json.dump(ks_prefs, f, sort_keys=True, indent=4)
         self.accept()
         self.knobScripter.highlighter.rehighlight()
+        self.knobScripter.show_labels = self.showLabelsValue()
+        if self.knobScripter.nodeMode:
+            self.knobScripter.refreshClicked()
         return prefs
 
     def cancelPrefs(self):
@@ -3274,6 +3317,9 @@ class KnobScripterPrefs(QtWidgets.QDialog):
 
     def pinDefaultValue(self):
         return 1 if self.pinDefaultOn.isChecked() else 0
+
+    def showLabelsValue(self):
+        return 1 if self.showLabelsOn.isChecked() else 0
 
     def colorSchemeValue(self):
         return "nuke" if self.colorSchemeNuke.isChecked() else "sublime"
@@ -3512,12 +3558,12 @@ class SnippetsPanel(QtWidgets.QDialog):
     def __init__(self, parent):
         super(SnippetsPanel, self).__init__(parent)
 
-        self.mainWidget = parent
+        self.knobScripter = parent
 
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Snippet editor")
 
-        self.snippets_txt_path = self.mainWidget.snippets_txt_path
+        self.snippets_txt_path = self.knobScripter.snippets_txt_path
         self.snippets_dict = self.loadSnippetsDict(path = self.snippets_txt_path)
         #self.snippets_dict = snippets_dic
 
@@ -3619,13 +3665,13 @@ class SnippetsPanel(QtWidgets.QDialog):
                 file_edit = SnippetFilePath(val)
                 self.scroll_layout.insertWidget(-1, file_edit)
             else:
-                snippet_edit = SnippetEdit(key, val)
+                snippet_edit = SnippetEdit(key, val, parent=self)
                 self.scroll_layout.insertWidget(-1, snippet_edit)
 
     def loadSnippetsDict(self, path=""):
         ''' Load prefs. TO REMOVE '''
         if path == "":
-            path = self.mainWidget.snippets_txt_path
+            path = self.knobScripter.snippets_txt_path
         if not os.path.isfile(self.snippets_txt_path):
             return {}
         else:
@@ -3660,15 +3706,15 @@ class SnippetsPanel(QtWidgets.QDialog):
 
     def applySnippets(self):
         self.saveSnippets()
-        self.mainWidget.snippets = self.mainWidget.loadSnippets(maxDepth=5)
-        self.mainWidget.loadSnippets()
+        self.knobScripter.snippets = self.knobScripter.loadSnippets(maxDepth=5)
+        self.knobScripter.loadSnippets()
 
     def okPressed(self):
         self.applySnippets()
         self.accept()
 
     def addSnippet(self, key="", val=""):
-        se = SnippetEdit(key, val)
+        se = SnippetEdit(key, val, parent=self)
         self.scroll_layout.insertWidget(0, se)
         self.show()
         return se
@@ -3689,9 +3735,11 @@ class SnippetsPanel(QtWidgets.QDialog):
 
 class SnippetEdit(QtWidgets.QWidget):
     ''' Simple widget containing two fields, for the snippet shortcut and content '''
-    def __init__(self, key="", val=""):
-        super(SnippetEdit,self).__init__()
+    def __init__(self, key="", val="", parent=None):
+        super(SnippetEdit,self).__init__(parent)
 
+        self.knobScripter = parent.knobScripter
+        self.color_scheme = self.knobScripter.color_scheme
         self.layout = QtWidgets.QHBoxLayout()
 
         self.shortcut_editor = QtWidgets.QLineEdit(self)
@@ -3703,23 +3751,14 @@ class SnippetEdit(QtWidgets.QWidget):
         self.snippet_editor = KnobScripterTextEdit()
         self.snippet_editor.setMinimumHeight(100)
         self.snippet_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
-        self.highlighter = KSScriptEditorHighlighter(self.snippet_editor.document())
-        self.script_editor_font = QtGui.QFont()
-        self.script_editor_font.setFamily("Courier")
-        self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
-        self.script_editor_font.setFixedPitch(True)
-        self.script_editor_font.setPointSize(11)
+        self.highlighter = KSScriptEditorHighlighter(self.snippet_editor.document(), self)
+        self.script_editor_font = self.knobScripter.script_editor_font
         self.snippet_editor.setFont(self.script_editor_font)
-        self.snippet_editor.setTabStopWidth(4 * QtGui.QFontMetrics(self.script_editor_font).width(' '))
-
         self.snippet_editor.resize(90,90)
         self.snippet_editor.setPlainText(str(val))
         self.layout.addWidget(self.shortcut_editor, stretch=1, alignment = Qt.AlignTop)
         self.layout.addWidget(self.snippet_editor, stretch=2)
-        try: #>n11
-            self.layout.setMargin(0)
-        except: #<n10
-            self.layout.setContentsMargins(0,0,0,0)
+        self.layout.setContentsMargins(0,0,0,0)
 
 
         self.setLayout(self.layout)
