@@ -1903,6 +1903,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         super(KnobScripterTextEdit, self).__init__()
 
         self.knobScripter = knobScripter
+        self.selected_text = ""
 
         # Setup line numbers
         if self.knobScripter != "":
@@ -1916,6 +1917,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         # Highlight line
         self.cursorPositionChanged.connect(self.highlightCurrentLine)
+        self.cursorPositionChanged.connect(self.highlightSimilar)
 
     #--------------------------------------------------------------------------------------------------
     # This is adapted from an original version by Wouter Gilsing.
@@ -2404,6 +2406,51 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         self.setExtraSelections(extraSelections)
         self.scrollToCursor()
 
+    def highlightSimilar(self):
+        '''
+        Applies a style (underline) to every word that matches the current cursor selection
+        '''
+        prev_text = self.selected_text
+        self.selected_text = self.textCursor().selection().toPlainText()
+        if self.selected_text == prev_text:
+            return
+
+        if not len(self.selected_text):
+            #TODO un-underline all (or square...)
+            return
+
+
+        text = self.toPlainText()
+        rules_selection = [(QtCore.QRegExp(self.selected_text), 0, self.format([255, 255, 255],'bold underline') )]
+        for expression, nth, format in rules_selection:
+            index = expression.indexIn(text, 0)
+
+            while index >= 0:
+                # We actually want the index of the nth match
+                index = expression.pos(nth)
+                length = len(expression.cap(nth))
+                #self.setFormat(index, length, format)
+                print expression, index, length #TODO WORKS!!! NOW DRAW RECTANGLES OVER THE WORDS... WE AREADY HAVE THE INDEX AND FIRST AND LAST POSITION.
+                index = expression.indexIn(text, index + length)
+
+    def format(self,rgb, style=''):
+        '''
+        Return a QtWidgets.QTextCharFormat with the given attributes.
+        '''
+        color = QtGui.QColor(*rgb)
+        textFormat = QtGui.QTextCharFormat()
+        textFormat.setForeground(color)
+
+        if 'bold' in style:
+            textFormat.setFontWeight(QtGui.QFont.Bold)
+        if 'italic' in style:
+            textFormat.setFontItalic(True)
+        if 'underline' in style:
+            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline) #DONE prepared underline style for matches or something like that...
+
+        return textFormat
+
+
 class KSLineNumberArea(QtWidgets.QWidget):
     def __init__(self, scriptEditor):
         super(KSLineNumberArea, self).__init__(scriptEditor)
@@ -2439,6 +2486,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'comment': self.format([143, 221, 144 ]),
             'numbers': self.format([174, 129, 255]),
             'custom': self.format([255, 170, 0],'italic'),
+            'selected': self.format([255, 255, 255],'bold underline'),
             }
 
         self.keywords = [
@@ -2499,7 +2547,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'blue': self.format([130, 226, 255], 'italic'),
             'arguments': self.format([255, 170, 10], 'italic'),
             'custom': self.format([255, 170, 0],'bold italic'),
-            'selected': self.format([255, 255, 255],'underline')
+            'selected': self.format([255, 255, 255],'bold underline'),
             }
 
         self.keywords_sublime = [
@@ -2600,8 +2648,6 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         '''
         # Do other syntax formatting
 
-        self.selected_text = self.script_editor.textCursor().selection().toPlainText()
-
         if self.knobScripter.color_scheme:
             self.color_scheme = self.knobScripter.color_scheme
         else:
@@ -2612,9 +2658,10 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         elif self.color_scheme == "sublime":
             self.rules = self.rules_sublime
 
-        rules_selection = [(QtCore.QRegExp(self.selected_text), 0, self.styles_sublime['selected'])]
-
-        self.rules += rules_selection
+        #self.selected_text = self.script_editor.selected_text
+        #rules_selection = [(QtCore.QRegExp(self.selected_text), 0, self.styles_sublime['selected'])]
+        #self.rules += rules_selection
+        #TODO not tackle the selection here... somewhere else
 
         for expression, nth, format in self.rules:
             index = expression.indexIn(text, 0)
