@@ -2354,7 +2354,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         self.setTextCursor(self.cursor)
         self.verticalScrollBar().setValue(pre_scroll) #DONE: Unindent keeps scroll value
 
-
     def findBlocks(self, first = 0, last = None, exclude = []):
         blocks = []
         if last == None:
@@ -2430,6 +2429,9 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
 
         super(KSScriptEditorHighlighter, self).__init__(document)
         self.knobScripter = parent
+        self.script_editor = self.knobScripter.script_editor
+        self.selected_text = ""
+        self.selected_text_prev = ""
 
         self.styles = {
             'keyword': self.format([238,117,181],'bold'),
@@ -2497,6 +2499,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'blue': self.format([130, 226, 255], 'italic'),
             'arguments': self.format([255, 170, 10], 'italic'),
             'custom': self.format([255, 170, 0],'bold italic'),
+            'selected': self.format([255, 255, 255],'underline')
             }
 
         self.keywords_sublime = [
@@ -2586,6 +2589,8 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             textFormat.setFontWeight(QtGui.QFont.Bold)
         if 'italic' in style:
             textFormat.setFontItalic(True)
+        if 'underline' in style:
+            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline) #DONE prepared underline style for matches or something like that...
 
         return textFormat
 
@@ -2594,6 +2599,8 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         Apply syntax highlighting to the given block of text.
         '''
         # Do other syntax formatting
+
+        self.selected_text = self.script_editor.textCursor().selection().toPlainText()
 
         if self.knobScripter.color_scheme:
             self.color_scheme = self.knobScripter.color_scheme
@@ -2604,6 +2611,10 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             self.rules = self.rules_nuke
         elif self.color_scheme == "sublime":
             self.rules = self.rules_sublime
+
+        rules_selection = [(QtCore.QRegExp(self.selected_text), 0, self.styles_sublime['selected'])]
+
+        self.rules += rules_selection
 
         for expression, nth, format in self.rules:
             index = expression.indexIn(text, 0)
@@ -2627,11 +2638,13 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             if not in_multiline:
                 in_multiline = self.match_multiline(text, *self.tri_double_sublime)
             #TODO Function arguments
+
+        #TODO if there's a selection, highlight same occurrences in the full document. If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
         
 
     def match_multiline(self, text, delimiter, in_state, style):
         '''
-        Check whether highlighting reuires multiple lines.
+        Check whether highlighting requires multiple lines.
         '''
         # If inside triple-single quotes, start at 0
         if self.previousBlockState() == in_state:
