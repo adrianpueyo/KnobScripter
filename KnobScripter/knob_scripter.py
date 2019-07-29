@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "June 29 2019"
+date = "July 24 2019"
 #-------------------------------------------------
 
 import nuke
@@ -710,7 +710,6 @@ class KnobScripter(QtWidgets.QWidget):
         except:
             pass
 
-
     # Script Mode
     def updateFoldersDropdown(self):
         ''' Populate folders dropdown list '''
@@ -1332,7 +1331,7 @@ class KnobScripter(QtWidgets.QWidget):
     def changeClicked(self, newNode=""):
         ''' Change node '''
         try:
-            print self.node
+            print self.node.name()
         except:
             self.node = None
             if not len(nuke.selectedNodes()):
@@ -2504,6 +2503,8 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             '\^', '\|', '\&', '\~', '>>', '<<'
             ]
 
+        self.variableKeywords = ['int','str','float','bool','list','dict','set']
+
         self.numbers = ['True','False','None']
 
         self.tri_single = (QtCore.QRegExp("'''"), 1, self.styles['comment'])
@@ -2546,8 +2547,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'functions': self.format([184, 237, 54]),
             'blue': self.format([130, 226, 255], 'italic'),
             'arguments': self.format([255, 170, 10], 'italic'),
-            'custom': self.format([255, 170, 0],'bold italic'),
-            'selected': self.format([255, 255, 255],'bold underline'),
+            'custom': self.format([200, 200, 200],'italic'),
             }
 
         self.keywords_sublime = [
@@ -2573,7 +2573,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             ]
 
         self.blueKeywords_sublime = [
-            'def', 'class',
+            'def', 'class', 'int','str','float','bool','list','dict','set'
             ]
 
         self.argKeywords_sublime = [
@@ -2597,7 +2597,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         rules += [(r'\b%s\b' % i, 0, self.styles_sublime['keyword']) for i in self.keywords_sublime]
         rules += [(i, 0, self.styles_sublime['keyword']) for i in self.operatorKeywords_sublime]
         rules += [(i, 0, self.styles_sublime['custom']) for i in self.customKeywords_sublime]
-        rules += [(i, 0, self.styles_sublime['blue']) for i in self.blueKeywords_sublime]
+        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['blue']) for i in self.blueKeywords_sublime]
         rules += [(i, 0, self.styles_sublime['arguments']) for i in self.argKeywords_sublime]
         rules += [(r'\b%s\b' % i, 0, self.styles_sublime['numbers']) for i in self.numbers_sublime]
 
