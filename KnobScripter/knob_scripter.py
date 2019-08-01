@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "July 24 2019"
+date = "Aug 1 2019"
 #-------------------------------------------------
 
 import nuke
@@ -607,6 +607,7 @@ class KnobScripter(QtWidgets.QWidget):
                 return
         self.node[dropdown_value].setValue(edited_knobValue)
         self.setKnobModified(modified = False, knob = dropdown_value, changeTitle = True)
+        nuke.tcl("modified 1")
         if self.knob in self.unsavedKnobs:
             del self.unsavedKnobs[self.knob]
         return
@@ -630,6 +631,7 @@ class KnobScripter(QtWidgets.QWidget):
                 self.node.knob(k).setValue(self.unsavedKnobs[k])
                 del self.unsavedKnobs[k]
                 savedCount += 1
+                nuke.tcl("modified 1")
             except:
                 saveErrors+=1
         if saveErrors > 0:
