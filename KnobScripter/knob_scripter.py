@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "Aug 1 2019"
+date = "Aug 2 2019"
 #-------------------------------------------------
 
 import nuke
@@ -2431,7 +2431,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 index = expression.pos(nth)
                 length = len(expression.cap(nth))
                 #self.setFormat(index, length, format)
-                print expression, index, length #TODO WORKS!!! NOW DRAW RECTANGLES OVER THE WORDS... WE AREADY HAVE THE INDEX AND FIRST AND LAST POSITION.
+                #print expression, index, length #TODO WORKS!!! NOW DRAW RECTANGLES OVER THE WORDS... WE AREADY HAVE THE INDEX AND FIRST AND LAST POSITION.
                 index = expression.indexIn(text, index + length)
 
     def format(self,rgb, style=''):
@@ -2480,6 +2480,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         self.script_editor = self.knobScripter.script_editor
         self.selected_text = ""
         self.selected_text_prev = ""
+        self.rules_sublime = ""
 
         self.styles = {
             'keyword': self.format([238,117,181],'bold'),
@@ -2508,13 +2509,12 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         self.variableKeywords = ['int','str','float','bool','list','dict','set']
 
         self.numbers = ['True','False','None']
+        self.loadAltStyles()
 
         self.tri_single = (QtCore.QRegExp("'''"), 1, self.styles['comment'])
         self.tri_double = (QtCore.QRegExp('"""'), 2, self.styles['comment'])
 
         #TODO: Choose text style: sublime or nuke in prefs
-        self.loadAltStyles()
-
         #rules
         rules = []
 
@@ -3749,7 +3749,7 @@ class SnippetsPanel(QtWidgets.QDialog):
             se = self.scroll_layout.itemAt(s).widget()
             if se.__class__.__name__ == "SnippetEdit":
                 key = se.shortcut_editor.text()
-                val = se.snippet_editor.toPlainText()
+                val = se.script_editor.toPlainText()
                 if key != "":
                     dic[key] = val
             else:
@@ -3793,7 +3793,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         help_key = "help"
         help_val = """Snippets are a convenient way to have code blocks that you can call through a shortcut.\n\n1. Simply write a shortcut on the text input field on the left. You can see this one is set to "test".\n\n2. Then, write a code or whatever in this script editor. You can include $$ as the placeholder for where you'll want the mouse cursor to appear.\n\n3. Finally, click OK or Apply to save the snippets. On the main script editor, you'll be able to call any snippet by writing the shortcut (in this example: help) and pressing the Tab key.\n\nIn order to remove a snippet, simply leave the shortcut and contents blank, and save the snippets."""
         help_se = self.addSnippet(help_key,help_val)
-        help_se.snippet_editor.resize(160,160)
+        help_se.script_editor.resize(160,160)
 
 class SnippetEdit(QtWidgets.QWidget):
     ''' Simple widget containing two fields, for the snippet shortcut and content '''
@@ -3809,17 +3809,17 @@ class SnippetEdit(QtWidgets.QWidget):
         f.setWeight(QtGui.QFont.Bold)
         self.shortcut_editor.setFont(f)
         self.shortcut_editor.setText(str(key))
-        #self.snippet_editor = QtWidgets.QTextEdit(self)
-        self.snippet_editor = KnobScripterTextEdit()
-        self.snippet_editor.setMinimumHeight(100)
-        self.snippet_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
-        self.highlighter = KSScriptEditorHighlighter(self.snippet_editor.document(), self)
+        #self.script_editor = QtWidgets.QTextEdit(self)
+        self.script_editor = KnobScripterTextEdit()
+        self.script_editor.setMinimumHeight(100)
+        self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
+        self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
         self.script_editor_font = self.knobScripter.script_editor_font
-        self.snippet_editor.setFont(self.script_editor_font)
-        self.snippet_editor.resize(90,90)
-        self.snippet_editor.setPlainText(str(val))
+        self.script_editor.setFont(self.script_editor_font)
+        self.script_editor.resize(90,90)
+        self.script_editor.setPlainText(str(val))
         self.layout.addWidget(self.shortcut_editor, stretch=1, alignment = Qt.AlignTop)
-        self.layout.addWidget(self.snippet_editor, stretch=2)
+        self.layout.addWidget(self.script_editor, stretch=2)
         self.layout.setContentsMargins(0,0,0,0)
 
 
@@ -3837,7 +3837,7 @@ class SnippetFilePath(QtWidgets.QWidget):
 
         self.filepath_lineEdit = QtWidgets.QLineEdit(self)
         self.filepath_lineEdit.setText(str(path))
-        #self.snippet_editor = QtWidgets.QTextEdit(self)
+        #self.script_editor = QtWidgets.QTextEdit(self)
         self.filepath_lineEdit.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily("Courier")
