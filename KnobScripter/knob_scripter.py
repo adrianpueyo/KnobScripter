@@ -1918,7 +1918,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         # Highlight line
         self.cursorPositionChanged.connect(self.highlightCurrentLine)
-        self.cursorPositionChanged.connect(self.highlightSimilar)
+        #self.cursorPositionChanged.connect(self.highlightSimilar)
 
     #--------------------------------------------------------------------------------------------------
     # This is adapted from an original version by Wouter Gilsing.
@@ -2488,6 +2488,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'numbers': self.format([174, 129, 255]),
             'custom': self.format([255, 170, 0],'italic'),
             'selected': self.format([255, 255, 255],'bold underline'),
+            'underline':self.format([240, 240, 240],'underline'),
             }
 
         self.keywords = [
@@ -2549,6 +2550,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'blue': self.format([130, 226, 255], 'italic'),
             'arguments': self.format([255, 170, 10], 'italic'),
             'custom': self.format([200, 200, 200],'italic'),
+            'underline':self.format([240, 240, 240],'underline'),
             }
 
         self.keywords_sublime = [
