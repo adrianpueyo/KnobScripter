@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "Aug 2 2019"
+date = "Aug 5 2019"
 #-------------------------------------------------
 
 import nuke
@@ -2061,8 +2061,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 selection = cursor.selection().toPlainText()
             else:
                 selection = ""
-            if key == Qt.Key_ParenLeft and (len(selection)>0 or not re.match(r"[\S]+", text_after_cursor)): # (
-                # Only if len(selection) or the text after the cursor is not a non-space character...
+            if key == Qt.Key_ParenLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): # ( #DONE:Parenthesis behavior improved when inside another parenthesis
                 cursor.insertText("("+selection+")")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
@@ -2070,7 +2069,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == Qt.Key_ParenRight and text_after_cursor.startswith(")"): # )
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BracketLeft and (len(selection) or not re.match(r"[\S]+", text_after_cursor)): #[
+            elif key == Qt.Key_BracketLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): #[
                 cursor.insertText("["+selection+"]")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
@@ -2078,7 +2077,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == Qt.Key_BracketRight and text_after_cursor.startswith("]"): # ]
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BraceLeft and (len(selection) or not re.match(r"[\S]+", text_after_cursor)): #{
+            elif key == Qt.Key_BraceLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): #{
                 cursor.insertText("{"+selection+"}")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
