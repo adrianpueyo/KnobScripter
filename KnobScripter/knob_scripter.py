@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "Aug 5 2019"
+date = "Aug 7 2019"
 #-------------------------------------------------
 
 import nuke
@@ -356,6 +356,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
         self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
+        self.script_editor.cursorPositionChanged.connect(self.setTextSelection)
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily(self.font)
         self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
@@ -1318,6 +1319,10 @@ class KnobScripter(QtWidgets.QWidget):
             return
 
     # Global stuff
+    def setTextSelection(self):
+        self.highlighter.selected_text = self.script_editor.textCursor().selection().toPlainText()
+        return
+
     def eventFilter(self, object, event):
         if event.type() == QtCore.QEvent.KeyPress:
             return QtWidgets.QWidget.eventFilter(self, object, event)
@@ -1918,7 +1923,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         # Highlight line
         self.cursorPositionChanged.connect(self.highlightCurrentLine)
-        #self.cursorPositionChanged.connect(self.highlightSimilar)
 
     #--------------------------------------------------------------------------------------------------
     # This is adapted from an original version by Wouter Gilsing.
@@ -2406,33 +2410,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         self.setExtraSelections(extraSelections)
         self.scrollToCursor()
 
-    def highlightSimilar(self):
-        '''
-        Applies a style (underline) to every word that matches the current cursor selection
-        '''
-        prev_text = self.selected_text
-        self.selected_text = self.textCursor().selection().toPlainText()
-        if self.selected_text == prev_text:
-            return
-
-        if not len(self.selected_text):
-            #TODO un-underline all (or square...)
-            return
-
-
-        text = self.toPlainText()
-        rules_selection = [(QtCore.QRegExp(self.selected_text), 0, self.format([255, 255, 255],'bold underline') )]
-        for expression, nth, format in rules_selection:
-            index = expression.indexIn(text, 0)
-
-            while index >= 0:
-                # We actually want the index of the nth match
-                index = expression.pos(nth)
-                length = len(expression.cap(nth))
-                #self.setFormat(index, length, format)
-                #print expression, index, length #TODO WORKS!!! NOW DRAW RECTANGLES OVER THE WORDS... WE AREADY HAVE THE INDEX AND FIRST AND LAST POSITION.
-                index = expression.indexIn(text, index + length)
-
     def format(self,rgb, style=''):
         '''
         Return a QtWidgets.QTextCharFormat with the given attributes.
@@ -2551,6 +2528,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             'arguments': self.format([255, 170, 10], 'italic'),
             'custom': self.format([200, 200, 200],'italic'),
             'underline':self.format([240, 240, 240],'underline'),
+            'selected': self.format([255, 255, 255],'bold underline'),
             }
 
         self.keywords_sublime = [
@@ -2620,7 +2598,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             (r"class[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
             # Class argument (which is also a class so must be green)
             (r"class[\s]+[\w\.]+[\s]*\((.*)\)", 1, self.styles_sublime['functions']),
-            #TODO arguments also pick their style...
+            # Function arguments also pick their style...
             (r"def[\s]+[\w]+[\s]*\(([\w]+)", 1, self.styles_sublime['arguments']),
             ]
 
@@ -2666,7 +2644,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         #self.rules += rules_selection
         #TODO not tackle the selection here... somewhere else
 
-        for expression, nth, format in self.rules:
+        for expression, nth, format in self.rules: #TODO + [(QtCore.QRegExp(self.selected_text), 1, self.styles_sublime['selected'])]:
             index = expression.indexIn(text, 0)
 
             while index >= 0:
@@ -2986,6 +2964,44 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             else:
                 KnobScripterTextEdit.keyPressEvent(self,event)
 
+    def getPyObjects(self,text):
+        ''' Returns a list containing all the functions, classes and variables found within the selected python text (code) '''
+        # DONE (WIP) for KS v2.1
+        matches = []
+        #1: Remove text inside triple quotes (leaving the quotes)
+        text_clean = '""'.join(text.split('"""')[::2])
+        text_clean = '""'.join(text_clean.split("'''")[::2])
+
+        #2: Remove text inside of quotes (leaving the quotes) except if \"
+        lines = text_clean.split("\n")
+        text_clean = ""
+        for line in lines:
+            line_clean = '""'.join(line.split('"')[::2])
+            line_clean = '""'.join(line_clean.split("'")[::2])
+            line_clean = line_clean.split("#")[0]
+            text_clean += line_clean+"\n"
+
+        #3. Split into segments (lines plus ";")
+        segments = re.findall(r"[^\n;]+",text_clean)
+
+        #4. Go case by case.
+        for s in segments:
+            # Declared vars
+            matches += re.findall(r"([\w\.]+)(?=[,\s\w]*=[^=]+$)",s)
+            # Def functions and arguments
+            function = re.findall(r"[\s]*def[\s]+([\w\.]+)[\s]*\([\s]*",s)
+            if len(function):
+                matches += function
+                args = re.split(r"[\s]*def[\s]+([\w\.]+)[\s]*\([\s]*",s)
+                if len(args) > 1:
+                    args = args[-1]
+                    matches += re.findall(r"(?<![=\"\'])[\s]*([\w\.]+)[\s]*(?==|,|\))",args)
+            # Lambda
+            matches += re.findall(r"^[^#]*lambda[\s]+([\w\.]+)[\s()\w,]+",s)
+            # Classes
+            matches += re.findall(r"^[^#]*class[\s]+([\w\.]+)[\s()\w,]+",s)
+        return matches
+
     # Nuke script editor's modules completer
     def completionsForcompletionPart(self, completionPart):
         def findModules(searchString):
@@ -2994,6 +3010,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             allModules = dict(sysModules, **globalModules)
             allKeys = list(set(globals().keys() + sys.modules.keys()))
             allKeysSorted = [x for x in sorted(set(allKeys))]
+            # TODO Reload available functions
 
             if searchString == '' : 
                 matching = []
@@ -3007,7 +3024,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                         return dir(sys.modules['%s' % searchString])
                     elif globals().has_key(searchString): 
                         return dir(globals()['%s' % searchString])
-                    else : 
+                    else:
                         return []
                 except :
                     return None
@@ -3035,6 +3052,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                     matchedModules = []
         else : 
             matchedModules = [x for x in allModules if '__' not in x and x.startswith(fragmentSearchString)]
+
+        selfObjects = list(set(self.getPyObjects(self.toPlainText())))
+        for i in selfObjects:
+            if i.startswith(completionPart):
+                matchedModules.append(i)
 
         return matchedModules
 
