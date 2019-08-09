@@ -35,7 +35,7 @@ AllKnobScripters = [] # All open instances at a given time
 PrefsPanel = ""
 SnippetEditPanel = ""
 
-nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2019 Adrian Pueyo. All Rights Reserved.'.format(version,date))
+nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2019 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
 class KnobScripter(QtWidgets.QWidget):
 
@@ -484,7 +484,7 @@ class KnobScripter(QtWidgets.QWidget):
         counter = 0
         for i in self.node.knobs():
             if i not in defaultKnobs and self.node.knob(i).Class() in permittedKnobClasses:
-                if self.show_labels: #DONE: display the knob labels on dropdown if chosen.
+                if self.show_labels:
                     i_full = "{} ({})".format(self.node.knob(i).label(), i)
                 else:
                     i_full = i
@@ -704,7 +704,7 @@ class KnobScripter(QtWidgets.QWidget):
             knobs_dropdown = self.current_knob_dropdown
             kd_index = knobs_dropdown.currentIndex()
             kd_data = knobs_dropdown.itemData(kd_index)
-            if self.show_labels and i not in defaultKnobs: #DONE: display the knob labels on dropdown if chosen.
+            if self.show_labels and i not in defaultKnobs:
                 kd_data = "{} ({})".format(self.node.knob(kd_data).label(), kd_data)
             if modified == False:
                 knobs_dropdown.setItemText(kd_index, kd_data)
@@ -951,7 +951,7 @@ class KnobScripter(QtWidgets.QWidget):
         script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         orig_content = ""
-        content = self.script_editor.toPlainText().encode('utf8') #DONE: Accepting utf-8 characters
+        content = self.script_editor.toPlainText().encode('utf8')
 
         if temp == True:
             if os.path.isfile(script_path):
@@ -1338,7 +1338,7 @@ class KnobScripter(QtWidgets.QWidget):
     def changeClicked(self, newNode=""):
         ''' Change node '''
         try:
-            print self.node.name()
+            print "Changing from " + self.node.name()
         except:
             self.node = None
             if not len(nuke.selectedNodes()):
@@ -1614,7 +1614,7 @@ class KnobScripter(QtWidgets.QWidget):
     def findScriptEditors(self):
         script_editors = []
         for widget in QtWidgets.QApplication.allWidgets():
-            if "Script Editor" in widget.windowTitle() and len(widget.children())>5: #DONE: Fixed error on opening KS when Blinkscript node properties are open too.
+            if "Script Editor" in widget.windowTitle() and len(widget.children())>5:
                 script_editors.append(widget)
         return script_editors
 
@@ -2036,7 +2036,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
         else:
             ### COOL BEHAVIORS SIMILAR TO SUBLIME GO NEXT!
-            #print key
             cursor = self.textCursor()
             cpos = cursor.position()
             apos = cursor.anchor()
@@ -2065,7 +2064,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 selection = cursor.selection().toPlainText()
             else:
                 selection = ""
-            if key == Qt.Key_ParenLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): # ( #DONE:Parenthesis behavior improved when inside another parenthesis
+            if key == Qt.Key_ParenLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): # (
                 cursor.insertText("("+selection+")")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
@@ -2198,7 +2197,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.setPosition(cpos+len(next_line)+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
                 self.verticalScrollBar().setValue(pre_scroll)
-                self.scrollToCursor() #DONE: Improved auto-scroll behavior
+                self.scrollToCursor()
                 return
 
             elif key == up_arrow and not len(text_before_lines): # If up key and nothing happens, go to start
@@ -2358,7 +2357,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             self.cursor.movePosition(lastBlockSnap,QtGui.QTextCursor.KeepAnchor)
 
         self.setTextCursor(self.cursor)
-        self.verticalScrollBar().setValue(pre_scroll) #DONE: Unindent keeps scroll value
+        self.verticalScrollBar().setValue(pre_scroll)
 
     def findBlocks(self, first = 0, last = None, exclude = []):
         blocks = []
@@ -2423,7 +2422,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         if 'italic' in style:
             textFormat.setFontItalic(True)
         if 'underline' in style:
-            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline) #DONE prepared underline style for matches or something like that...
+            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
 
         return textFormat
 
@@ -2619,7 +2618,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         if 'italic' in style:
             textFormat.setFontItalic(True)
         if 'underline' in style:
-            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline) #DONE prepared underline style for matches or something like that...
+            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
 
         return textFormat
 
@@ -2793,11 +2792,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         if not search:
             return -1
         from_start = search.start()
-        #print("from_start="+str(from_start))
         total = len(re.sub(placeholder, "", text))
-        #print("total="+str(total))
         to_end = total-from_start
-        #print("to_end="+str(to_end))
         return to_end
 
     def addSnippetText(self, snippet_text):
@@ -2835,7 +2831,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             for i in range(placeholder_to_end):
                 self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
             for i in range(cursor_len):
-                self.cursor.movePosition(QtGui.QTextCursor.NextCharacter,QtGui.QTextCursor.KeepAnchor) #DONE: Accepts selected text as $$text$$
+                self.cursor.movePosition(QtGui.QTextCursor.NextCharacter,QtGui.QTextCursor.KeepAnchor)
             self.setTextCursor(self.cursor)
     def keyPressEvent(self,event):
 
@@ -2975,7 +2971,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
     def getPyObjects(self,text):
         ''' Returns a list containing all the functions, classes and variables found within the selected python text (code) '''
-        # DONE (WIP) for KS v2.1
         matches = []
         #1: Remove text inside triple quotes (leaving the quotes)
         text_clean = '""'.join(text.split('"""')[::2])
