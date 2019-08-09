@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "Aug 9 2019"
+date = "Aug 7 2019"
 #-------------------------------------------------
 
 import nuke
@@ -882,7 +882,7 @@ class KnobScripter(QtWidgets.QWidget):
             log("Loading .py file\n---")
             with open(script_path, 'r') as script:
                 content = script.read()
-            current_text = self.script_editor.toPlainText()
+            current_text = self.script_editor.toPlainText().encode("utf8")
             if check and current_text != content and current_text.strip() != "":
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setText("The script has been modified.")
@@ -951,7 +951,7 @@ class KnobScripter(QtWidgets.QWidget):
         script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         orig_content = ""
-        content = self.script_editor.toPlainText()
+        content = self.script_editor.toPlainText().encode('utf8') #DONE: Accepting utf-8 characters
 
         if temp == True:
             if os.path.isfile(script_path):
@@ -970,7 +970,7 @@ class KnobScripter(QtWidgets.QWidget):
                 return
         else:
             with open(script_path, 'w') as script:
-                script.write(self.script_editor.toPlainText())
+                script.write(self.script_editor.toPlainText().encode('utf8'))
             # Clear trash
             if os.path.isfile(script_path_temp):
                 os.remove(script_path_temp)
@@ -1431,7 +1431,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.setScriptState()
 
     def clearConsole(self):
-        self.origConsoleText = self.nukeSEOutput.document().toPlainText()
+        self.origConsoleText = self.nukeSEOutput.document().toPlainText().encode("utf8")
         self.script_output.setPlainText("")
 
     def toggleFRW(self, frw_pressed):
@@ -1635,7 +1635,7 @@ class KnobScripter(QtWidgets.QWidget):
 
     def setSEOutputEvent(self):
         nukeScriptEditors = self.findScriptEditors()
-        self.origConsoleText = self.nukeSEOutput.document().toPlainText() # Take the console from the first script editor found...
+        self.origConsoleText = self.nukeSEOutput.document().toPlainText().encode("utf8") # Take the console from the first script editor found...
         for se in nukeScriptEditors:
             se_output = self.findSEOutput(se)
             se_output.textChanged.connect(partial(consoleChanged,se_output, self))
@@ -1662,7 +1662,7 @@ def consoleChanged(self, ks):
     try:
         if ks: # KS exists
             ksOutput = ks.script_output # The console TextEdit widget
-            ksText = self.document().toPlainText()
+            ksText = self.document().toPlainText().encode("utf8")
             origConsoleText = ks.origConsoleText # The text from the console that will be omitted
             if ksText.startswith(origConsoleText):
                 ksText = ksText[len(origConsoleText):]
