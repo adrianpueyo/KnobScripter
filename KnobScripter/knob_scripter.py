@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "Aug 7 2019"
+date = "Aug 9 2019"
 #-------------------------------------------------
 
 import nuke
@@ -2802,8 +2802,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
     def addSnippetText(self, snippet_text):
         ''' Adds the selected text as a snippet (taking care of $$, $name$ etc) to the script editor '''
-        cursor_placeholder_find = r"(?<=[^\\])(\$\$)" # Matches $$
-        variables_placeholder_find = r"[^\\](\$[\w]*[^\t\n\r\f\v\$\\]+\$)" # Matches $thing$
+        cursor_placeholder_find = r"(?<!\\)(\$\$)" # Matches $$
+        variables_placeholder_find = r"(?<!\\)(\$[\w]*[^\t\n\r\f\v\$\\]+\$(?!\$))" # Matches $thing$
         text = snippet_text
         while True:
             placeholder_variable = re.search(variables_placeholder_find, text)
@@ -2820,16 +2820,25 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 
         placeholder_to_end = self.placeholderToEnd(text,cursor_placeholder_find)
 
+        cursors = re.finditer(r"(?<!\\)(\$\$)",text)
+        positions = []
+        cursor_len = 0
+        for m in cursors:
+            if len(positions)<2:
+                positions.append(m.start())
+        if len(positions)>1:
+            cursor_len = positions[1]-positions[0]-2
+
         text = re.sub(cursor_placeholder_find, "", text)
         self.cursor.insertText(text)
         if placeholder_to_end >= 0:
             for i in range(placeholder_to_end):
                 self.cursor.movePosition(QtGui.QTextCursor.PreviousCharacter)
+            for i in range(cursor_len):
+                self.cursor.movePosition(QtGui.QTextCursor.NextCharacter,QtGui.QTextCursor.KeepAnchor) #DONE: Accepts selected text as $$text$$
             self.setTextCursor(self.cursor)
-
     def keyPressEvent(self,event):
 
-        
         ctrl = bool(event.modifiers() & Qt.ControlModifier)
         alt = bool(event.modifiers() & Qt.AltModifier)
         shift = bool(event.modifiers() & Qt.ShiftModifier)
