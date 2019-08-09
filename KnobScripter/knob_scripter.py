@@ -3,7 +3,7 @@
 # Complete sript editor for Nuke
 # adrianpueyo.com, 2016-2019
 version = "2.1 BETA"
-date = "Aug 7 2019"
+date = "Aug 9 2019"
 #-------------------------------------------------
 
 import nuke
@@ -2803,7 +2803,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def addSnippetText(self, snippet_text):
         ''' Adds the selected text as a snippet (taking care of $$, $name$ etc) to the script editor '''
         cursor_placeholder_find = r"(?<!\\)(\$\$)" # Matches $$
-        variables_placeholder_find = r"(?<!\\)(\$[\w]*[^\t\n\r\f\v\$\\]+\$(?!\$))" # Matches $thing$
+        variables_placeholder_find = r"(?:^|[^\\\$])(\$[\w]*[^\t\n\r\f\v\$\\]+\$(?:$|[^\$]))" # Matches $thing$
         text = snippet_text
         while True:
             placeholder_variable = re.search(variables_placeholder_find, text)
