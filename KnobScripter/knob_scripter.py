@@ -1,9 +1,9 @@
 #-------------------------------------------------
-# Knob Scripter by Adrian Pueyo
-# Complete sript editor for Nuke
+# KnobScripter by Adrian Pueyo
+# Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.1 BETA"
-date = "Aug 9 2019"
+version = "2.1"
+date = "Aug 11 2019"
 #-------------------------------------------------
 
 import nuke
@@ -2490,7 +2490,6 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         self.tri_single = (QtCore.QRegExp("'''"), 1, self.styles['comment'])
         self.tri_double = (QtCore.QRegExp('"""'), 2, self.styles['comment'])
 
-        #TODO: Choose text style: sublime or nuke in prefs
         #rules
         rules = []
 
@@ -2638,12 +2637,7 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
         elif self.color_scheme == "sublime":
             self.rules = self.rules_sublime
 
-        #self.selected_text = self.script_editor.selected_text
-        #rules_selection = [(QtCore.QRegExp(self.selected_text), 0, self.styles_sublime['selected'])]
-        #self.rules += rules_selection
-        #TODO not tackle the selection here... somewhere else
-
-        for expression, nth, format in self.rules: #TODO + [(QtCore.QRegExp(self.selected_text), 1, self.styles_sublime['selected'])]:
+        for expression, nth, format in self.rules:
             index = expression.indexIn(text, 0)
 
             while index >= 0:
@@ -2664,7 +2658,6 @@ class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
             in_multiline = self.match_multiline(text, *self.tri_single_sublime)
             if not in_multiline:
                 in_multiline = self.match_multiline(text, *self.tri_double_sublime)
-            #TODO Function arguments
 
         #TODO if there's a selection, highlight same occurrences in the full document. If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
         
@@ -3014,7 +3007,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             allModules = dict(sysModules, **globalModules)
             allKeys = list(set(globals().keys() + sys.modules.keys()))
             allKeysSorted = [x for x in sorted(set(allKeys))]
-            # TODO Reload available functions
 
             if searchString == '' : 
                 matching = []
@@ -3186,13 +3178,9 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         kspSignature.setAlignment(QtCore.Qt.AlignRight)
 
 
-        #TODO: Font selector
         fontLabel = QtWidgets.QLabel("Font:")
         self.fontBox = QtWidgets.QFontComboBox()
-        #self.fontBox.setFontFilters(QtWidgets.QFontComboBox.MonospacedFonts)
         self.fontBox.setCurrentFont(QtGui.QFont(self.font))
-        #self.fontSizeBox.setMinimum(6)
-        #self.fontSizeBox.setMaximum(100)
         self.fontBox.currentFontChanged.connect(self.fontChanged)
 
 
@@ -3220,7 +3208,6 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.windowHBox.setToolTip("Default window height in pixels")
 
         #TODO: "Grab current dimensions" button
-        #TODO: Option to Display knob labels too
         
         tabSpaceLabel = QtWidgets.QLabel("Tab spaces:")
         tabSpaceLabel.setToolTip("Number of spaces to add with the tab key.")
