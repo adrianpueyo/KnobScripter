@@ -2,8 +2,8 @@
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.1"
-date = "Aug 11 2019"
+version = "2.2"
+date = "Aug 12 2019"
 #-------------------------------------------------
 
 import nuke
@@ -21,11 +21,14 @@ from threading import Event, Thread
 from webbrowser import open as openUrl
 
 try:
+    if nuke.NUKE_VERSION_MAJOR < 11:
     from PySide import QtCore, QtGui, QtGui as QtWidgets
     from PySide.QtCore import Qt
-except ImportError:
+else:
     from PySide2 import QtWidgets, QtGui, QtCore
     from PySide2.QtCore import Qt
+except ImportError:
+    from Qt import QtCore, QtGui, QtWidgets
 
 KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR+"/icons/"
@@ -2792,7 +2795,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
     def addSnippetText(self, snippet_text):
         ''' Adds the selected text as a snippet (taking care of $$, $name$ etc) to the script editor '''
         cursor_placeholder_find = r"(?<!\\)(\$\$)" # Matches $$
-        variables_placeholder_find = r"(?:^|[^\\\$])(\$[\w]*[^\t\n\r\f\v\$\\]+\$(?:$|[^\$]))" # Matches $thing$
+        variables_placeholder_find = r"(?:^|[^\\\$])(\$[\w]*[^\t\n\r\f\v\$\\]+\$)(?:$|[^\$])" # Matches $thing$
         text = snippet_text
         while True:
             placeholder_variable = re.search(variables_placeholder_find, text)
@@ -2826,6 +2829,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             for i in range(cursor_len):
                 self.cursor.movePosition(QtGui.QTextCursor.NextCharacter,QtGui.QTextCursor.KeepAnchor)
             self.setTextCursor(self.cursor)
+
     def keyPressEvent(self,event):
 
         ctrl = bool(event.modifiers() & Qt.ControlModifier)
