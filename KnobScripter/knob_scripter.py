@@ -2,8 +2,8 @@
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.2"
-date = "Aug 12 2019"
+version = "2.2.1"
+date = "Aug 29 2019"
 #-------------------------------------------------
 
 import nuke
@@ -609,7 +609,7 @@ class KnobScripter(QtWidgets.QWidget):
             reply = msgBox.exec_()
             if reply == QtWidgets.QMessageBox.No:
                 return
-        self.node[dropdown_value].setValue(edited_knobValue)
+        self.node[dropdown_value].setValue(edited_knobValue.encode("utf8")) #DONE:UTF8 encoding also works with knobs now
         self.setKnobModified(modified = False, knob = dropdown_value, changeTitle = True)
         nuke.tcl("modified 1")
         if self.knob in self.unsavedKnobs:
