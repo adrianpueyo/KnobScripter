@@ -2753,7 +2753,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         self.nukeCompleter.setWidget(self)
         self.nukeCompleter.setCompletionMode(QtWidgets.QCompleter.UnfilteredPopupCompletion)
         self.nukeCompleter.setCaseSensitivity(Qt.CaseSensitive)
-        self.nukeCompleter.setModel(QtGui.QStringListModel())
+        try:
+            self.nukeCompleter.setModel(QtGui.QStringListModel())
+        except:
+            self.nukeCompleter.setModel(QtCore.QStringListModel())
 
         self.nukeCompleter.activated.connect(self.insertNukeCompletion)
         self.nukeCompleter.highlighted.connect(self.completerHighlightChanged)
