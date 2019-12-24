@@ -20,7 +20,7 @@ import platform
 from threading import Event, Thread
 from webbrowser import open as openUrl
 
-#DONE: Symlinks on windows
+#Symlinks on windows...
 if os.name == "nt":
     def symlink_ms(source, link_name):
         import ctypes
@@ -2103,7 +2103,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            elif key in [199,Qt.Key_BraceRight] and text_after_cursor.startswith("}"): # } #DONE: Fixed bracket-closing behaviour.
+            elif key in [199,Qt.Key_BraceRight] and text_after_cursor.startswith("}"): # }
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
             elif key == 34: # "
@@ -2769,7 +2769,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         self.nukeCompleter.setCompletionMode(QtWidgets.QCompleter.UnfilteredPopupCompletion)
         self.nukeCompleter.setCaseSensitivity(Qt.CaseSensitive)
         try:
-            self.nukeCompleter.setModel(QtGui.QStringListModel()) #DONE: Added QStringListModel compatibility on nuke 12
+            self.nukeCompleter.setModel(QtGui.QStringListModel())
         except:
             self.nukeCompleter.setModel(QtCore.QStringListModel())
 
