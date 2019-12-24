@@ -2,7 +2,7 @@
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.2"
+version = "2.3 wip"
 date = "Aug 12 2019"
 #-------------------------------------------------
 
@@ -19,6 +19,21 @@ import subprocess
 import platform
 from threading import Event, Thread
 from webbrowser import open as openUrl
+
+#DONE: Symlinks on windows
+if os.name == "nt":
+    def symlink_ms(source, link_name):
+        import ctypes
+        csl = ctypes.windll.kernel32.CreateSymbolicLinkW
+        csl.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+        csl.restype = ctypes.c_ubyte
+        flags = 1 if os.path.isdir(source) else 0
+        try:
+            if csl(link_name, source.replace('/', '\\'), flags) == 0:
+                raise ctypes.WinError()
+        except:
+            pass
+    os.symlink = symlink_ms
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -2080,7 +2095,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BracketRight and text_after_cursor.startswith("]"): # ]
+            elif key in [Qt.Key_BracketRight,43] and text_after_cursor.startswith("]"): # ]
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
             elif key == Qt.Key_BraceLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): #{
@@ -2088,7 +2103,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BraceRight and text_after_cursor.startswith("}"): # }
+            elif key in [199,Qt.Key_BraceRight] and text_after_cursor.startswith("}"): # } #DONE: Fixed bracket-closing behaviour.
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
             elif key == 34: # "
@@ -2753,7 +2768,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         self.nukeCompleter.setWidget(self)
         self.nukeCompleter.setCompletionMode(QtWidgets.QCompleter.UnfilteredPopupCompletion)
         self.nukeCompleter.setCaseSensitivity(Qt.CaseSensitive)
-        self.nukeCompleter.setModel(QtGui.QStringListModel())
+        try:
+            self.nukeCompleter.setModel(QtGui.QStringListModel()) #DONE: Added QStringListModel compatibility on nuke 12
+        except:
+            self.nukeCompleter.setModel(QtCore.QStringListModel())
 
         self.nukeCompleter.activated.connect(self.insertNukeCompletion)
         self.nukeCompleter.highlighted.connect(self.completerHighlightChanged)
