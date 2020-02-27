@@ -2,8 +2,8 @@
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2019
-version = "2.2.1"
-date = "Aug 29 2019"
+version = "2.4a1"
+date = "Feb 27 2020"
 #-------------------------------------------------
 
 import nuke
@@ -19,6 +19,21 @@ import subprocess
 import platform
 from threading import Event, Thread
 from webbrowser import open as openUrl
+
+#Symlinks on windows...
+if os.name == "nt":
+    def symlink_ms(source, link_name):
+        import ctypes
+        csl = ctypes.windll.kernel32.CreateSymbolicLinkW
+        csl.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+        csl.restype = ctypes.c_ubyte
+        flags = 1 if os.path.isdir(source) else 0
+        try:
+            if csl(link_name, source.replace('/', '\\'), flags) == 0:
+                raise ctypes.WinError()
+        except:
+            pass
+    os.symlink = symlink_ms
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -348,7 +363,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_output = ScriptOutputWidget(parent=self)
         self.script_output.setReadOnly(1)
         self.script_output.setAcceptRichText(0)
-        self.script_output.setTabStopWidth(self.script_output.tabStopWidth() / 4)
+        if self.tabSpaces != 0:
+            self.script_output.setTabStopWidth(self.script_output.tabStopWidth() / 4)
         self.script_output.setFocusPolicy(Qt.ClickFocus)
         self.script_output.setAutoFillBackground( 0 )
         self.script_output.installEventFilter(self)
@@ -366,7 +382,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_editor_font.setFixedPitch(True)
         self.script_editor_font.setPointSize(self.fontSize)
         self.script_editor.setFont(self.script_editor_font)
-        self.script_editor.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.script_editor_font).width(' '))
+        if self.tabSpaces != 0:
+            self.script_editor.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.script_editor_font).width(' '))
 
         # Add input and output to splitter
         self.splitter.addWidget(self.script_output)
@@ -609,7 +626,7 @@ class KnobScripter(QtWidgets.QWidget):
             reply = msgBox.exec_()
             if reply == QtWidgets.QMessageBox.No:
                 return
-        self.node[dropdown_value].setValue(edited_knobValue.encode("utf8")) #DONE:UTF8 encoding also works with knobs now
+        self.node[dropdown_value].setValue(edited_knobValue.encode("utf8"))
         self.setKnobModified(modified = False, knob = dropdown_value, changeTitle = True)
         nuke.tcl("modified 1")
         if self.knob in self.unsavedKnobs:
@@ -1357,7 +1374,7 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             updatedCount = 0
             self.autosave()
-        if newNode != "" and nuke.exists(newNode):
+        if newNode and newNode != "" and nuke.exists(newNode):
             selection = [newNode]
         elif not len(selection):
             node_dialog = ChooseNodeDialog(self)
@@ -1375,10 +1392,9 @@ class KnobScripter(QtWidgets.QWidget):
             self.toAutosave = False
             self.saveScriptState()
             self.splitter.setSizes([0,1])
-        self.nodeMode = True
 
         # If already selected, pass
-        if self.node is not None and selection[0].fullName() == self.node.fullName():
+        if self.node is not None and selection[0].fullName() == self.node.fullName() and self.nodeMode:
             self.messageBox("Please select a different node first!")
             return
         elif updatedCount > 0:
@@ -1398,6 +1414,7 @@ class KnobScripter(QtWidgets.QWidget):
         # Reinitialise everything, wooo!
         self.current_knob_dropdown.blockSignals(True)
         self.node = selection[0]
+        self.nodeMode = True
 
         self.script_editor.setPlainText("")
         self.unsavedKnobs = {}
@@ -2075,12 +2092,12 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             elif key == Qt.Key_ParenRight and text_after_cursor.startswith(")"): # )
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BracketLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): #[
+            elif key in [94,Qt.Key_BracketLeft] and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): #[
                 cursor.insertText("["+selection+"]")
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BracketRight and text_after_cursor.startswith("]"): # ]
+            elif key in [Qt.Key_BracketRight,43,93] and text_after_cursor.startswith("]"): # ]
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
             elif key == Qt.Key_BraceLeft and (len(selection)>0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(text_after_cursor)): #{
@@ -2088,7 +2105,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 cursor.setPosition(apos+1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos+1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BraceRight and text_after_cursor.startswith("}"): # }
+            elif key in [199,Qt.Key_BraceRight] and text_after_cursor.startswith("}"): # }
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
             elif key == 34: # "
@@ -2753,7 +2770,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         self.nukeCompleter.setWidget(self)
         self.nukeCompleter.setCompletionMode(QtWidgets.QCompleter.UnfilteredPopupCompletion)
         self.nukeCompleter.setCaseSensitivity(Qt.CaseSensitive)
-        self.nukeCompleter.setModel(QtGui.QStringListModel())
+        try:
+            self.nukeCompleter.setModel(QtGui.QStringListModel())
+        except:
+            self.nukeCompleter.setModel(QtCore.QStringListModel())
 
         self.nukeCompleter.activated.connect(self.insertNukeCompletion)
         self.nukeCompleter.highlighted.connect(self.completerHighlightChanged)
@@ -3217,11 +3237,14 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         tabSpaceLabel.setToolTip("Number of spaces to add with the tab key.")
         self.tabSpace2 = QtWidgets.QRadioButton("2")
         self.tabSpace4 = QtWidgets.QRadioButton("4")
+        #self.tabSpaceTab = QtWidgets.QRadioButton("tab")
         tabSpaceButtonGroup = QtWidgets.QButtonGroup(self)
         tabSpaceButtonGroup.addButton(self.tabSpace2)
         tabSpaceButtonGroup.addButton(self.tabSpace4)
+        #tabSpaceButtonGroup.addButton(self.tabSpaceTab)
         self.tabSpace2.setChecked(self.knobScripter.tabSpaces == 2)
         self.tabSpace4.setChecked(self.knobScripter.tabSpaces == 4)
+        #self.tabSpaceTab.setChecked(self.knobScripter.tabSpaces == 0) #TODO: accept tab working as normal tab
         
         pinDefaultLabel = QtWidgets.QLabel("Always on top:")
         pinDefaultLabel.setToolTip("Default mode of the PIN toggle.")
@@ -3271,6 +3294,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
                 self.windowHBox.setValue(self.ksPrefs['window_default_h'])
                 self.tabSpace2.setChecked(self.ksPrefs['tab_spaces'] == 2)
                 self.tabSpace4.setChecked(self.ksPrefs['tab_spaces'] == 4)
+                #self.tabSpaceTab.setChecked(self.ksPrefs['tab_spaces'] == 0)
                 self.pinDefaultOn.setChecked(self.ksPrefs['pin_default'] == 1)
                 self.pinDefaultOff.setChecked(self.ksPrefs['pin_default'] == 0)
                 self.showLabelsOn.setChecked(self.ksPrefs['show_labels'] == 1)
@@ -3300,6 +3324,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         tabSpacesButtons_layout = QtWidgets.QHBoxLayout()
         tabSpacesButtons_layout.addWidget(self.tabSpace2)
         tabSpacesButtons_layout.addWidget(self.tabSpace4)
+        #tabSpacesButtons_layout.addWidget(self.tabSpaceTab)
         tabSpaces_layout = QtWidgets.QHBoxLayout()
         tabSpaces_layout.addWidget(tabSpaceLabel)
         tabSpaces_layout.addLayout(tabSpacesButtons_layout)
@@ -3393,7 +3418,12 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         return
 
     def tabSpaceValue(self):
-        return 2 if self.tabSpace2.isChecked() else 4
+        if self.tabSpace2.isChecked():
+            return 2
+        elif self.tabSpace4.isChecked():
+            return 2
+        else:
+            return 0
 
     def pinDefaultValue(self):
         return 1 if self.pinDefaultOn.isChecked() else 0
