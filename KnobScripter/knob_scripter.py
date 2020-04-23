@@ -1625,39 +1625,47 @@ class KnobScripter(QtWidgets.QWidget):
 
     def findSE(self):
         for widget in QtWidgets.QApplication.allWidgets():
-            if "Script Editor" in widget.windowTitle():
+            if widget.metaObject().className() == 'Nuke::NukeScriptEditor':
                 return widget
 
-    # FunctiosaveScrollValuens for Nuke's Script Editor
-    def findScriptEditors(self):
-        script_editors = []
-        for widget in QtWidgets.QApplication.allWidgets():
-            if "Script Editor" in widget.windowTitle() and len(widget.children())>5:
-                script_editors.append(widget)
-        return script_editors
-
     def findSEInput(self, se):
-        return se.children()[-1].children()[0]
+        children = se.children()
+        splitter = [w for w in children if isinstance(w, QtWidgets.QSplitter)]
+        if not splitter:
+            return None
+        splitter = splitter[0]
+        for widget in splitter.children():
+            if widget.metaObject().className() == 'Foundry::PythonUI::ScriptInputWidget':
+                return widget
+        return None
 
     def findSEOutput(self, se):
-        return se.children()[-1].children()[1]
+        children = se.children()
+        splitter = [w for w in children if isinstance(w, QtWidgets.QSplitter)]
+        if not splitter:
+            return None
+        splitter = splitter[0]
+        for widget in splitter.children():
+            if widget.metaObject().className() == 'Foundry::PythonUI::ScriptOutputWidget':
+                return widget
+        return None
 
     def findSERunBtn(self, se):
-        for btn in se.children():
-            try:
-                if "Run the current script" in btn.toolTip():
-                    return btn
-            except:
-                pass
-        return False
+        children = se.children()
+        buttons = [b for b in children if isinstance(b, QtWidgets.QPushButton)]
+        for button in buttons:
+            tooltip = button.toolTip()
+            if "Run the current script" in tooltip:
+                return button
+        return None
 
     def setSEOutputEvent(self):
-        nukeScriptEditors = self.findScriptEditors()
-        self.origConsoleText = self.nukeSEOutput.document().toPlainText().encode("utf8") # Take the console from the first script editor found...
-        for se in nukeScriptEditors:
-            se_output = self.findSEOutput(se)
-            se_output.textChanged.connect(partial(consoleChanged,se_output, self))
-            consoleChanged(se_output, self) # Initialise.
+        se = self.findSE()
+        se_output = self.findSEOutput(se)
+        self.origConsoleText = se_output.document().toPlainText().encode('utf8')
+        se_output.textChanged.connect(partial(consoleChanged, se_output, self))
+        consoleChanged(se_output, self)
+
 
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
