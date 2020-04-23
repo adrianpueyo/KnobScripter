@@ -416,7 +416,6 @@ class KnobScripter(QtWidgets.QDialog):
         #----------------
         size_policy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
         self.setSizePolicy(size_policy)
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool) # Necessary so window stays on top for < Nuke 12
         self.setMinimumWidth(160)
 
         if self.pinned:
@@ -3923,9 +3922,9 @@ class SnippetFilePath(QtWidgets.QWidget):
 def showKnobScripter(knob="knobChanged"):
     selection = nuke.selectedNodes()
     if not len(selection):
-        pan = KnobScripter()
+        pan = KnobScripter(_parent=QtWidgets.QApplication.activeWindow())
     else:
-        pan = KnobScripter(selection[0], knob)
+        pan = KnobScripter(selection[0], knob, _parent=QtWidgets.QApplication.activeWindow())
     pan.show()
 
 def addKnobScripterPanel():
