@@ -55,10 +55,10 @@ SnippetEditPanel = ""
 
 nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2019 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
-class KnobScripter(QtWidgets.QWidget):
+class KnobScripter(QtWidgets.QDialog):
 
-    def __init__(self, node="", knob="knobChanged"):
-        super(KnobScripter,self).__init__()
+    def __init__(self, node="", knob="knobChanged", _parent=QtWidgets.QApplication.activeWindow()):
+        super(KnobScripter,self).__init__(_parent)
 
         # Autosave the other knobscripters and add this one
         for ks in AllKnobScripters:
