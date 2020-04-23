@@ -416,6 +416,7 @@ class KnobScripter(QtWidgets.QDialog):
         #----------------
         size_policy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
         self.setSizePolicy(size_policy)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool) # Necessary so window stays on top for < Nuke 12
         self.setMinimumWidth(160)
 
         if self.pinned:
@@ -1372,7 +1373,7 @@ class KnobScripter(QtWidgets.QDialog):
         else:
             updatedCount = 0
             self.autosave()
-        if newNode != "" and nuke.exists(newNode):
+        if newNode and nuke.exists(newNode):
             selection = [newNode]
         elif not len(selection):
             node_dialog = ChooseNodeDialog(self)
