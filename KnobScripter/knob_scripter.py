@@ -1,9 +1,9 @@
 #-------------------------------------------------
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
-# adrianpueyo.com, 2016-2019
-version = "2.4a2"
-date = "May 17 2020"
+# adrianpueyo.com, 2016-2020
+version = "2.4a3"
+date = "Dec 6 2020"
 #-------------------------------------------------
 
 import nuke
@@ -53,11 +53,11 @@ AllKnobScripters = [] # All open instances at a given time
 PrefsPanel = ""
 SnippetEditPanel = ""
 
-nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2019 Adrian Pueyo. All Rights Reserved.'.format(version,date))
+nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2020 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
 class KnobScripter(QtWidgets.QWidget):
 
-    def __init__(self, node="", knob="knobChanged"):
+    def __init__(self, node="", knob="knobChanged", isPane=False):
         super(KnobScripter,self).__init__()
 
         # Autosave the other knobscripters and add this one
@@ -75,7 +75,7 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             self.node = node
 
-        self.isPane = False
+        self.isPane = isPane
         self.knob = knob
         self.show_labels = False # For the option to also display the knob labels on the knob dropdown
         self.unsavedKnobs = {}
@@ -253,8 +253,11 @@ class KnobScripter(QtWidgets.QWidget):
         self.save_btn.setIconSize(QtCore.QSize(50,50))
         self.save_btn.setIconSize(self.qt_icon_size)
         self.save_btn.setFixedSize(self.qt_btn_size)
-        self.save_btn.setToolTip("Save the script into the selected knob or python file.\nShortcut: Ctrl+S")
-        self.save_btn.setShortcut('Ctrl+S')
+        if not self.isPane:
+            self.save_btn.setShortcut('Ctrl+S')
+            self.save_btn.setToolTip("Save the script into the selected knob or python file.\nShortcut: Ctrl+S")
+        else:
+            self.save_btn.setToolTip("Save the script into the selected knob or python file.")
         self.save_btn.clicked.connect(self.saveClicked)
 
         # Layout
@@ -373,7 +376,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_output.installEventFilter(self)
 
         # Script Editor
-        self.script_editor = KnobScripterTextEditMain(self, self.script_output)
+        #self.script_editor = KnobScripterTextEditMain(self, self.script_output)
+        self.script_editor = KnobScripterTextEdit(self)
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
@@ -442,7 +446,6 @@ class KnobScripter(QtWidgets.QWidget):
 
     # Preferences submenus
     def createPrefsMenu(self):
-
         # Actions
         self.echoAct = QtWidgets.QAction("Echo python commands", self, checkable=True, statusTip="Toggle nuke's 'Echo all python commands to ScriptEditor'", triggered=self.toggleEcho)
         if nuke.toNode("preferences").knob("echoAllCommands").value():
@@ -1525,6 +1528,11 @@ class KnobScripter(QtWidgets.QWidget):
         global PrefsPanel
         if PrefsPanel == "":
             PrefsPanel = KnobScripterPrefs(self)
+        else:
+            try:
+                PrefsPanel.knobScripter = self
+            except:
+                pass
 
         if PrefsPanel.show():
             PrefsPanel = ""
@@ -1677,8 +1685,7 @@ class KnobScripter(QtWidgets.QWidget):
 
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
-        super(KnobScripterPane, self).__init__()
-        self.isPane = True
+        super(KnobScripterPane, self).__init__(isPane=True)
 
     def showEvent(self, the_event):
         try:
@@ -2446,7 +2453,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
                 if blockText.startswith(' '*self.tabSpaces):
                     blockText = blockText[self.tabSpaces:]
                     self.lastChar -= self.tabSpaces
-                elif blockText.startswith('\t'):
+                elif blockText.startswith(' '):
                     blockText = blockText[1:]
                     self.lastChar -= 1
 
@@ -2977,6 +2984,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 line_before_cursor = text_before_cursor.split('\n')[-1]
                 text_after_cursor = self.toPlainText()[cpos:]
 
+                # ...and abort mission if there's a tab before, or selected text
+                if self.cursor.hasSelection() or text_before_cursor.endswith("\t"): #TODO make these lines more efficient
+                    KnobScripterTextEdit.keyPressEvent(self,event)
+                    return
+
                 # 3. Check coincidences in snippets dicts
                 try: #Meaning snippet found
                     match_key, match_snippet = self.findLongestEndingMatch(line_before_cursor, self.knobScripter.snippets)
@@ -3260,7 +3272,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         kspLineBottom.setLineWidth(0)
         kspLineBottom.setMidLineWidth(1)
         kspLineBottom.setFrameShadow(QtWidgets.QFrame.Sunken)
-        kspSignature = QtWidgets.QLabel('<a href="http://www.adrianpueyo.com/" style="color:#888;text-decoration:none"><b>adrianpueyo.com</b></a>, 2016-2019')
+        kspSignature = QtWidgets.QLabel('<a href="http://www.adrianpueyo.com/" style="color:#888;text-decoration:none"><b>adrianpueyo.com</b></a>, 2016-2020')
         kspSignature.setOpenExternalLinks(True)
         kspSignature.setStyleSheet('''color:#555;font-size:9px;''')
         kspSignature.setAlignment(QtCore.Qt.AlignRight)
@@ -3295,20 +3307,18 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.windowHBox.setMaximum(2000)
         self.windowHBox.setToolTip("Default window height in pixels")
 
-        #TODO: "Grab current dimensions" button
-        
+        self.grabDimensionsButton = QtWidgets.QPushButton("Grab current dimensions")
+        self.grabDimensionsButton.clicked.connect(self.grabDimensions)
+
         tabSpaceLabel = QtWidgets.QLabel("Tab spaces:")
         tabSpaceLabel.setToolTip("Number of spaces to add with the tab key.")
         self.tabSpace2 = QtWidgets.QRadioButton("2")
         self.tabSpace4 = QtWidgets.QRadioButton("4")
-        #self.tabSpaceTab = QtWidgets.QRadioButton("tab")
         tabSpaceButtonGroup = QtWidgets.QButtonGroup(self)
         tabSpaceButtonGroup.addButton(self.tabSpace2)
         tabSpaceButtonGroup.addButton(self.tabSpace4)
-        #tabSpaceButtonGroup.addButton(self.tabSpaceTab)
         self.tabSpace2.setChecked(self.knobScripter.tabSpaces == 2)
         self.tabSpace4.setChecked(self.knobScripter.tabSpaces == 4)
-        #self.tabSpaceTab.setChecked(self.knobScripter.tabSpaces == 0) #TODO: accept tab working as normal tab
         
         pinDefaultLabel = QtWidgets.QLabel("Always on top:")
         pinDefaultLabel.setToolTip("Default mode of the PIN toggle.")
@@ -3398,11 +3408,10 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         windowH_layout = QtWidgets.QHBoxLayout()
         windowH_layout.addWidget(windowHLabel)
         windowH_layout.addWidget(self.windowHBox)
-        
+
         tabSpacesButtons_layout = QtWidgets.QHBoxLayout()
         tabSpacesButtons_layout.addWidget(self.tabSpace2)
         tabSpacesButtons_layout.addWidget(self.tabSpace4)
-        #tabSpacesButtons_layout.addWidget(self.tabSpaceTab)
         tabSpaces_layout = QtWidgets.QHBoxLayout()
         tabSpaces_layout.addWidget(tabSpaceLabel)
         tabSpaces_layout.addLayout(tabSpacesButtons_layout)
@@ -3444,6 +3453,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.master_layout.addLayout(fontSize_layout)
         self.master_layout.addLayout(windowW_layout)
         self.master_layout.addLayout(windowH_layout)
+        self.master_layout.addWidget(self.grabDimensionsButton)
         self.master_layout.addLayout(tabSpaces_layout)
         self.master_layout.addLayout(pinDefault_layout)
         self.master_layout.addLayout(contextDefault_layout)
@@ -3489,6 +3499,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.knobScripter.color_scheme = self.oldScheme
         self.knobScripter.highlighter.rehighlight()
         self.reject()
+        global PrefsPanel
+        PrefsPanel = ""
 
     def fontSizeChanged(self):
         self.knobScripter.script_editor_font.setPointSize(self.fontSizeBox.value())
@@ -3514,6 +3526,10 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         else:
             return 0
 
+    def grabDimensions(self):
+        self.windowHBox.setValue(self.knobScripter.height())
+        self.windowWBox.setValue(self.knobScripter.width())
+
     def pinDefaultValue(self):
         return 1 if self.pinDefaultOn.isChecked() else 0
 
@@ -3528,6 +3544,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
 
     def closeEvent(self,event):
         self.cancelPrefs()
+        global PrefsPanel
+        PrefsPanel = ""
         self.close()
 
 def updateContext():
