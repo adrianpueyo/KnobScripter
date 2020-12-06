@@ -376,8 +376,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_output.installEventFilter(self)
 
         # Script Editor
-        #self.script_editor = KnobScripterTextEditMain(self, self.script_output)
-        self.script_editor = KnobScripterTextEdit(self)
+        self.script_editor = KnobScripterTextEditMain(self, self.script_output)
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
