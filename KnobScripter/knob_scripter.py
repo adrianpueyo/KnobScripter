@@ -436,6 +436,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.echoAct = QtWidgets.QAction("Echo python commands", self, checkable=True, statusTip="Toggle nuke's 'Echo all python commands to ScriptEditor'", triggered=self.toggleEcho)
         if nuke.toNode("preferences").knob("echoAllCommands").value():
             self.echoAct.toggle()
+        self.runInContextAct = QtWidgets.QAction("Run in context (beta)", self, checkable=True, statusTip="When inside a node, run the code replacing nuke.thisNode() to the node's name, etc.", triggered=self.toggleRunInContext)
         self.helpAct = QtWidgets.QAction("&Help", self, statusTip="Open the KnobScripter help in your browser.", shortcut="F1", triggered=self.showHelp)
         self.nukepediaAct = QtWidgets.QAction("Show in Nukepedia", self, statusTip="Open the KnobScripter download page on Nukepedia.", triggered=self.showInNukepedia)
         self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
@@ -447,6 +448,7 @@ class KnobScripter(QtWidgets.QDialog):
         # Menus
         self.prefsMenu = QtWidgets.QMenu("Preferences")
         self.prefsMenu.addAction(self.echoAct)
+        self.prefsMenu.addAction(self.runInContextAct)
         self.prefsMenu.addSeparator()
         self.prefsMenu.addAction(self.nukepediaAct)
         self.prefsMenu.addAction(self.githubAct)
