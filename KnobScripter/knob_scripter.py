@@ -39,7 +39,7 @@ try:
     if nuke.NUKE_VERSION_MAJOR < 11:
         from PySide import QtCore, QtGui, QtGui as QtWidgets
         from PySide.QtCore import Qt
-    else:
+    else:2
         from PySide2 import QtWidgets, QtGui, QtCore
         from PySide2.QtCore import Qt
 except ImportError:
@@ -463,7 +463,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
         self.snippetsAct = QtWidgets.QAction("Snippets", self, statusTip="Open the Snippets editor.", triggered=self.openSnippets)
         self.snippetsAct.setIcon(QtGui.QIcon(icons_path+"icon_snippets.png"))
-        #self.snippetsAct = QtWidgets.QAction("Keywords", self, statusTip="Add custom keywords.", triggered=self.openSnippets) #TODO THIS
         self.prefsAct = QtWidgets.QAction("Preferences", self, statusTip="Open the Preferences panel.", triggered=self.openPrefs)
         self.prefsAct.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
 
@@ -2984,8 +2983,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 line_before_cursor = text_before_cursor.split('\n')[-1]
                 text_after_cursor = self.toPlainText()[cpos:]
 
-                # ...and abort mission if there's a tab before, or selected text
-                if self.cursor.hasSelection() or text_before_cursor.endswith("\t"): #TODO make these lines more efficient
+                # Abort mission if there's a tab before, or selected text
+                if self.cursor.hasSelection() or text_before_cursor.endswith("\t"):
                     KnobScripterTextEdit.keyPressEvent(self,event)
                     return
 
@@ -4024,9 +4023,6 @@ class SnippetFilePath(QtWidgets.QWidget):
 
         self.filepath_lineEdit.setText(browseLocation)
         return
-
-
-
 
 #--------------------------------
 # Implementation
