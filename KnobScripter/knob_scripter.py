@@ -2,7 +2,7 @@
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2020
-version = "2.4a4"
+version = "2.4"
 date = "Dec 7 2020"
 #-------------------------------------------------
 
