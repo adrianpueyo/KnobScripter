@@ -39,7 +39,7 @@ try:
     if nuke.NUKE_VERSION_MAJOR < 11:
         from PySide import QtCore, QtGui, QtGui as QtWidgets
         from PySide.QtCore import Qt
-    else:2
+    else:
         from PySide2 import QtWidgets, QtGui, QtCore
         from PySide2.QtCore import Qt
 except ImportError:
