@@ -2,8 +2,8 @@
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2020
-version = "2.4a3"
-date = "Dec 6 2020"
+version = "2.4a4"
+date = "Dec 7 2020"
 #-------------------------------------------------
 
 import nuke
@@ -108,6 +108,10 @@ class KnobScripter(QtWidgets.QWidget):
         self.script_index = 0
         self.toAutosave = False
         self.runInContext = False # Experimental
+
+        self.defaultKnobs = ["knobChanged", "onCreate", "onScriptLoad", "onScriptSave", "onScriptClose", "onDestroy",
+                        "updateUI", "autolabel", "beforeRender", "beforeFrameRender", "afterFrameRender", "afterRender"]
+        self.permittedKnobClasses = ["PyScript_Knob", "PythonCustomKnob"]
 
         # Load prefs
         self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Prefs.txt"))
@@ -510,12 +514,9 @@ class KnobScripter(QtWidgets.QWidget):
     def updateKnobDropdown(self):
         ''' Populate knob dropdown list '''
         self.current_knob_dropdown.clear() # First remove all items
-        defaultKnobs = ["knobChanged", "onCreate", "onScriptLoad", "onScriptSave", "onScriptClose", "onDestroy",
-                        "updateUI", "autolabel", "beforeRender", "beforeFrameRender", "afterFrameRender", "afterRender"]
-        permittedKnobClasses = ["PyScript_Knob", "PythonCustomKnob"]
         counter = 0
         for i in self.node.knobs():
-            if i not in defaultKnobs and self.node.knob(i).Class() in permittedKnobClasses:
+            if i not in self.defaultKnobs and self.node.knob(i).Class() in self.permittedKnobClasses:
                 if self.show_labels:
                     i_full = "{} ({})".format(self.node.knob(i).label(), i)
                 else:
@@ -533,7 +534,7 @@ class KnobScripter(QtWidgets.QWidget):
             self.current_knob_dropdown.insertSeparator(counter)
             counter += 1
         for i in self.node.knobs():
-            if i in defaultKnobs:
+            if i in self.defaultKnobs:
                 if i in self.unsavedKnobs.keys():
                     self.current_knob_dropdown.addItem(i+"(*)", i)
                 else:
@@ -736,7 +737,7 @@ class KnobScripter(QtWidgets.QWidget):
             knobs_dropdown = self.current_knob_dropdown
             kd_index = knobs_dropdown.currentIndex()
             kd_data = knobs_dropdown.itemData(kd_index)
-            if self.show_labels and i not in defaultKnobs:
+            if self.show_labels and kd_data not in self.defaultKnobs:
                 kd_data = "{} ({})".format(self.node.knob(kd_data).label(), kd_data)
             if modified == False:
                 knobs_dropdown.setItemText(kd_index, kd_data)
@@ -3785,7 +3786,6 @@ class SnippetsPanel(QtWidgets.QDialog):
         self.snippets_txt_path = self.knobScripter.snippets_txt_path
         self.snippets_dict = self.loadSnippetsDict(path = self.snippets_txt_path)
         #self.snippets_dict = snippets_dic
-
         #self.saveSnippets(snippets_dic)
 
         self.initUI()
@@ -3948,7 +3948,7 @@ class SnippetsPanel(QtWidgets.QDialog):
     def showHelp(self):
         ''' Create a new snippet, auto-completed with the help '''
         help_key = "help"
-        help_val = """Snippets are a convenient way to have code blocks that you can call through a shortcut.\n\n1. Simply write a shortcut on the text input field on the left. You can see this one is set to "test".\n\n2. Then, write a code or whatever in this script editor. You can include $$ as the placeholder for where you'll want the mouse cursor to appear.\n\n3. Finally, click OK or Apply to save the snippets. On the main script editor, you'll be able to call any snippet by writing the shortcut (in this example: help) and pressing the Tab key.\n\nIn order to remove a snippet, simply leave the shortcut and contents blank, and save the snippets."""
+        help_val = """Snippets are a convenient way to have code blocks that you can call through a shortcut.\n\n1. Simply write a shortcut on the text input field on the left. You can see this one is set to "help".\n\n2. Then, write a code or whatever in this script editor. You can include $$ as the placeholder for where you'll want the mouse cursor to appear.\nYou can instead write $$someText$$ to have someText selected.\nOr even $anythingHere$ to have a panel ask you what to put in $anythingHere$, and once you type it substitute it everywhere it finds that keyword.\n\n3. Finally, click OK or Apply to save the snippets. On the main script editor, you'll be able to call any snippet by writing the shortcut (in this example: help) and pressing the Tab key.\n\nIn order to remove a snippet, simply leave the shortcut and contents blank, and save the snippets."""
         help_se = self.addSnippet(help_key,help_val)
         help_se.script_editor.resize(160,160)
 
