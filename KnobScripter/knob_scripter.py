@@ -437,6 +437,7 @@ class KnobScripter(QtWidgets.QDialog):
         if nuke.toNode("preferences").knob("echoAllCommands").value():
             self.echoAct.toggle()
         self.runInContextAct = QtWidgets.QAction("Run in context (beta)", self, checkable=True, statusTip="When inside a node, run the code replacing nuke.thisNode() to the node's name, etc.", triggered=self.toggleRunInContext)
+        self.runInContextAct.setChecked(self.runInContext)
         self.helpAct = QtWidgets.QAction("&Help", self, statusTip="Open the KnobScripter help in your browser.", shortcut="F1", triggered=self.showHelp)
         self.nukepediaAct = QtWidgets.QAction("Show in Nukepedia", self, statusTip="Open the KnobScripter download page on Nukepedia.", triggered=self.showInNukepedia)
         self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
@@ -469,9 +470,8 @@ class KnobScripter(QtWidgets.QDialog):
         echo_knob.setValue(self.echoAct.isChecked())
 
     def toggleRunInContext(self):
-        ''' Preference to replace everything needed so that code can be run in proper context of the node and knob that's selected.'''
-        self.runInContext = not self.runInContext
-
+        ''' Toggle preference to replace everything needed so that code can be run in proper context of the node and knob that's selected.'''
+        self.setRunInContext(not self.runInContext)
 
     def showInNukepedia(self):
         openUrl("http://www.nukepedia.com/python/ui/knobscripter")
@@ -1611,7 +1611,7 @@ class KnobScripter(QtWidgets.QDialog):
 
     def setRunInContext(self, pressed):
         self.runInContext = pressed
-
+        self.runInContextAct.setChecked(pressed)
 
     def findSE(self):
         for widget in QtWidgets.QApplication.allWidgets():
