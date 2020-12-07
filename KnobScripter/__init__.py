@@ -1,1 +1,1 @@
-import knob_scripter
+from knob_scripter import *
