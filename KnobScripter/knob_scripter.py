@@ -55,10 +55,10 @@ SnippetEditPanel = ""
 
 nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2020 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
-class KnobScripter(QtWidgets.QWidget):
+class KnobScripter(QtWidgets.QDialog):
 
-    def __init__(self, node="", knob="knobChanged", isPane=False):
-        super(KnobScripter,self).__init__()
+    def __init__(self, node="", knob="knobChanged", isPane=False, _parent=QtWidgets.QApplication.activeWindow()):
+        super(KnobScripter,self).__init__(_parent)
 
         # Autosave the other knobscripters and add this one
         for ks in AllKnobScripters:
@@ -75,6 +75,7 @@ class KnobScripter(QtWidgets.QWidget):
         else:
             self.node = node
 
+        self._parent = _parent
         self.isPane = isPane
         self.knob = knob
         self.show_labels = False # For the option to also display the knob labels on the knob dropdown
@@ -87,7 +88,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.tabSpaces = 4
         self.windowDefaultSize = [500, 300]
         self.color_scheme = "sublime" # Can be nuke or sublime
-        self.pinned = 1
         self.toLoadKnob = True
         self.frw_open = False # Find replace widget closed by default
         self.icon_size = 17
@@ -122,7 +122,6 @@ class KnobScripter(QtWidgets.QWidget):
                     self.fontSize = self.loadedPrefs['font_size']
                 self.windowDefaultSize = [self.loadedPrefs['window_default_w'], self.loadedPrefs['window_default_h']]
                 self.tabSpaces = self.loadedPrefs['tab_spaces']
-                self.pinned = self.loadedPrefs['pin_default']
                 if "font" in self.loadedPrefs:
                     self.font = self.loadedPrefs['font']
                 if "color_scheme" in self.loadedPrefs:
@@ -257,6 +256,7 @@ class KnobScripter(QtWidgets.QWidget):
         self.save_btn.setIconSize(QtCore.QSize(50,50))
         self.save_btn.setIconSize(self.qt_icon_size)
         self.save_btn.setFixedSize(self.qt_btn_size)
+
         if not self.isPane:
             self.save_btn.setShortcut('Ctrl+S')
             self.save_btn.setToolTip("Save the script into the selected knob or python file.\nShortcut: Ctrl+S")
@@ -277,7 +277,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.run_script_button = QtWidgets.QToolButton()
         self.run_script_button.setIcon(QtGui.QIcon(icons_path+"icon_run.png"))
         self.run_script_button.setIconSize(self.qt_icon_size)
-        #self.run_script_button.setIconSize(self.qt_icon_size)
         self.run_script_button.setFixedSize(self.qt_btn_size)
         self.run_script_button.setToolTip("Execute the current selection on the KnobScripter, or the whole script if no selection.\nShortcut: Ctrl+Enter")
         self.run_script_button.clicked.connect(self.runScript)
@@ -288,7 +287,8 @@ class KnobScripter(QtWidgets.QWidget):
         self.clear_console_button.setIconSize(QtCore.QSize(50,50))
         self.clear_console_button.setIconSize(self.qt_icon_size)
         self.clear_console_button.setFixedSize(self.qt_btn_size)
-        self.clear_console_button.setToolTip("Clear the text in the console window.\nShortcut: Click Backspace on the console.")
+        self.clear_console_button.setToolTip("Clear the text in the console window.\nShortcut: Ctrl+Backspace, or click+Backspace on the console.")
+        self.clear_console_button.setShortcut('Ctrl+Backspace')
         self.clear_console_button.clicked.connect(self.clearConsole)
 
         # FindReplace button
@@ -314,19 +314,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.snippets_button.clicked.connect(self.openSnippets)
 
-        # PIN
-        '''
-        self.pin_button = QtWidgets.QPushButton("P")
-        self.pin_button.setCheckable(True)
-        if self.pinned:
-            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-            self.pin_button.toggle()
-        self.pin_button.setToolTip("Toggle 'Always On Top'. Keeps the KnobScripter on top of all other windows.")
-        self.pin_button.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.pin_button.setFixedSize(self.qt_btn_size)
-        self.pin_button.clicked[bool].connect(self.pin)
-        '''
-
         # Prefs
         self.createPrefsMenu()
         self.prefs_button = QtWidgets.QPushButton()
@@ -344,7 +331,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.top_right_bar_layout.addWidget(self.clear_console_button)
         self.top_right_bar_layout.addWidget(self.find_button)
         ##self.top_right_bar_layout.addWidget(self.snippets_button)
-        ##self.top_right_bar_layout.addWidget(self.pin_button)
         #self.top_right_bar_layout.addSpacing(10)
         self.top_right_bar_layout.addWidget(self.prefs_button)
 
@@ -430,9 +416,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.setSizePolicy(size_policy)
         self.setMinimumWidth(160)
 
-        if self.pinned:
-            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-
         # Set default values based on mode
         if self.nodeMode:
             self.current_knob_dropdown.blockSignals(True)
@@ -453,11 +436,6 @@ class KnobScripter(QtWidgets.QWidget):
         self.echoAct = QtWidgets.QAction("Echo python commands", self, checkable=True, statusTip="Toggle nuke's 'Echo all python commands to ScriptEditor'", triggered=self.toggleEcho)
         if nuke.toNode("preferences").knob("echoAllCommands").value():
             self.echoAct.toggle()
-        self.pinAct = QtWidgets.QAction("Always on top", self, checkable=True, statusTip="Keeps the KnobScripter window always on top or not.", triggered=self.togglePin)
-        if self.pinned:
-            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-            self.pinAct.toggle()
-        self.runInContextAct = QtWidgets.QAction("Run in context (beta)", self, checkable=True, statusTip="When inside a node, run the code replacing nuke.thisNode() to the node's name, etc.", triggered=self.toggleRunInContext)
         self.helpAct = QtWidgets.QAction("&Help", self, statusTip="Open the KnobScripter help in your browser.", shortcut="F1", triggered=self.showHelp)
         self.nukepediaAct = QtWidgets.QAction("Show in Nukepedia", self, statusTip="Open the KnobScripter download page on Nukepedia.", triggered=self.showInNukepedia)
         self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
@@ -469,8 +447,6 @@ class KnobScripter(QtWidgets.QWidget):
         # Menus
         self.prefsMenu = QtWidgets.QMenu("Preferences")
         self.prefsMenu.addAction(self.echoAct)
-        self.prefsMenu.addAction(self.pinAct)
-        self.prefsMenu.addAction(self.runInContextAct)
         self.prefsMenu.addSeparator()
         self.prefsMenu.addAction(self.nukepediaAct)
         self.prefsMenu.addAction(self.githubAct)
@@ -489,10 +465,6 @@ class KnobScripter(QtWidgets.QWidget):
         ''' Toggle the "Echo python commands" from Nuke '''
         echo_knob = nuke.toNode("preferences").knob("echoAllCommands")
         echo_knob.setValue(self.echoAct.isChecked())
-
-    def togglePin(self):
-        ''' Toggle "always on top" based on the submenu button '''
-        self.pin(self.pinAct.isChecked())
 
     def toggleRunInContext(self):
         ''' Preference to replace everything needed so that code can be run in proper context of the node and knob that's selected.'''
@@ -551,7 +523,10 @@ class KnobScripter(QtWidgets.QWidget):
             obtained_scrollValue = 0
             edited_knobValue = self.script_editor.toPlainText()
         except:
-            error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
+            try:
+                error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
+            except:
+                error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find the node's {}".format(dropdown_value))
             error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             error_message.exec_()
             return
@@ -1632,59 +1607,58 @@ class KnobScripter(QtWidgets.QWidget):
         if not self.nodeMode:
             self.toAutosave = True
 
-    def pin(self, pressed):
-        if pressed:
-            self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-            self.pinned = True
-            self.show()
-        else:
-            self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowStaysOnTopHint)
-            self.pinned = False
-            self.show()
-
     def setRunInContext(self, pressed):
         self.runInContext = pressed
 
 
     def findSE(self):
         for widget in QtWidgets.QApplication.allWidgets():
-            if "Script Editor" in widget.windowTitle():
+            if widget.metaObject().className() == 'Nuke::NukeScriptEditor':
                 return widget
 
-    # FunctiosaveScrollValuens for Nuke's Script Editor
-    def findScriptEditors(self):
-        script_editors = []
-        for widget in QtWidgets.QApplication.allWidgets():
-            if "Script Editor" in widget.windowTitle() and len(widget.children())>5:
-                script_editors.append(widget)
-        return script_editors
-
     def findSEInput(self, se):
-        return se.children()[-1].children()[0]
+        children = se.children()
+        splitter = [w for w in children if isinstance(w, QtWidgets.QSplitter)]
+        if not splitter:
+            return None
+        splitter = splitter[0]
+        for widget in splitter.children():
+            if widget.metaObject().className() == 'Foundry::PythonUI::ScriptInputWidget':
+                return widget
+        return None
 
     def findSEOutput(self, se):
-        return se.children()[-1].children()[1]
+        children = se.children()
+        splitter = [w for w in children if isinstance(w, QtWidgets.QSplitter)]
+        if not splitter:
+            return None
+        splitter = splitter[0]
+        for widget in splitter.children():
+            if widget.metaObject().className() == 'Foundry::PythonUI::ScriptOutputWidget':
+                return widget
+        return None
 
     def findSERunBtn(self, se):
-        for btn in se.children():
-            try:
-                if "Run the current script" in btn.toolTip():
-                    return btn
-            except:
-                pass
-        return False
+        children = se.children()
+        buttons = [b for b in children if isinstance(b, QtWidgets.QPushButton)]
+        for button in buttons:
+            tooltip = button.toolTip()
+            if "Run the current script" in tooltip:
+                return button
+        return None
 
     def setSEOutputEvent(self):
-        nukeScriptEditors = self.findScriptEditors()
-        self.origConsoleText = self.nukeSEOutput.document().toPlainText().encode("utf8") # Take the console from the first script editor found...
-        for se in nukeScriptEditors:
-            se_output = self.findSEOutput(se)
-            se_output.textChanged.connect(partial(consoleChanged,se_output, self))
-            consoleChanged(se_output, self) # Initialise.
+        se = self.findSE()
+        se_output = self.findSEOutput(se)
+        self.origConsoleText = se_output.document().toPlainText().encode('utf8')
+        se_output.textChanged.connect(partial(consoleChanged, se_output, self))
+        consoleChanged(se_output, self)
 
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
-        super(KnobScripterPane, self).__init__(isPane=True)
+        super(KnobScripterPane, self).__init__(isPane=True, _parent=QtWidgets.QApplication.activeWindow())
+        ctrlS_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+S"), self)
+        ctrlS_shortcut.activatedAmbiguously.connect(self.saveClicked)
 
     def showEvent(self, the_event):
         try:
@@ -1789,7 +1763,6 @@ class FileNameDialog(QtWidgets.QDialog):
             super(FileNameDialog, self).__init__()
         else:
             super(FileNameDialog, self).__init__(parent)
-            #self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.mode = mode
         self.text = text
 
@@ -1855,7 +1828,6 @@ class TextInputDialog(QtWidgets.QDialog):
             super(TextInputDialog, self).__init__()
         else:
             super(TextInputDialog, self).__init__(parent)
-            #self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
 
         self.name = name #title of textinput
         self.text = text #default content of textinput
@@ -2501,7 +2473,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         return textFormat
 
-
 class KSLineNumberArea(QtWidgets.QWidget):
     def __init__(self, scriptEditor):
         super(KSLineNumberArea, self).__init__(scriptEditor)
@@ -2912,7 +2883,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         shift = bool(event.modifiers() & Qt.ShiftModifier)
         key = event.key()
 
-
         #ADAPTED FROM NUKE's SCRIPT EDITOR:
         #Get completer state
         self.nukeCompleterShowing = self.nukeCompleter.popup().isVisible()
@@ -3200,12 +3170,10 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             if nuke.exists(nodeName) and knobName in nuke.toNode(nodeName).knobs():
                 code = code.replace("nuke.thisNode()","nuke.toNode('{}')".format(nodeName))
                 code = code.replace("nuke.thisKnob()","nuke.toNode('{}').knob('{}')".format(nodeName,knobName))
-                # 2. If group, wrap all with: with nuke.toNode(fullNameOfGroup) and then indent every single line!!! at least by one space. replace "\n" with "\n "
+                # 2. If group, wrap all with: with nuke.toNode(fullNameOfGroup) and then indent every single line!! at least by one space. replace "\n" with "\n "
                 if self.knobScripter.node.Class() in ["Group","LiveGroup","Root"]:
                     code = code.replace("\n","\n  ")
                     code = "with nuke.toNode('{}'):\n{}".format(nodeName,code)
-            print code
-
 
         # Store original ScriptEditor status
         nukeSECursor = nukeSEInput.textCursor()
@@ -3318,18 +3286,6 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         tabSpaceButtonGroup.addButton(self.tabSpace4)
         self.tabSpace2.setChecked(self.knobScripter.tabSpaces == 2)
         self.tabSpace4.setChecked(self.knobScripter.tabSpaces == 4)
-        
-        pinDefaultLabel = QtWidgets.QLabel("Always on top:")
-        pinDefaultLabel.setToolTip("Default mode of the PIN toggle.")
-        self.pinDefaultOn = QtWidgets.QRadioButton("On")
-        self.pinDefaultOff = QtWidgets.QRadioButton("Off")
-        pinDefaultButtonGroup = QtWidgets.QButtonGroup(self)
-        pinDefaultButtonGroup.addButton(self.pinDefaultOn)
-        pinDefaultButtonGroup.addButton(self.pinDefaultOff)
-        self.pinDefaultOn.setChecked(self.knobScripter.pinned == True)
-        self.pinDefaultOff.setChecked(self.knobScripter.pinned == False)
-        self.pinDefaultOn.clicked.connect(lambda:self.knobScripter.pin(True))
-        self.pinDefaultOff.clicked.connect(lambda:self.knobScripter.pin(False))
 
         contextDefaultLabel = QtWidgets.QLabel("Run in context (beta):")
         contextDefaultLabel.setToolTip("Default mode for running code in context (when in node mode).")
@@ -3361,10 +3317,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         showLabelsButtonGroup = QtWidgets.QButtonGroup(self)
         showLabelsButtonGroup.addButton(self.showLabelsOn)
         showLabelsButtonGroup.addButton(self.showLabelsOff)
-        self.showLabelsOn.setChecked(self.knobScripter.pinned == True)
-        self.showLabelsOff.setChecked(self.knobScripter.pinned == False)
-        self.showLabelsOn.clicked.connect(lambda:self.knobScripter.pin(True))
-        self.showLabelsOff.clicked.connect(lambda:self.knobScripter.pin(False))
+        self.showLabelsOn.setChecked(self.knobScripter.show_labels == True)
+        self.showLabelsOff.setChecked(self.knobScripter.show_labels == False)
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         self.buttonBox.accepted.connect(self.savePrefs)
@@ -3379,9 +3333,6 @@ class KnobScripterPrefs(QtWidgets.QDialog):
                 self.windowHBox.setValue(self.ksPrefs['window_default_h'])
                 self.tabSpace2.setChecked(self.ksPrefs['tab_spaces'] == 2)
                 self.tabSpace4.setChecked(self.ksPrefs['tab_spaces'] == 4)
-                #self.tabSpaceTab.setChecked(self.ksPrefs['tab_spaces'] == 0)
-                self.pinDefaultOn.setChecked(self.ksPrefs['pin_default'] == 1)
-                self.pinDefaultOff.setChecked(self.ksPrefs['pin_default'] == 0)
                 self.contextDefaultOn.setChecked(self.ksPrefs['context_default'] == 1)
                 self.contextDefaultOff.setChecked(self.ksPrefs['context_default'] == 0)
                 self.showLabelsOn.setChecked(self.ksPrefs['show_labels'] == 1)
@@ -3414,13 +3365,6 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         tabSpaces_layout = QtWidgets.QHBoxLayout()
         tabSpaces_layout.addWidget(tabSpaceLabel)
         tabSpaces_layout.addLayout(tabSpacesButtons_layout)
-        
-        pinDefaultButtons_layout = QtWidgets.QHBoxLayout()
-        pinDefaultButtons_layout.addWidget(self.pinDefaultOn)
-        pinDefaultButtons_layout.addWidget(self.pinDefaultOff)
-        pinDefault_layout = QtWidgets.QHBoxLayout()
-        pinDefault_layout.addWidget(pinDefaultLabel)
-        pinDefault_layout.addLayout(pinDefaultButtons_layout)
 
         contextDefaultButtons_layout = QtWidgets.QHBoxLayout()
         contextDefaultButtons_layout.addWidget(self.contextDefaultOn)
@@ -3454,7 +3398,6 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.master_layout.addLayout(windowH_layout)
         self.master_layout.addWidget(self.grabDimensionsButton)
         self.master_layout.addLayout(tabSpaces_layout)
-        self.master_layout.addLayout(pinDefault_layout)
         self.master_layout.addLayout(contextDefault_layout)
         self.master_layout.addLayout(showLabels_layout)
         self.master_layout.addLayout(colorScheme_layout)
@@ -3469,7 +3412,6 @@ class KnobScripterPrefs(QtWidgets.QDialog):
             'window_default_w': self.windowWBox.value(),
             'window_default_h': self.windowHBox.value(),
             'tab_spaces': self.tabSpaceValue(),
-            'pin_default': self.pinDefaultValue(),
             'context_default': self.contextDefaultValue(),
             'show_labels': self.showLabelsValue(),
             'font': self.font,
@@ -3528,9 +3470,6 @@ class KnobScripterPrefs(QtWidgets.QDialog):
     def grabDimensions(self):
         self.windowHBox.setValue(self.knobScripter.height())
         self.windowWBox.setValue(self.knobScripter.width())
-
-    def pinDefaultValue(self):
-        return 1 if self.pinDefaultOn.isChecked() else 0
 
     def contextDefaultValue(self):
         return 1 if self.contextDefaultOn.isChecked() else 0
@@ -3784,8 +3723,6 @@ class SnippetsPanel(QtWidgets.QDialog):
 
         self.snippets_txt_path = self.knobScripter.snippets_txt_path
         self.snippets_dict = self.loadSnippetsDict(path = self.snippets_txt_path)
-        #self.snippets_dict = snippets_dic
-        #self.saveSnippets(snippets_dic)
 
         self.initUI()
         self.resize(500,300)
@@ -3800,7 +3737,6 @@ class SnippetsPanel(QtWidgets.QDialog):
         title_layout.addWidget(shortcuts_label,stretch=1)
         title_layout.addWidget(code_label,stretch=2)
         self.layout.addLayout(title_layout)
-
 
         # Main Scroll area
         self.scroll_content = QtWidgets.QWidget()
@@ -3935,6 +3871,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         se = SnippetEdit(key, val, parent=self)
         self.scroll_layout.insertWidget(0, se)
         self.show()
+        self.scroll.verticalScrollBar().setValue(0)
         return se
 
     def addCustomPath(self,path=""):
@@ -4031,9 +3968,9 @@ class SnippetFilePath(QtWidgets.QWidget):
 def showKnobScripter(knob="knobChanged"):
     selection = nuke.selectedNodes()
     if not len(selection):
-        pan = KnobScripter()
+        pan = KnobScripter(_parent=QtWidgets.QApplication.activeWindow())
     else:
-        pan = KnobScripter(selection[0], knob)
+        pan = KnobScripter(selection[0], knob, _parent=QtWidgets.QApplication.activeWindow())
     pan.show()
 
 def addKnobScripterPanel():
