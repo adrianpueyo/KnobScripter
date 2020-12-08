@@ -488,9 +488,14 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Populate knob dropdown list '''
         self.current_knob_dropdown.clear() # First remove all items
         counter = 0
+
         for i in self.node.knobs():
             if i not in self.defaultKnobs and self.node.knob(i).Class() in self.permittedKnobClasses:
-                if self.show_labels:
+                if i == "kernelSource" and self.node.Class() == "Blinkscript":
+                    i_full = "Blinkscript Code (kernelSource)"
+                    self.current_knob_dropdown.insertSeparator(counter)
+                    counter += 1
+                elif self.show_labels:
                     i_full = "{} ({})".format(self.node.knob(i).label(), i)
                 else:
                     i_full = i
@@ -521,7 +526,11 @@ class KnobScripter(QtWidgets.QDialog):
             return
         dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()) # knobChanged...
         try:
-            obtained_knobValue = str(self.node[dropdown_value].value())
+            # If blinkscript, use getValue.
+            if dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript":
+                obtained_knobValue = str(self.node[dropdown_value].getValue())
+            else:
+                obtained_knobValue = str(self.node[dropdown_value].value())
             obtained_scrollValue = 0
             edited_knobValue = self.script_editor.toPlainText()
         except:
@@ -597,7 +606,11 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Save the text from the editor to the node's knobChanged knob '''
         dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
         try:
-            obtained_knobValue = str(self.node[dropdown_value].value())
+            # If blinkscript, use getValue.
+            if dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript":
+                obtained_knobValue = str(self.node[dropdown_value].getValue())
+            else:
+                obtained_knobValue = str(self.node[dropdown_value].value())
             self.knob = dropdown_value
         except:
             error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
@@ -615,7 +628,12 @@ class KnobScripter(QtWidgets.QDialog):
             reply = msgBox.exec_()
             if reply == QtWidgets.QMessageBox.No:
                 return
-        self.node[dropdown_value].setValue(edited_knobValue.encode("utf8"))
+        # Save the value if it's Blinkscript code
+        if dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript":
+            #print '''knob {}.kernelSource "{}"'''.format(self.node.fullName(),edited_knobValue.replace('"','\"').encode("utf8"))
+            nuke.tcl('''knob {}.kernelSource "{}"'''.format(self.node.fullName(),edited_knobValue.replace('"','\"').encode("utf8")))
+        else:
+            self.node[dropdown_value].setValue(edited_knobValue.encode("utf8"))
         self.setKnobModified(modified = False, knob = dropdown_value, changeTitle = True)
         nuke.tcl("modified 1")
         if self.knob in self.unsavedKnobs:
@@ -2771,11 +2789,6 @@ class ScriptOutputWidget(QtWidgets.QTextEdit) :
             elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
                 self.knobScripter.clearConsole()
         return QtWidgets.QTextEdit.keyPressEvent(self, event)
-
-    #def mousePressEvent(self, QMouseEvent):
-    #    if QMouseEvent.button() == Qt.RightButton:
-    #        self.knobScripter.clearConsole()
-    #    QtWidgets.QTextEdit.mousePressEvent(self, QMouseEvent)
 
 #---------------------------------------------------------------------
 # Modified KnobScripterTextEdit to include snippets etc.
