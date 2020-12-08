@@ -31,9 +31,6 @@ import KnobScripter
 ### B. Updating KnobScripter
 1. Replace the `KnobScripter` folder inside your ​.nuke​ directory.
 2. Restart nuke.
-```bash
-pip install foobar
-```
 
 ## Usage
 In Nuke, you can open the **KnobScripter** both as a floating window or as a dockable pane.
@@ -48,3 +45,5 @@ Then, a KnobScripter pane will get created. Now you can even save the workspace,
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 Please make sure to update tests as appropriate.
+
+Thanks to the awesome Nuke community! Hope you enjoy this.
