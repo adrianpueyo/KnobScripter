@@ -108,6 +108,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.script_index = 0
         self.toAutosave = False
         self.runInContext = False # Experimental
+        self.blinkMode = False # True means we're editing a blinkscript knob
 
         self.defaultKnobs = ["knobChanged", "onCreate", "onScriptLoad", "onScriptSave", "onScriptClose", "onDestroy",
                         "updateUI", "autolabel", "beforeRender", "beforeFrameRender", "afterFrameRender", "afterRender"]
@@ -491,10 +492,8 @@ class KnobScripter(QtWidgets.QDialog):
 
         for i in self.node.knobs():
             if i not in self.defaultKnobs and self.node.knob(i).Class() in self.permittedKnobClasses:
-                if i == "kernelSource" and self.node.Class() == "Blinkscript":
+                if i == "kernelSource" and self.node.Class() == "BlinkScript":
                     i_full = "Blinkscript Code (kernelSource)"
-                    self.current_knob_dropdown.insertSeparator(counter)
-                    counter += 1
                 elif self.show_labels:
                     i_full = "{} ({})".format(self.node.knob(i).label(), i)
                 else:
@@ -630,8 +629,7 @@ class KnobScripter(QtWidgets.QDialog):
                 return
         # Save the value if it's Blinkscript code
         if dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript":
-            #print '''knob {}.kernelSource "{}"'''.format(self.node.fullName(),edited_knobValue.replace('"','\"').encode("utf8"))
-            nuke.tcl('''knob {}.kernelSource "{}"'''.format(self.node.fullName(),edited_knobValue.replace('"','\"').encode("utf8")))
+            nuke.tcl('''knob {}.kernelSource "{}"'''.format(self.node.fullName(),edited_knobValue.replace('"','\\"').encode("utf8")))
         else:
             self.node[dropdown_value].setValue(edited_knobValue.encode("utf8"))
         self.setKnobModified(modified = False, knob = dropdown_value, changeTitle = True)
@@ -732,7 +730,10 @@ class KnobScripter(QtWidgets.QDialog):
             kd_index = knobs_dropdown.currentIndex()
             kd_data = knobs_dropdown.itemData(kd_index)
             if self.show_labels and kd_data not in self.defaultKnobs:
-                kd_data = "{} ({})".format(self.node.knob(kd_data).label(), kd_data)
+                if kd_data == "kernelSource" and self.node.Class() == "BlinkScript":
+                    kd_data = "Blinkscript Code (kernelSource)"
+                else:
+                    kd_data = "{} ({})".format(self.node.knob(kd_data).label(), kd_data)
             if modified == False:
                 knobs_dropdown.setItemText(kd_index, kd_data)
             else:
@@ -1366,6 +1367,7 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Change node '''
         try:
             print "Changing from " + self.node.name()
+            self.clearConsole
         except:
             self.node = None
             if not len(nuke.selectedNodes()):
