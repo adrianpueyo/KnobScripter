@@ -321,10 +321,8 @@ class KnobScripter(QtWidgets.QDialog):
         self.prefs_button.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
         self.prefs_button.setIconSize(self.qt_icon_size)
         self.prefs_button.setFixedSize(QtCore.QSize(self.btn_size+10,self.btn_size))
-        #self.prefs_button.clicked.connect(self.openPrefs)
         self.prefs_button.setMenu(self.prefsMenu)
         self.prefs_button.setStyleSheet("text-align:left;padding-left:2px;")
-        #self.prefs_button.setMaximumWidth(self.prefs_button.fontMetrics().boundingRect("Prefs").width() + 12)
 
         # Layout
         self.top_right_bar_layout = QtWidgets.QHBoxLayout()
@@ -371,8 +369,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
-        #self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
-        self.highlighter = KSBlinkHighlighter(self.script_editor.document(), self)
+        self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
         self.script_editor.cursorPositionChanged.connect(self.setTextSelection)
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily(self.font)
@@ -525,9 +522,10 @@ class KnobScripter(QtWidgets.QDialog):
         if self.toLoadKnob == False:
             return
         dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()) # knobChanged...
+        is_blink = dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript"
         try:
             # If blinkscript, use getValue.
-            if dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript":
+            if is_blink:
                 obtained_knobValue = str(self.node[dropdown_value].getValue())
             else:
                 obtained_knobValue = str(self.node[dropdown_value].value())
@@ -584,6 +582,7 @@ class KnobScripter(QtWidgets.QDialog):
         cursor = self.script_editor.textCursor()
         self.script_editor.setTextCursor(cursor)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
+        self.setBlinkMode(is_blink)
         return
 
     def loadAllKnobValues(self):
@@ -742,15 +741,61 @@ class KnobScripter(QtWidgets.QDialog):
         except:
             pass
 
-    def setBlinkMode(self, mode=True):
+    def setBlinkMode(self, blink_mode=True):
         '''
         Perform all UI changes neccesary for editing Blinkscript! Syntax highlighter, menu buttons, etc.
         '''
-        self.blinkMode = mode
+        self.blinkMode = blink_mode
+        print "setting blink mode to "+str(blink_mode) #TODO remove this
 
         # 1. Syntax highlighter
+        if blink_mode:
+             # Blink bg Colors
+            self.highlighter = KSBlinkHighlighter(self.script_editor.document(), self)
+            self.setColorStyle("blink_default")
+        else:
+            self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
+            self.setColorStyle("default")
 
         # 2. Menus
+
+    def setColorStyle(self, style = "default", script_editor = ""):
+        '''
+        Change bg and text color configurations regarding the editor style. This doesn't change the syntax highlighter
+        '''
+        if script_editor == "":
+            script_editor = self.script_editor
+
+        styles = {
+            "default" : {
+                "stylesheet" : 'background:#282828;color:#EEE;',
+                "selected_line_color" : QtGui.QColor(62, 62, 62, 255), 
+                "lineNumberAreaColor" : QtGui.QColor(36, 36, 36), 
+                "lineNumberColor" : QtGui.QColor(110, 110, 110), 
+                "currentLineNumberColor" : QtGui.QColor(255, 170, 0),
+            },
+            "blink_default" : {
+                "stylesheet" : 'background:#505050;color:#DEDEDE;',
+                "selected_line_color" : QtGui.QColor(110, 110, 110, 255), 
+                "lineNumberAreaColor" : QtGui.QColor(72,72,72), 
+                "lineNumberColor" : QtGui.QColor(34,34,34), 
+                "currentLineNumberColor" : QtGui.QColor(255, 255, 255),
+            }
+        }
+
+
+        if style not in styles:
+            style = "default"
+
+        script_editor.setStyleSheet(styles[style]["stylesheet"])
+        script_editor.lineColor = (styles[style]["selected_line_color"])
+        script_editor.lineNumberAreaColor = (styles[style]["lineNumberAreaColor"])
+        script_editor.lineNumberColor = (styles[style]["lineNumberColor"])
+        script_editor.currentLineNumberColor = (styles[style]["currentLineNumberColor"])
+        script_editor.highlightCurrentLine()
+        script_editor.scrollToCursor()
+
+        return
 
 
     # Script Mode
@@ -1997,6 +2042,12 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             self.tabSpaces = self.knobScripter.tabSpaces
         else:
             self.tabSpaces = 4
+
+        self.lineColor = QtGui.QColor(62, 62, 62, 255) # Default bg color for selected line
+        self.lineNumberAreaColor = QtGui.QColor(36, 36, 36) # Default
+        self.lineNumberColor = QtGui.QColor(110, 110, 110) # Default
+        self.currentLineNumberColor = QtGui.QColor(255, 170, 0) # Default
+
         self.lineNumberArea = KSLineNumberArea(self)
         self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
         self.updateRequest.connect(self.updateLineNumberArea)
@@ -2049,7 +2100,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             return
 
         painter = QtGui.QPainter(self.lineNumberArea)
-        painter.fillRect(event.rect(), QtGui.QColor(36, 36, 36)) # Number bg
+        painter.fillRect(event.rect(), self.lineNumberAreaColor) # Number bg
 
 
         block = self.firstVisibleBlock()
@@ -2070,10 +2121,10 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         while (block.isValid() and top <= event.rect().bottom()):
 
-            textColor = QtGui.QColor(110, 110, 110) # Numbers
+            textColor = self.lineNumberColor # Numbers
 
             if blockNumber == currentLine and self.hasFocus():
-                textColor = QtGui.QColor(255, 170, 0) # Number highlighted
+                textColor = self.currentLineNumberColor # Number highlighted
 
             painter.setPen(textColor)
 
@@ -2478,9 +2529,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         selection = QtWidgets.QTextEdit.ExtraSelection()
 
-        lineColor = QtGui.QColor(62, 62, 62, 255)
-
-        selection.format.setBackground(lineColor)
+        selection.format.setBackground(self.lineColor)
         selection.format.setProperty(QtGui.QTextFormat.FullWidthSelection, True)
         selection.cursor = self.textCursor()
         selection.cursor.clearSelection()
@@ -2798,21 +2847,23 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
 
     def loadStyles(self):
         ''' Loads the different sets of rules '''
-        self.rules_default = self.loadRulesDefault()
-        #self.rules_adrian = self.loadStyleAdrian() # TODO custom set of rules to make it look nicer for blinkscript imo
+        self.commentStartEnd = (QtCore.QRegExp("/\\*"),QtCore.QRegExp("\\*/"), 1, self.format([188, 179, 84])) # Default regardless of style
 
+        self.rules_default = self.loadRulesDefault()
+        #self.rules_adrian = self.loadRulesAdrians() # TODO custom set of rules to make it look nicer for blinkscript imo
 
     def loadRulesDefault(self):
         '''
         My adaptation from the default style from Nuke, with some improvements.
         '''
-        self.nuke_styles = {
+        nuke_styles = {
             'keyword': self.format([122, 136, 53],'bold'), 
             'stringDoubleQuote': self.format([226, 138, 138]),
             'stringSingleQuote': self.format([110, 160, 121]),
             'comments': self.format([188, 179, 84]),
-            'multiline_comments': self.format([90, 90, 90]),
+            'multiline_comments': self.format([188, 179, 84]),
             'types': self.format([25, 25, 80]),
+            'variableKeywords': self.format([25, 25, 80]),
             'functions': self.format([3, 185, 191]),#only needed till here for blink?
             'numbers': self.format([174, 129, 255]),
             'custom': self.format([255, 170, 0],'italic'),
@@ -2820,7 +2871,7 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
             'underline':self.format([240, 240, 240],'underline'),
             }
 
-        self.nuke_keywords = [
+        nuke_keywords = [
             "char", "class", "const", "double", "enum", "explicit",
             "friend", "inline", "int", "long", "namespace", "operator",
             "private", "protected", "public", "short", "signed", 
@@ -2829,134 +2880,56 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
             "local", "param", "kernel",
             ]
 
-        self.operatorKeywords = [
+        nuke_operatorKeywords = [
             '=','==', '!=', '<', '<=', '>', '>=',
             '\+', '-', '\*', '/', '//', '\%', '\*\*',
             '\+=', '-=', '\*=', '/=', '\%=',
             '\^', '\|', '\&', '\~', '>>', '<<','\+\+'
             ]
 
-        self.nuke_variableKeywords = [
+        nuke_variableKeywords = [
             "int", "int2", "int3", "int4", 
             "float", "float2", "float3", "float4", "float3x3", "float4x4", "bool"
             ]
 
-        self.nuke_blinkTypes = [
+        nuke_blinkTypes = [
             "Image", "eRead", "eWrite", "eEdgeClamped", "eEdgeConstant", "eEdgeNull",
             "eAccessPoint", "eAccessRanged1D", "eAccessRanged2D", "eAccessRandom", 
             "eComponentWise", "ePixelWise", "ImageComputationKernel",
             ]
 
-        self.nuke_blinkFunctions = [
+        nuke_blinkFunctions = [
             "define", "defineParam", "process", "init", "setRange", "setAxis", "median", "bilinear",
             ]
-
-        #DONE TILL HERE
-
-        #self.numbers = ['True','False','None']
-        #self.tri_single = (QtCore.QRegExp("'''"), 1, self.nuke_styles['comments']) # TODO: triple quotes used in c++???
-        self.commentStartEnd = (QtCore.QRegExp("/\\*"),QtCore.QRegExp("\\*/"), 1, self.nuke_styles['multiline_comments'])
-        #self.tri_double = (QtCore.QRegExp('"""'), 2, self.styles['comments'])
 
         # Rules
 
         rules = []
 
         # 1. Keywords
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['keyword']) for i in nuke_keywords]
+
         # 2. Funcs
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['functions']) for i in nuke_blinkFunctions]
+
         # 3. Types
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['types']) for i in nuke_blinkTypes]
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['variableKeywords']) for i in nuke_variableKeywords]
 
         # 4. String Literals
-        #self._strings.setForeground(stringLiteralsFgColourDQ)
-        #rule = {}
-        #rule['pattern'] = "\"([^\"\\\\]|\\\\.)*\""
-        #rule['format'] = self._strings
-        #self._rules.append(rule)
-        rules += [(r"\"([^\"\\\\]|\\\\.)*\"", 0, self.nuke_styles['stringDoubleQuote'])]
+        rules += [(r"\"([^\"\\\\]|\\\\.)*\"", 0, nuke_styles['stringDoubleQuote'])]
 
         # 5. String single quotes
-        #self._stringSingleQuotes.setForeground(stringLiteralsFgColourSQ)
-        #rule = {}
-        #rule['pattern'] = "'([^'\\\\]|\\\\.)*'"
-        #rule['format'] = self._stringSingleQuotes
-        #self._rules.append(rule)
-        rules += [(r"'([^'\\\\]|\\\\.)*'", 0, self.nuke_styles['stringSingleQuote'])]
+        rules += [(r"'([^'\\\\]|\\\\.)*'", 0, nuke_styles['stringSingleQuote'])]
 
         # 6. Comments
-        #self._comment.setForeground(commentsFgColour)
-        #rule = {}
-        #rule['pattern'] = "//[^\n]*"
-        #rule['format'] = self._comment
-        #self._rules.append(rule)
-        rules += [(r"//[^\n]*", 0, self.nuke_styles['comments'])]
+        rules += [(r"//[^\n]*", 0, nuke_styles['comments'])]
 
         # 7. Multiline comments /* */
+        self.commentStartEnd = (QtCore.QRegExp("/\\*"),QtCore.QRegExp("\\*/"), 1, nuke_styles['multiline_comments'])
 
-
+        # Return all rules
         return [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
-
-
-        '''
-        # First turn everything inside parentheses orange
-        rules += [(r"def [\w]+[\s]*\((.*)\)", 1, self.styles_sublime['arguments'])]
-        # Now restore unwanted stuff...
-        rules += [(i, 0, self.styles_sublime['base']) for i in self.baseKeywords_sublime]
-        rules += [(r"[^\(\w),.][\s]*[\w]+", 0, self.styles_sublime['base'])]
-
-        #Everything else
-        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['keyword']) for i in self.keywords_sublime]
-        rules += [(i, 0, self.styles_sublime['keyword']) for i in self.operatorKeywords_sublime]
-        rules += [(i, 0, self.styles_sublime['custom']) for i in self.customKeywords_sublime]
-        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['blue']) for i in self.blueKeywords_sublime]
-        rules += [(i, 0, self.styles_sublime['arguments']) for i in self.argKeywords_sublime]
-        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['numbers']) for i in self.numbers_sublime]
-
-        rules += [
-
-            # integers
-            (r'\b[0-9]+\b', 0, self.styles_sublime['numbers']),
-            # Double-quoted string, possibly containing escape sequences
-            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, self.styles_sublime['string']),
-            # Single-quoted string, possibly containing escape sequences
-            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, self.styles_sublime['string']),
-            # From '#' until a newline
-            (r'#[^\n]*', 0, self.styles_sublime['comment']),
-            # Function definitions
-            (r"def[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
-            # Class definitions
-            (r"class[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
-            # Class argument (which is also a class so must be green)
-            (r"class[\s]+[\w\.]+[\s]*\((.*)\)", 1, self.styles_sublime['functions']),
-            # Function arguments also pick their style...
-            (r"def[\s]+[\w]+[\s]*\(([\w]+)", 1, self.styles_sublime['arguments']),
-            ]
-
-        # Build a QRegExp for each pattern
-        self.rules = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
-
-        #rules
-        rules = []
-
-        rules += [(r'\b%s\b' % i, 0, self.styles['keyword']) for i in self.keywords]
-        rules += [(i, 0, self.styles['keyword']) for i in self.operatorKeywords]
-        rules += [(r'\b%s\b' % i, 0, self.styles['numbers']) for i in self.numbers]
-
-        rules += [
-
-            # integers
-            (r'\b[0-9]+\b', 0, self.styles['numbers']),
-            # Double-quoted string, possibly containing escape sequences
-            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, self.styles['string']),
-            # Single-quoted string, possibly containing escape sequences
-            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, self.styles['string']),
-            # From '#' until a newline
-            (r'#[^\n]*', 0, self.styles['comment']),
-            ]
-
-        # Build a QRegExp for each pattern
-        self.rules_nuke = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
-        self.rules = self.rules_nuke
-        '''
 
     def format(self,rgb, style=''):
         '''
@@ -2980,8 +2953,6 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
         '''
         Apply syntax highlighting to the given block of text.
         '''
-        # self.color_scheme = "nuke" # We can add more c++ styles in the future!
-
         for expression, nth, format in self.rules:
             index = expression.indexIn(text, 0)
 
@@ -2996,8 +2967,7 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
 
         # Multi-line strings etc. based on selected scheme
         in_multiline = self.match_multiline_blink(text, *self.commentStartEnd)
-        #if not in_multiline:
-        #    in_multiline = self.match_multiline(text, *self.tri_double)
+
 
     def match_multiline_blink(self, text, delimiter_start, delimiter_end, in_state, style):
         '''
@@ -3035,162 +3005,6 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
             return True
         else:
             return False
-
-class KSBlinkHighlighterOld(QtGui.QSyntaxHighlighter): #TODO DELETE
-    '''
-    Blink code highlighter class!
-    Modified over Foundry's nukescripts.blinkscripteditor module.
-    '''
-    def __init__(self, document, parent=None):
-
-        super(KSBlinkHighlighter, self).__init__(parent)
-
-        self.setDocument(document)
-
-        kwdsFgColour = QtGui.QColor(122, 136, 53)
-        stringLiteralsFgColourDQ = QtGui.QColor(226, 138, 138)
-        stringLiteralsFgColourSQ = QtGui.QColor(110, 160, 121)
-        commentsFgColour = QtGui.QColor(188, 179, 84)
-        blinkTypesColour = QtGui.QColor(25, 25, 80)
-        blinkFuncsColour = QtGui.QColor(3, 185, 191)
-
-        self._rules = []
-        self._keywords = QtGui.QTextCharFormat()
-        self._strings = QtGui.QTextCharFormat()
-        self._stringSingleQuotes = QtGui.QTextCharFormat()
-        self._comment = QtGui.QTextCharFormat()
-        self._blinkFuncs = QtGui.QTextCharFormat()
-        self._blinkTypes = QtGui.QTextCharFormat()
-
-        self._keywords.setForeground(kwdsFgColour)
-        self._keywords.setFontWeight(QtGui.QFont.Bold)
-
-        # Rules for C++ keywords
-        keywordPatterns = ["\\bchar\\b" ,
-                           "\\bclass\\b" ,
-                           "\\bconst\\b" ,
-                           "\\bdouble\\b" ,
-                           "\\benum\\b" ,
-                           "\\bexplicit\\b" ,
-                           "\\bfriend\\b" ,
-                           "\\binline\\b" ,
-                           "\\bint\\b" ,
-                           "\\blong\\b" ,
-                           "\\bnamespace\\b" ,
-                           "\\boperator\\b" ,
-                           "\\bprivate\\b" ,
-                           "\\bprotected\\b" ,
-                           "\\bpublic\\b" ,
-                           "\\bshort\\b" ,
-                           "\\bsigned\\b" ,
-                           "\\bstatic\\b" ,
-                           "\\bstruct\\b" ,
-                           "\\btemplate\\b" ,
-                           "\\btypedef\\b" ,
-                           "\\btypename\\b" ,
-                           "\\bunion\\b" ,
-                           "\\bunsigned\\b" ,
-                           "\\bvirtual\\b" ,
-                           "\\bvoid\\b" ,
-                           "\\bvolatile\\b",
-                           "\\blocal\\b",
-                           "\\bparam\\b",
-                           "\\bkernel\\b",
-                           ]
-
-        for pattern in keywordPatterns:
-          rule = {}
-          rule['pattern'] = pattern
-          rule['format'] = self._keywords
-          self._rules.append(rule)
-
-        # Blink funcs
-        self._blinkFuncs.setForeground(blinkFuncsColour)
-        blinkFuncPatterns = ["\\bdefine\\b" ,
-                             "\\bdefineParam\\b" ,
-                             "\\bprocess\\b" ,
-                             "\\binit\\b" ,
-                             "\\bsetRange\\b" ,
-                             "\\bsetAxis\\b" ,
-                             "\\bmedian\\b" ,
-                             "\\bbilinear\\b" ,
-                           ]
-        for pattern in blinkFuncPatterns:
-          rule = {}
-          rule['pattern'] = pattern
-          rule['format'] = self._blinkFuncs
-          self._rules.append(rule)
-
-        # Blink types
-        self._blinkTypes.setForeground(blinkTypesColour)
-        blinkTypesPatterns = ["\\bImage\\b" ,
-                             "\\beRead\\b" ,
-                             "\\beWrite\\b" ,
-                             "\\beEdgeClamped\\b" ,
-                             "\\beEdgeConstant\\b" ,
-                             "\\beEdgeNull\\b" ,
-                             "\\beAccessPoint\\b" ,
-                             "\\beAccessRanged1D\\b" ,
-                             "\\beAccessRanged2D\\b" ,
-                             "\\beAccessRandom\\b" ,
-                             "\\beComponentWise\\b" ,
-                             "\\bePixelWise\\b" ,
-                             "\\bImageComputationKernel\\b" ,
-                             "\\bint\\b" ,
-                             "\\bint2\\b" ,
-                             "\\bint3\\b" ,
-                             "\\bint4\\b" ,
-                             "\\bfloat\\b" ,
-                             "\\bfloat2\\b" ,
-                             "\\bfloat3\\b" ,
-                             "\\bfloat4\\b" ,
-                             "\\bfloat3x3\\b" ,
-                             "\\bfloat4x4\\b" ,
-                             "\\bbool\\b" ,
-                            ]
-        for pattern in blinkTypesPatterns:
-          rule = {}
-          rule['pattern'] = pattern
-          rule['format'] = self._blinkTypes
-          self._rules.append(rule)
-
-        # String Literals
-        self._strings.setForeground(stringLiteralsFgColourDQ)
-        rule = {}
-        rule['pattern'] = "\"([^\"\\\\]|\\\\.)*\""
-        rule['format'] = self._strings
-        self._rules.append(rule)
-
-        # String single quotes
-        self._stringSingleQuotes.setForeground(stringLiteralsFgColourSQ)
-        rule = {}
-        rule['pattern'] = "'([^'\\\\]|\\\\.)*'"
-        rule['format'] = self._stringSingleQuotes
-        self._rules.append(rule)
-
-        # Comments
-        self._comment.setForeground(commentsFgColour)
-        rule = {}
-        rule['pattern'] = "//[^\n]*"
-        rule['format'] = self._comment
-        self._rules.append(rule)
-
-    def highlightBlock(self, text) :
-
-        text = str(text)
-
-        for rule in self._rules :
-            expression = rule['pattern']
-
-            if len(text) > 0 :
-                results = re.finditer(expression, text)
-
-                # Loop through all results
-                for result in results :
-                    index = result.start()
-                    length = result.end() - result.start()
-                    self.setFormat(index, length, rule['format'])
-
 
 #--------------------------------------------------------------------------------------
 # Script Output Widget
