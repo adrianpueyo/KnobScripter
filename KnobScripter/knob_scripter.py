@@ -3082,7 +3082,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         ########
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
-        #Setup completer
+        #Setup Nuke Python completer
         self.nukeCompleter = QtWidgets.QCompleter(self)
         self.nukeCompleter.setWidget(self)
         self.nukeCompleter.setCompletionMode(QtWidgets.QCompleter.UnfilteredPopupCompletion)
@@ -3097,6 +3097,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         ########
         # FROM NUKE's SCRIPT EDITOR END
         ########
+
+        # Setup Blink doubleclick-popup (the one that lets you change eread-ewrite etc)
+        self.all_dc_texts = ["1_eRead","1_eWrite","1_eReadWrite","2_eAccessRandom","2_eAccessPoint"]
+        
+
 
     def findLongestEndingMatch(self, text, dic):
         '''
@@ -3167,6 +3172,16 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 self.cursor.movePosition(QtGui.QTextCursor.NextCharacter,QtGui.QTextCursor.KeepAnchor)
             self.setTextCursor(self.cursor)
 
+    def mouseDoubleClickEvent(self,event):
+        ''' On doublelick on a word, suggestions might show up. i.e. eRead/eWrite, etc. '''
+        KnobScripterTextEdit.mouseDoubleClickEvent(self,event)
+        selected_text = self.textCursor().selection().toPlainText()
+        # TODO show completer etc
+        # IDEA Use a custom completer even if text is completely different. maybe take from stamps or sth.
+        hotboxInstance = BlinkWordHotbox(self)
+        hotboxInstance.show()
+        print "should show????"
+
     def keyPressEvent(self,event):
 
         ctrl = bool(event.modifiers() & Qt.ControlModifier)
@@ -3185,7 +3200,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 KnobScripterTextEdit.keyPressEvent(self,event)
                 return
         
-        #If the completer is showing
+        #If the python completer is showing
         if self.nukeCompleterShowing :
             tc = self.textCursor()
             #If we're hitting enter, do completion
@@ -3233,7 +3248,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         if type(event) == QtGui.QKeyEvent:
             if key == Qt.Key_Escape: # Close the knobscripter...
                 self.knobScripter.close()
-            elif not ctrl and not alt and not shift and event.key()==Qt.Key_Tab:
+            elif not ctrl and not alt and not shift and event.key()==Qt.Key_Tab: #If only tab
                 self.placeholder = "$$"
                 # 1. Set the cursor
                 self.cursor = self.textCursor()
@@ -3256,48 +3271,55 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                         self.cursor.deletePreviousChar()
                     self.addSnippetText(match_snippet) # This function takes care of adding the appropriate snippet and moving the cursor...
                 except: # Meaning snippet not found...
-                    # ADAPTED FROM NUKE's SCRIPT EDITOR:
-                    tc = self.textCursor()
-                    allCode = self.toPlainText()
-                    colNum = tc.columnNumber()
-                    posNum = tc.position()
+                    # 3.1. If python mode, go with nuke/python completer
+                    if not self.knobScripter.blinkMode:
+                        # ADAPTED FROM NUKE's SCRIPT EDITOR:
+                        tc = self.textCursor()
+                        allCode = self.toPlainText()
+                        colNum = tc.columnNumber()
+                        posNum = tc.position()
 
-                    #...and if there's text in the editor
-                    if len(allCode.split()) > 0 : 
-                        #There is text in the editor
-                        currentLine = tc.block().text()
+                        #...and if there's text in the editor
+                        if len(allCode.split()) > 0 : 
+                            #There is text in the editor
+                            currentLine = tc.block().text()
 
-                        #If you're not at the end of the line just add a tab
-                        if colNum < len(currentLine):
-                            #If there isn't a ')' directly to the right of the cursor add a tab
-                            if currentLine[colNum:colNum+1] != ')' :
-                                KnobScripterTextEdit.keyPressEvent(self,event)
-                                return
-                            #Else show the completer
-                            else: 
-                                completionPart = currentLine[:colNum].split(" ")[-1]
+                            #If you're not at the end of the line just add a tab
+                            if colNum < len(currentLine):
+                                #If there isn't a ')' directly to the right of the cursor add a tab
+                                if currentLine[colNum:colNum+1] != ')' :
+                                    KnobScripterTextEdit.keyPressEvent(self,event)
+                                    return
+                                #Else show the completer
+                                else: 
+                                    completionPart = currentLine[:colNum].split(" ")[-1]
+                                    if "(" in completionPart :
+                                        completionPart = completionPart.split("(")[-1]
+
+                                    self.completeNukePartUnderCursor(completionPart)
+
+                                    return
+
+                            #If you are at the end of the line, 
+                            else : 
+                                #If there's nothing to the right of you add a tab
+                                if currentLine[colNum-1:] == "" or currentLine.endswith(" "):
+                                    KnobScripterTextEdit.keyPressEvent(self,event)
+                                    return
+                                #Else update completionPart and show the completer
+                                completionPart = currentLine.split(" ")[-1]
                                 if "(" in completionPart :
                                     completionPart = completionPart.split("(")[-1]
 
                                 self.completeNukePartUnderCursor(completionPart)
-
                                 return
 
-                        #If you are at the end of the line, 
-                        else : 
-                            #If there's nothing to the right of you add a tab
-                            if currentLine[colNum-1:] == "" or currentLine.endswith(" "):
-                                KnobScripterTextEdit.keyPressEvent(self,event)
-                                return
-                            #Else update completionPart and show the completer
-                            completionPart = currentLine.split(" ")[-1]
-                            if "(" in completionPart :
-                                completionPart = completionPart.split("(")[-1]
-
-                            self.completeNukePartUnderCursor(completionPart)
-                            return
-
-                    KnobScripterTextEdit.keyPressEvent(self,event)
+                        KnobScripterTextEdit.keyPressEvent(self,event)
+                    else:
+                        # 3.2. If blink mode, tab should do other stuff
+                        # TODO make a blink completer?
+                        # TODO add my words to the auto completer list: eComponentWise, ImageComputationKernel etc....
+                        KnobScripterTextEdit.keyPressEvent(self,event)
             elif event.key() in [Qt.Key_Enter, Qt.Key_Return]:
                 modifiers = QtWidgets.QApplication.keyboardModifiers()
                 if modifiers == QtCore.Qt.ControlModifier:
@@ -3494,6 +3516,134 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         nukeSECursor.setPosition(oldAnchor, QtGui.QTextCursor.MoveAnchor)
         nukeSECursor.setPosition(oldPosition, QtGui.QTextCursor.KeepAnchor)
         nukeSEInput.setTextCursor(nukeSECursor)
+
+class BlinkWordHotbox(QtWidgets.QDialog):
+    '''Inserts suggestions
+    #TODO: REDO THIS A LOT'''
+    def __init__(self, parent):
+        super(BlinkWordHotbox, self).__init__(parent)
+        self.parent = parent
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint)
+        #self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
+        #self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+
+        masterLayout = QtWidgets.QVBoxLayout()
+
+        b1 = HotboxButton("one")
+        b2 = HotboxButton("two")
+        masterLayout.addWidget(b1)
+        masterLayout.addWidget(b2)
+        self.setLayout(masterLayout)
+
+        self.adjustSize()
+        self.spwanPosition = QtGui.QCursor().pos() - QtCore.QPoint((self.width()/2),-2)
+        self.move(self.spwanPosition)
+        print "shown?????"
+        self.installEventFilter(self)
+
+    def eventFilter(self, object, event):
+        if event.type() in [QtCore.QEvent.WindowDeactivate,QtCore.QEvent.FocusOut]:
+            self.close() #todo restore this
+            print "closing"
+            return True
+        return False
+
+
+class HotboxButton(QtWidgets.QLabel):
+    '''
+    Button class
+    #TODO: REDO THIS A LOT
+    '''
+
+    def __init__(self, name):
+
+        super(HotboxButton, self).__init__()
+
+        self.menuButton = False
+        self.filePath = name
+        self.bgColor = '#525252'
+
+        self.borderColor = '#000000'
+
+        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.setMouseTracking(True)
+
+        #TODO set font etc
+
+        self.setWordWrap(True)
+        self.setTextFormat(QtCore.Qt.RichText)
+
+        self.setText(name)
+
+        self.setAlignment(QtCore.Qt.AlignCenter)
+
+        self.selected = False
+        self.setSelectionStatus()
+
+    def invokeButton(self):
+        '''
+        Execute script attached to button
+        '''
+
+        with nuke.toNode(hotboxInstance.groupRoot):
+
+            try:
+                print "clicked"
+            except:
+                printError(traceback.format_exc(), self.filePath, self.text())
+
+        #if 'close on click' is ticked, close the hotbox
+        if not self.menuButton:
+            if preferencesNode.knob('hotboxCloseOnClick').value() and preferencesNode.knob('hotboxTriggerDropdown').getValue():
+                hotboxInstance.closeHotbox()
+
+    def setSelectionStatus(self, selected = False):
+        '''
+        Define the style of the button for different states
+        '''
+
+        #if button becomes selected
+        if selected:
+            self.setStyleSheet("""
+                                border: 1px solid black;
+                                background:#555;
+                                color:#eeeeee;
+                                """)
+
+        #if button becomes unselected
+        else:
+            self.setStyleSheet("""
+                                border: 1px solid #000;
+                                background:#333;
+                                color:#eeeeee;
+                                """)
+
+        self.selected = selected
+
+    def enterEvent(self, event):
+        '''
+        Change color of the button when the mouse starts hovering over it
+        '''
+        self.setSelectionStatus(True)
+        return True
+
+    def leaveEvent(self,event):
+        '''
+        Change color of the button when the mouse stops hovering over it
+        '''
+        self.setSelectionStatus()
+        return True
+
+    def mouseReleaseEvent(self,event):
+        '''
+        Execute the buttons' self.function (str)
+        '''
+        if self.selected:
+
+            print "clicked-released...."
+
+        return True
+
 
 #---------------------------------------------------------------------
 # Preferences Panel
