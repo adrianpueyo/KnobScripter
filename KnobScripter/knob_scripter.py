@@ -57,7 +57,7 @@ nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2020 Adrian Pueyo. 
 
 class KnobScripter(QtWidgets.QDialog):
 
-    def __init__(self, node="", knob="knobChanged", isPane=False, _parent=QtWidgets.QApplication.activeWindow()):
+    def __init__(self, node="", knob="", isPane=False, _parent=QtWidgets.QApplication.activeWindow()):
         super(KnobScripter,self).__init__(_parent)
 
         # Autosave the other knobscripters and add this one
@@ -75,9 +75,15 @@ class KnobScripter(QtWidgets.QDialog):
         else:
             self.node = node
 
+        if knob == "":
+            if "kernelSource" in self.node.knobs() and self.node.Class() == "BlinkScript":
+                knob = "kernelSource"
+            else:
+                knob = "knobChanged"
+        self.knob = knob
+
         self._parent = _parent
         self.isPane = isPane
-        self.knob = knob
         self.show_labels = False # For the option to also display the knob labels on the knob dropdown
         self.unsavedKnobs = {}
         self.modifiedKnobs = set()
@@ -109,6 +115,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.toAutosave = False
         self.runInContext = False # Experimental
         self.blinkMode = False # True means we're editing a blinkscript knob
+        self.current_knob_modified = False # Convenience variable holding if the current script_editor is modified
 
         self.defaultKnobs = ["knobChanged", "onCreate", "onScriptLoad", "onScriptSave", "onScriptClose", "onDestroy",
                         "updateUI", "autolabel", "beforeRender", "beforeFrameRender", "afterFrameRender", "afterRender"]
@@ -561,6 +568,7 @@ class KnobScripter(QtWidgets.QDialog):
                 return
         # If order comes from a dropdown update, update value from dictionary if possible, otherwise update normally
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.name(), self.knob))
+        self.script_editor.blockSignals(True)
         if updateDict:
             if self.knob in self.unsavedKnobs:
                 if self.unsavedKnobs[self.knob] == obtained_knobValue:
@@ -583,6 +591,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.script_editor.setTextCursor(cursor)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
         self.setBlinkMode(is_blink)
+        self.script_editor.blockSignals(False)
         return
 
     def loadAllKnobValues(self):
@@ -605,11 +614,12 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Save the text from the editor to the node's knobChanged knob '''
         dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
         try:
+            obtained_knobValue = self.getKnobValue(dropdown_value)
             # If blinkscript, use getValue.
-            if dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript":
-                obtained_knobValue = str(self.node[dropdown_value].getValue())
-            else:
-                obtained_knobValue = str(self.node[dropdown_value].value())
+            #if dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript":
+            #    obtained_knobValue = str(self.node[dropdown_value].getValue()) 
+            #else:
+            #    obtained_knobValue = str(self.node[dropdown_value].value())
             self.knob = dropdown_value
         except:
             error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s"%(self.node.name(),dropdown_value))
@@ -682,25 +692,29 @@ class KnobScripter(QtWidgets.QDialog):
         if knobToSet in KnobDropdownItems:
             index = KnobDropdownItems.index(knobToSet)
             self.current_knob_dropdown.setCurrentIndex(index)
-        return
+            return True
+        return False
 
     def updateUnsavedKnobs(self, first_time=False):
         ''' Clear unchanged knobs from the dict and return the number of unsaved knobs '''
         if not self.node:
             # Node has been deleted, so simply return 0. Who cares.
             return 0
+
         edited_knobValue = self.script_editor.toPlainText()
         self.unsavedKnobs[self.knob] = edited_knobValue
+        
         if len(self.unsavedKnobs) > 0:
             for k in self.unsavedKnobs.copy():
                 if self.node.knob(k):
-                    if str(self.node.knob(k).value()) == str(self.unsavedKnobs[k]):
+                    if str(self.getKnobValue(k)) == str(self.unsavedKnobs[k]):
                         del self.unsavedKnobs[k]
                 else:
                     del self.unsavedKnobs[k]
         # Set appropriate knobs modified...
         knobs_dropdown = self.current_knob_dropdown
         all_knobs = [knobs_dropdown.itemData(i) for i in range(knobs_dropdown.count())]
+        all_knobs = list(filter(None,all_knobs))
         for key in all_knobs:
             if key in self.unsavedKnobs.keys():
                 self.setKnobModified(modified = True, knob = key, changeTitle = False)
@@ -708,6 +722,21 @@ class KnobScripter(QtWidgets.QDialog):
                 self.setKnobModified(modified = False, knob = key, changeTitle = False)
 
         return len(self.unsavedKnobs)
+
+    def getKnobValue(self,knob=""):
+        '''
+        Returns the relevant value of the knob:
+            For python knobs, uses value
+            For blinkscript, getValue
+            For others, gets the expression
+        '''
+        if knob == "":
+            knob = self.knob
+        if knob == "kernelSource" and self.node.Class() == "BlinkScript":
+            return self.node[knob].getValue()
+        else:
+            return self.node[knob].value()
+            #TODO: Return expression otherwise
 
     def setKnobModified(self, modified = True, knob = "", changeTitle = True):
         ''' Sets the current knob modified, title and whatever else we need '''
@@ -723,6 +752,7 @@ class KnobScripter(QtWidgets.QDialog):
             windowTitle = self.windowTitle().split(title_modified_string)[0]
             if modified == True:
                 windowTitle += title_modified_string
+            self.current_knob_modified = modified
             self.setWindowTitle(windowTitle)
 
         try:
@@ -746,7 +776,6 @@ class KnobScripter(QtWidgets.QDialog):
         Perform all UI changes neccesary for editing Blinkscript! Syntax highlighter, menu buttons, etc.
         '''
         self.blinkMode = blink_mode
-        print "setting blink mode to "+str(blink_mode) #TODO remove this
 
         # 1. Syntax highlighter
         if blink_mode:
@@ -1424,7 +1453,7 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Change node '''
         try:
             print "Changing from " + self.node.name()
-            self.clearConsole
+            self.clearConsole()
         except:
             self.node = None
             if not len(nuke.selectedNodes()):
@@ -1482,6 +1511,13 @@ class KnobScripter(QtWidgets.QDialog):
         self.node = selection[0]
         self.nodeMode = True
 
+        # TODO: try to save/retrieve from memory what was the last knob opened, scroll etc? Can save it in some root knob too if needed. Sort of a list/json.
+
+        if "kernelSource" in self.node.knobs() and self.node.Class() == "BlinkScript":
+            self.knob = "kernelSource"
+        else:
+            self.knob = "knobChanged"
+
         self.script_editor.setPlainText("")
         self.unsavedKnobs = {}
         self.scrollPos = {}
@@ -1490,15 +1526,12 @@ class KnobScripter(QtWidgets.QDialog):
 
         self.toLoadKnob = False
         self.updateKnobDropdown() #onee
-        #self.current_knob_dropdown.repaint()
-        ###self.current_knob_dropdown.setMinimumWidth(self.current_knob_dropdown.minimumSizeHint().width())
         self.toLoadKnob = True
         self.setCurrentKnob(self.knob)
         self.loadKnobValue(False)
         self.script_editor.setFocus()
         self.setKnobModified(False)
         self.current_knob_dropdown.blockSignals(False)
-        #self.current_knob_dropdown.setMinimumContentsLength(80)
         return
     
     def exitNodeMode(self):
@@ -1680,7 +1713,9 @@ class KnobScripter(QtWidgets.QDialog):
 
     def setModified(self):
         if self.nodeMode:
-            self.setKnobModified(True)
+            if not self.current_knob_modified:
+                if self.getKnobValue(self.knob) != self.script_editor.toPlainText():
+                    self.setKnobModified(True)
         elif not self.current_script_modified:
             self.setScriptModified(True)
         if not self.nodeMode:
@@ -4221,7 +4256,7 @@ class SnippetFilePath(QtWidgets.QWidget):
 # Implementation
 #--------------------------------
 
-def showKnobScripter(knob="knobChanged"):
+def showKnobScripter(knob=""):
     selection = nuke.selectedNodes()
     if not len(selection):
         pan = KnobScripter(_parent=QtWidgets.QApplication.activeWindow())
