@@ -2,8 +2,8 @@
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
 # adrianpueyo.com, 2016-2020
-version = "2.4"
-date = "Dec 7 2020"
+version = "3.0a0"
+date = "Dec 11 2020"
 #-------------------------------------------------
 
 import nuke
@@ -20,7 +20,7 @@ import platform
 from threading import Event, Thread
 from webbrowser import open as openUrl
 
-#Symlinks on windows...
+# Symlinks on windows...
 if os.name == "nt":
     def symlink_ms(source, link_name):
         import ctypes
@@ -488,7 +488,6 @@ class KnobScripter(QtWidgets.QDialog):
     def showHelp(self):
         openUrl("https://vimeo.com/adrianpueyo/knobscripter2")
 
-
     # Node Mode
     def updateKnobDropdown(self):
         ''' Populate knob dropdown list '''
@@ -825,7 +824,6 @@ class KnobScripter(QtWidgets.QDialog):
         script_editor.scrollToCursor()
 
         return
-
 
     # Script Mode
     def updateFoldersDropdown(self):
@@ -1672,7 +1670,6 @@ class KnobScripter(QtWidgets.QDialog):
                 AllKnobScripters.remove(self)
             close_event.accept()
 
-
     # Landing functions
     def refreshClicked(self):
         ''' Function to refresh the dropdowns '''
@@ -2052,15 +2049,11 @@ class ChooseNodeDialog(QtWidgets.QDialog):
         self.reject()
         return
 
-
 #------------------------------------------------------------------------------------------------------
 # Script Editor Widget
-# Wouter Gilsing built an incredibly useful python script editor for his Hotbox Manager, so I had it
-# really easy for this part!
-# Starting from his script editor, I changed the style and added the sublime-like functionality.
-# I think this bit of code has the potential to get used in many nuke tools.
+# Wouter Gilsing built an incredibly useful python script editor for his Hotbox Manager (v1.5).
 # Credit to him: http://www.woutergilsing.com/
-# Originally used on W_Hotbox v1.5: http://www.nukepedia.com/python/ui/w_hotbox
+# Starting from his code, I changed the style and added the sublime-like functionality.
 #------------------------------------------------------------------------------------------------------
 class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
     # Signal that will be emitted when the user has changed the text
@@ -2591,481 +2584,6 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         return textFormat
 
-class KSLineNumberArea(QtWidgets.QWidget):
-    def __init__(self, scriptEditor):
-        super(KSLineNumberArea, self).__init__(scriptEditor)
-
-        self.scriptEditor = scriptEditor
-        self.setStyleSheet("text-align: center;")
-
-    def paintEvent(self, event):
-        self.scriptEditor.lineNumberAreaPaintEvent(event)
-        return
-
-class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
-    '''
-    This is also adapted from an original version by Wouter Gilsing. His comments:
-
-    Modified, simplified version of some code found I found when researching:
-    wiki.python.org/moin/PyQt/Python%20syntax%20highlighting
-    They did an awesome job, so credits to them. I only needed to make some
-    modifications to make it fit my needs.
-    '''
-
-    def __init__(self, document, parent=None):
-
-        super(KSScriptEditorHighlighter, self).__init__(document)
-        self.knobScripter = parent
-        self.script_editor = self.knobScripter.script_editor
-        self.selected_text = ""
-        self.selected_text_prev = ""
-        self.rules_sublime = ""
-
-        self.styles = {
-            'keyword': self.format([238,117,181],'bold'),
-            'string': self.format([242, 136, 135]),
-            'comment': self.format([143, 221, 144 ]),
-            'numbers': self.format([174, 129, 255]),
-            'custom': self.format([255, 170, 0],'italic'),
-            'selected': self.format([255, 255, 255],'bold underline'),
-            'underline':self.format([240, 240, 240],'underline'),
-            }
-
-        self.keywords = [
-            'and', 'assert', 'break', 'class', 'continue', 'def',
-            'del', 'elif', 'else', 'except', 'exec', 'finally',
-            'for', 'from', 'global', 'if', 'import', 'in',
-            'is', 'lambda', 'not', 'or', 'pass', 'print',
-            'raise', 'return', 'try', 'while', 'yield', 'with', 'as'
-            ]
-
-        self.operatorKeywords = [
-            '=','==', '!=', '<', '<=', '>', '>=',
-            '\+', '-', '\*', '/', '//', '\%', '\*\*',
-            '\+=', '-=', '\*=', '/=', '\%=',
-            '\^', '\|', '\&', '\~', '>>', '<<'
-            ]
-
-        self.variableKeywords = ['int','str','float','bool','list','dict','set']
-
-        self.numbers = ['True','False','None']
-        self.loadSublimeStyle()
-
-        self.tri_single = (QtCore.QRegExp("'''"), 1, self.styles['comment'])
-        self.tri_double = (QtCore.QRegExp('"""'), 2, self.styles['comment'])
-
-        #rules
-        rules = []
-
-        rules += [(r'\b%s\b' % i, 0, self.styles['keyword']) for i in self.keywords]
-        rules += [(i, 0, self.styles['keyword']) for i in self.operatorKeywords]
-        rules += [(r'\b%s\b' % i, 0, self.styles['numbers']) for i in self.numbers]
-
-        rules += [
-
-            # integers
-            (r'\b[0-9]+\b', 0, self.styles['numbers']),
-            # Double-quoted string, possibly containing escape sequences
-            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, self.styles['string']),
-            # Single-quoted string, possibly containing escape sequences
-            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, self.styles['string']),
-            # From '#' until a newline
-            (r'#[^\n]*', 0, self.styles['comment']),
-            ]
-
-        # Build a QRegExp for each pattern
-        self.rules_nuke = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
-        self.rules = self.rules_nuke
-
-    def loadSublimeStyle(self):
-        ''' Loads other color styles apart from Nuke's default. '''
-        self.styles_sublime = {
-            'base': self.format([255,255,255]),
-            'keyword': self.format([237, 36, 110]),
-            'string': self.format([237, 229, 122]),
-            'comment': self.format([125, 125, 125]),
-            'numbers': self.format([165, 120, 255]),
-            'functions': self.format([184, 237, 54]),
-            'blue': self.format([130, 226, 255], 'italic'),
-            'arguments': self.format([255, 170, 10], 'italic'),
-            'custom': self.format([200, 200, 200],'italic'),
-            'underline':self.format([240, 240, 240],'underline'),
-            'selected': self.format([255, 255, 255],'bold underline'),
-            }
-
-        self.keywords_sublime = [
-            'and', 'assert', 'break', 'continue',
-            'del', 'elif', 'else', 'except', 'exec', 'finally',
-            'for', 'from', 'global', 'if', 'import', 'in',
-            'is', 'lambda', 'not', 'or', 'pass', 'print',
-            'raise', 'return', 'try', 'while', 'yield', 'with', 'as'
-            ]
-        self.operatorKeywords_sublime = [
-            '=','==', '!=', '<', '<=', '>', '>=',
-            '\+', '-', '\*', '/', '//', '\%', '\*\*',
-            '\+=', '-=', '\*=', '/=', '\%=',
-            '\^', '\|', '\&', '\~', '>>', '<<'
-            ]
-
-        self.baseKeywords_sublime = [
-            ',',
-            ]
-
-        self.customKeywords_sublime = [
-            'nuke',
-            ]
-
-        self.blueKeywords_sublime = [
-            'def', 'class', 'int','str','float','bool','list','dict','set'
-            ]
-
-        self.argKeywords_sublime = [
-            'self',
-            ]
-
-        self.tri_single_sublime = (QtCore.QRegExp("'''"), 1, self.styles_sublime['comment'])
-        self.tri_double_sublime = (QtCore.QRegExp('"""'), 2, self.styles_sublime['comment'])
-        self.numbers_sublime = ['True','False','None']
-
-        #rules
-
-        rules = []
-        # First turn everything inside parentheses orange
-        rules += [(r"def [\w]+[\s]*\((.*)\)", 1, self.styles_sublime['arguments'])]
-        # Now restore unwanted stuff...
-        rules += [(i, 0, self.styles_sublime['base']) for i in self.baseKeywords_sublime]
-        rules += [(r"[^\(\w),.][\s]*[\w]+", 0, self.styles_sublime['base'])]
-
-        #Everything else
-        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['keyword']) for i in self.keywords_sublime]
-        rules += [(i, 0, self.styles_sublime['keyword']) for i in self.operatorKeywords_sublime]
-        rules += [(i, 0, self.styles_sublime['custom']) for i in self.customKeywords_sublime]
-        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['blue']) for i in self.blueKeywords_sublime]
-        rules += [(i, 0, self.styles_sublime['arguments']) for i in self.argKeywords_sublime]
-        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['numbers']) for i in self.numbers_sublime]
-
-        rules += [
-
-            # integers
-            (r'\b[0-9]+\b', 0, self.styles_sublime['numbers']),
-            # Double-quoted string, possibly containing escape sequences
-            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, self.styles_sublime['string']),
-            # Single-quoted string, possibly containing escape sequences
-            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, self.styles_sublime['string']),
-            # From '#' until a newline
-            (r'#[^\n]*', 0, self.styles_sublime['comment']),
-            # Function definitions
-            (r"def[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
-            # Class definitions
-            (r"class[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
-            # Class argument (which is also a class so must be green)
-            (r"class[\s]+[\w\.]+[\s]*\((.*)\)", 1, self.styles_sublime['functions']),
-            # Function arguments also pick their style...
-            (r"def[\s]+[\w]+[\s]*\(([\w]+)", 1, self.styles_sublime['arguments']),
-            ]
-
-        # Build a QRegExp for each pattern
-        self.rules_sublime = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
-
-    def format(self,rgb, style=''):
-        '''
-        Return a QtWidgets.QTextCharFormat with the given attributes.
-        '''
-
-        color = QtGui.QColor(*rgb)
-        textFormat = QtGui.QTextCharFormat()
-        textFormat.setForeground(color)
-
-        if 'bold' in style:
-            textFormat.setFontWeight(QtGui.QFont.Bold)
-        if 'italic' in style:
-            textFormat.setFontItalic(True)
-        if 'underline' in style:
-            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
-
-        return textFormat
-
-    def highlightBlock(self, text):
-        '''
-        Apply syntax highlighting to the given block of text.
-        '''
-        # Do other syntax formatting
-
-        if self.knobScripter.color_scheme:
-            self.color_scheme = self.knobScripter.color_scheme
-        else:
-            self.color_scheme = "nuke"
-
-        if self.color_scheme == "nuke":
-            self.rules = self.rules_nuke
-        elif self.color_scheme == "sublime":
-            self.rules = self.rules_sublime
-
-        for expression, nth, format in self.rules:
-            index = expression.indexIn(text, 0)
-
-            while index >= 0:
-                # We actually want the index of the nth match
-                index = expression.pos(nth)
-                length = len(expression.cap(nth))
-                self.setFormat(index, length, format)
-                index = expression.indexIn(text, index + length)
-
-        self.setCurrentBlockState(0)
-
-        # Multi-line strings etc. based on selected scheme
-        if self.color_scheme == "nuke":
-            in_multiline = self.match_multiline(text, *self.tri_single)
-            if not in_multiline:
-                in_multiline = self.match_multiline(text, *self.tri_double)
-        elif self.color_scheme == "sublime":
-            in_multiline = self.match_multiline(text, *self.tri_single_sublime)
-            if not in_multiline:
-                in_multiline = self.match_multiline(text, *self.tri_double_sublime)
-
-        #TODO if there's a selection, highlight same occurrences in the full document. If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
-
-    def match_multiline(self, text, delimiter, in_state, style):
-        '''
-        Check whether highlighting requires multiple lines.
-        '''
-        # If inside triple-single quotes, start at 0
-        if self.previousBlockState() == in_state:
-            start = 0
-            add = 0
-        # Otherwise, look for the delimiter on this line
-        else:
-            start = delimiter.indexIn(text)
-            # Move past this match
-            add = delimiter.matchedLength()
-
-        # As long as there's a delimiter match on this line...
-        while start >= 0:
-            # Look for the ending delimiter
-            end = delimiter.indexIn(text, start + add)
-            # Ending delimiter on this line?
-            if end >= add:
-                length = end - start + add + delimiter.matchedLength()
-                self.setCurrentBlockState(0)
-            # No; multi-line string
-            else:
-                self.setCurrentBlockState(in_state)
-                length = len(text) - start + add
-            # Apply formatting
-            self.setFormat(start, length, style)
-            # Look for the next match
-            start = delimiter.indexIn(text, start + length)
-
-        # Return True if still inside a multi-line string, False otherwise
-        if self.currentBlockState() == in_state:
-            return True
-        else:
-            return False
-
-class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
-    '''
-    Blink code highlighter class!
-    Modified over Foundry's nukescripts.blinkscripteditor module.
-    '''
-    #TODO open curly braces { and enter should bring the } an extra line down 
-
-    def __init__(self, document, parent=None): #TODO THIS FULL CLASSS
-
-        super(KSBlinkHighlighter, self).__init__(document)
-        self.knobScripter = parent
-        self.script_editor = self.knobScripter.script_editor
-        self.selected_text = ""
-        self.selected_text_prev = ""
-
-        self.loadStyles()
-        self.rules = self.rules_default
-
-    def loadStyles(self):
-        ''' Loads the different sets of rules '''
-        self.commentStartEnd = (QtCore.QRegExp("/\\*"),QtCore.QRegExp("\\*/"), 1, self.format([188, 179, 84])) # Default regardless of style
-
-        self.rules_default = self.loadRulesDefault()
-        #self.rules_adrian = self.loadRulesAdrians() # TODO custom set of rules to make it look nicer for blinkscript imo
-
-    def loadRulesDefault(self):
-        '''
-        My adaptation from the default style from Nuke, with some improvements.
-        '''
-        nuke_styles = {
-            'keyword': self.format([122, 136, 53],'bold'), 
-            'stringDoubleQuote': self.format([226, 138, 138]),
-            'stringSingleQuote': self.format([110, 160, 121]),
-            'comments': self.format([188, 179, 84]),
-            'multiline_comments': self.format([188, 179, 84]),
-            'types': self.format([25, 25, 80]),
-            'variableKeywords': self.format([25, 25, 80]),
-            'functions': self.format([3, 185, 191]),#only needed till here for blink?
-            'numbers': self.format([174, 129, 255]),
-            'custom': self.format([255, 170, 0],'italic'),
-            'selected': self.format([255, 255, 255],'bold underline'),
-            'underline':self.format([240, 240, 240],'underline'),
-            }
-
-        nuke_keywords = [
-            "char", "class", "const", "double", "enum", "explicit",
-            "friend", "inline", "int", "long", "namespace", "operator",
-            "private", "protected", "public", "short", "signed", 
-            "static", "struct", "template", "typedef", "typename", 
-            "union", "unsigned", "virtual", "void", "volatile", 
-            "local", "param", "kernel",
-            ]
-
-        nuke_operatorKeywords = [
-            '=','==', '!=', '<', '<=', '>', '>=',
-            '\+', '-', '\*', '/', '//', '\%', '\*\*',
-            '\+=', '-=', '\*=', '/=', '\%=',
-            '\^', '\|', '\&', '\~', '>>', '<<','\+\+'
-            ]
-
-        nuke_variableKeywords = [
-            "int", "int2", "int3", "int4", 
-            "float", "float2", "float3", "float4", "float3x3", "float4x4", "bool"
-            ]
-
-        nuke_blinkTypes = [
-            "Image", "eRead", "eWrite", "eEdgeClamped", "eEdgeConstant", "eEdgeNull",
-            "eAccessPoint", "eAccessRanged1D", "eAccessRanged2D", "eAccessRandom", 
-            "eComponentWise", "ePixelWise", "ImageComputationKernel",
-            ]
-
-        nuke_blinkFunctions = [
-            "define", "defineParam", "process", "init", "setRange", "setAxis", "median", "bilinear",
-            ]
-
-        # Rules
-
-        rules = []
-
-        # 1. Keywords
-        rules += [(r'\b%s\b' % i, 0, nuke_styles['keyword']) for i in nuke_keywords]
-
-        # 2. Funcs
-        rules += [(r'\b%s\b' % i, 0, nuke_styles['functions']) for i in nuke_blinkFunctions]
-
-        # 3. Types
-        rules += [(r'\b%s\b' % i, 0, nuke_styles['types']) for i in nuke_blinkTypes]
-        rules += [(r'\b%s\b' % i, 0, nuke_styles['variableKeywords']) for i in nuke_variableKeywords]
-
-        # 4. String Literals
-        rules += [(r"\"([^\"\\\\]|\\\\.)*\"", 0, nuke_styles['stringDoubleQuote'])]
-
-        # 5. String single quotes
-        rules += [(r"'([^'\\\\]|\\\\.)*'", 0, nuke_styles['stringSingleQuote'])]
-
-        # 6. Comments
-        rules += [(r"//[^\n]*", 0, nuke_styles['comments'])]
-
-        # 7. Multiline comments /* */
-        self.commentStartEnd = (QtCore.QRegExp("/\\*"),QtCore.QRegExp("\\*/"), 1, nuke_styles['multiline_comments'])
-
-        # Return all rules
-        return [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
-
-    def format(self,rgb, style=''):
-        '''
-        Return a QtWidgets.QTextCharFormat with the given attributes.
-        '''
-
-        color = QtGui.QColor(*rgb)
-        textFormat = QtGui.QTextCharFormat()
-        textFormat.setForeground(color)
-
-        if 'bold' in style:
-            textFormat.setFontWeight(QtGui.QFont.Bold)
-        if 'italic' in style:
-            textFormat.setFontItalic(True)
-        if 'underline' in style:
-            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
-
-        return textFormat
-
-    def highlightBlock(self, text):
-        '''
-        Apply syntax highlighting to the given block of text.
-        '''
-        for expression, nth, format in self.rules:
-            index = expression.indexIn(text, 0)
-
-            while index >= 0:
-                # We actually want the index of the nth match
-                index = expression.pos(nth)
-                length = len(expression.cap(nth))
-                self.setFormat(index, length, format)
-                index = expression.indexIn(text, index + length)
-
-        self.setCurrentBlockState(0)
-
-        # Multi-line strings etc. based on selected scheme
-        in_multiline = self.match_multiline_blink(text, *self.commentStartEnd)
-
-
-    def match_multiline_blink(self, text, delimiter_start, delimiter_end, in_state, style):
-        '''
-        Check whether highlighting requires multiple lines.
-        '''
-        # If inside multiline comment, start at 0
-        if self.previousBlockState() == in_state:
-            start = 0
-            add = 0
-        # Otherwise, look for the delimiter on this line
-        else:
-            start = delimiter_start.indexIn(text)
-            # Move past this match
-            add = delimiter_start.matchedLength()
-
-        # As long as there's a delimiter match on this line...
-        while start >= 0:
-            # Look for the ending delimiter
-            end = delimiter_end.indexIn(text, start + add)
-            # Ending delimiter on this line?
-            if end >= add:
-                length = end - start + add + delimiter_end.matchedLength()
-                self.setCurrentBlockState(0)
-            # No; multi-line string
-            else:
-                self.setCurrentBlockState(in_state)
-                length = len(text) - start + add
-            # Apply formatting
-            self.setFormat(start, length, style)
-            # Look for the next match
-            start = delimiter_start.indexIn(text, start + length)
-
-        # Return True if still inside a multi-line string, False otherwise
-        if self.currentBlockState() == in_state:
-            return True
-        else:
-            return False
-
-#--------------------------------------------------------------------------------------
-# Script Output Widget
-# The output logger works the same way as Nuke's python script editor output window
-#--------------------------------------------------------------------------------------
-
-class ScriptOutputWidget(QtWidgets.QTextEdit) :
-    def __init__(self, parent=None):
-        super(ScriptOutputWidget, self).__init__(parent)
-        self.knobScripter = parent
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        self.setMinimumHeight(20)
-
-    def keyPressEvent(self, event):
-        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
-        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
-        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
-        key = event.key()
-        if type(event) == QtGui.QKeyEvent:
-            #print event.key()
-            if key in [32]: # Space
-                return KnobScripter.keyPressEvent(self.knobScripter, event)
-            elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
-                self.knobScripter.clearConsole()
-        return QtWidgets.QTextEdit.keyPressEvent(self, event)
-
 #---------------------------------------------------------------------
 # Modified KnobScripterTextEdit to include snippets etc.
 #---------------------------------------------------------------------
@@ -3524,11 +3042,490 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         nukeSECursor.setPosition(oldPosition, QtGui.QTextCursor.KeepAnchor)
         nukeSEInput.setTextCursor(nukeSECursor)
 
+#---------------------------------------------------------------------
+# Modified KnobScripterTextEdit to include snippets etc.
+#---------------------------------------------------------------------
+class KSLineNumberArea(QtWidgets.QWidget):
+    def __init__(self, scriptEditor):
+        super(KSLineNumberArea, self).__init__(scriptEditor)
+
+        self.scriptEditor = scriptEditor
+        self.setStyleSheet("text-align: center;")
+
+    def paintEvent(self, event):
+        self.scriptEditor.lineNumberAreaPaintEvent(event)
+        return
+
+class KSScriptEditorHighlighter(QtGui.QSyntaxHighlighter):
+    '''
+    This is also adapted from an original version by Wouter Gilsing. His comments:
+
+    Modified, simplified version of some code found I found when researching:
+    wiki.python.org/moin/PyQt/Python%20syntax%20highlighting
+    They did an awesome job, so credits to them. I only needed to make some
+    modifications to make it fit my needs.
+    '''
+
+    def __init__(self, document, parent=None):
+
+        super(KSScriptEditorHighlighter, self).__init__(document)
+        self.knobScripter = parent
+        self.script_editor = self.knobScripter.script_editor
+        self.selected_text = ""
+        self.selected_text_prev = ""
+        self.rules_sublime = ""
+
+        self.styles = {
+            'keyword': self.format([238,117,181],'bold'),
+            'string': self.format([242, 136, 135]),
+            'comment': self.format([143, 221, 144 ]),
+            'numbers': self.format([174, 129, 255]),
+            'custom': self.format([255, 170, 0],'italic'),
+            'selected': self.format([255, 255, 255],'bold underline'),
+            'underline':self.format([240, 240, 240],'underline'),
+            }
+
+        self.keywords = [
+            'and', 'assert', 'break', 'class', 'continue', 'def',
+            'del', 'elif', 'else', 'except', 'exec', 'finally',
+            'for', 'from', 'global', 'if', 'import', 'in',
+            'is', 'lambda', 'not', 'or', 'pass', 'print',
+            'raise', 'return', 'try', 'while', 'yield', 'with', 'as'
+            ]
+
+        self.operatorKeywords = [
+            '=','==', '!=', '<', '<=', '>', '>=',
+            '\+', '-', '\*', '/', '//', '\%', '\*\*',
+            '\+=', '-=', '\*=', '/=', '\%=',
+            '\^', '\|', '\&', '\~', '>>', '<<'
+            ]
+
+        self.variableKeywords = ['int','str','float','bool','list','dict','set']
+
+        self.numbers = ['True','False','None']
+        self.loadSublimeStyle()
+
+        self.tri_single = (QtCore.QRegExp("'''"), 1, self.styles['comment'])
+        self.tri_double = (QtCore.QRegExp('"""'), 2, self.styles['comment'])
+
+        #rules
+        rules = []
+
+        rules += [(r'\b%s\b' % i, 0, self.styles['keyword']) for i in self.keywords]
+        rules += [(i, 0, self.styles['keyword']) for i in self.operatorKeywords]
+        rules += [(r'\b%s\b' % i, 0, self.styles['numbers']) for i in self.numbers]
+
+        rules += [
+
+            # integers
+            (r'\b[0-9]+\b', 0, self.styles['numbers']),
+            # Double-quoted string, possibly containing escape sequences
+            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, self.styles['string']),
+            # Single-quoted string, possibly containing escape sequences
+            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, self.styles['string']),
+            # From '#' until a newline
+            (r'#[^\n]*', 0, self.styles['comment']),
+            ]
+
+        # Build a QRegExp for each pattern
+        self.rules_nuke = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
+        self.rules = self.rules_nuke
+
+    def loadSublimeStyle(self):
+        ''' Loads other color styles apart from Nuke's default. '''
+        self.styles_sublime = {
+            'base': self.format([255,255,255]),
+            'keyword': self.format([237, 36, 110]),
+            'string': self.format([237, 229, 122]),
+            'comment': self.format([125, 125, 125]),
+            'numbers': self.format([165, 120, 255]),
+            'functions': self.format([184, 237, 54]),
+            'blue': self.format([130, 226, 255], 'italic'),
+            'arguments': self.format([255, 170, 10], 'italic'),
+            'custom': self.format([200, 200, 200],'italic'),
+            'underline':self.format([240, 240, 240],'underline'),
+            'selected': self.format([255, 255, 255],'bold underline'),
+            }
+
+        self.keywords_sublime = [
+            'and', 'assert', 'break', 'continue',
+            'del', 'elif', 'else', 'except', 'exec', 'finally',
+            'for', 'from', 'global', 'if', 'import', 'in',
+            'is', 'lambda', 'not', 'or', 'pass', 'print',
+            'raise', 'return', 'try', 'while', 'yield', 'with', 'as'
+            ]
+        self.operatorKeywords_sublime = [
+            '=','==', '!=', '<', '<=', '>', '>=',
+            '\+', '-', '\*', '/', '//', '\%', '\*\*',
+            '\+=', '-=', '\*=', '/=', '\%=',
+            '\^', '\|', '\&', '\~', '>>', '<<'
+            ]
+
+        self.baseKeywords_sublime = [
+            ',',
+            ]
+
+        self.customKeywords_sublime = [
+            'nuke',
+            ]
+
+        self.blueKeywords_sublime = [
+            'def', 'class', 'int','str','float','bool','list','dict','set'
+            ]
+
+        self.argKeywords_sublime = [
+            'self',
+            ]
+
+        self.tri_single_sublime = (QtCore.QRegExp("'''"), 1, self.styles_sublime['comment'])
+        self.tri_double_sublime = (QtCore.QRegExp('"""'), 2, self.styles_sublime['comment'])
+        self.numbers_sublime = ['True','False','None']
+
+        #rules
+
+        rules = []
+        # First turn everything inside parentheses orange
+        rules += [(r"def [\w]+[\s]*\((.*)\)", 1, self.styles_sublime['arguments'])]
+        # Now restore unwanted stuff...
+        rules += [(i, 0, self.styles_sublime['base']) for i in self.baseKeywords_sublime]
+        rules += [(r"[^\(\w),.][\s]*[\w]+", 0, self.styles_sublime['base'])]
+
+        #Everything else
+        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['keyword']) for i in self.keywords_sublime]
+        rules += [(i, 0, self.styles_sublime['keyword']) for i in self.operatorKeywords_sublime]
+        rules += [(i, 0, self.styles_sublime['custom']) for i in self.customKeywords_sublime]
+        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['blue']) for i in self.blueKeywords_sublime]
+        rules += [(i, 0, self.styles_sublime['arguments']) for i in self.argKeywords_sublime]
+        rules += [(r'\b%s\b' % i, 0, self.styles_sublime['numbers']) for i in self.numbers_sublime]
+
+        rules += [
+
+            # integers
+            (r'\b[0-9]+\b', 0, self.styles_sublime['numbers']),
+            # Double-quoted string, possibly containing escape sequences
+            (r'"[^"\\]*(\\.[^"\\]*)*"', 0, self.styles_sublime['string']),
+            # Single-quoted string, possibly containing escape sequences
+            (r"'[^'\\]*(\\.[^'\\]*)*'", 0, self.styles_sublime['string']),
+            # From '#' until a newline
+            (r'#[^\n]*', 0, self.styles_sublime['comment']),
+            # Function definitions
+            (r"def[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
+            # Class definitions
+            (r"class[\s]+([\w\.]+)", 1, self.styles_sublime['functions']),
+            # Class argument (which is also a class so must be green)
+            (r"class[\s]+[\w\.]+[\s]*\((.*)\)", 1, self.styles_sublime['functions']),
+            # Function arguments also pick their style...
+            (r"def[\s]+[\w]+[\s]*\(([\w]+)", 1, self.styles_sublime['arguments']),
+            ]
+
+        # Build a QRegExp for each pattern
+        self.rules_sublime = [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
+
+    def format(self,rgb, style=''):
+        '''
+        Return a QtWidgets.QTextCharFormat with the given attributes.
+        '''
+
+        color = QtGui.QColor(*rgb)
+        textFormat = QtGui.QTextCharFormat()
+        textFormat.setForeground(color)
+
+        if 'bold' in style:
+            textFormat.setFontWeight(QtGui.QFont.Bold)
+        if 'italic' in style:
+            textFormat.setFontItalic(True)
+        if 'underline' in style:
+            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
+
+        return textFormat
+
+    def highlightBlock(self, text):
+        '''
+        Apply syntax highlighting to the given block of text.
+        '''
+        # Do other syntax formatting
+
+        if self.knobScripter.color_scheme:
+            self.color_scheme = self.knobScripter.color_scheme
+        else:
+            self.color_scheme = "nuke"
+
+        if self.color_scheme == "nuke":
+            self.rules = self.rules_nuke
+        elif self.color_scheme == "sublime":
+            self.rules = self.rules_sublime
+
+        for expression, nth, format in self.rules:
+            index = expression.indexIn(text, 0)
+
+            while index >= 0:
+                # We actually want the index of the nth match
+                index = expression.pos(nth)
+                length = len(expression.cap(nth))
+                self.setFormat(index, length, format)
+                index = expression.indexIn(text, index + length)
+
+        self.setCurrentBlockState(0)
+
+        # Multi-line strings etc. based on selected scheme
+        if self.color_scheme == "nuke":
+            in_multiline = self.match_multiline(text, *self.tri_single)
+            if not in_multiline:
+                in_multiline = self.match_multiline(text, *self.tri_double)
+        elif self.color_scheme == "sublime":
+            in_multiline = self.match_multiline(text, *self.tri_single_sublime)
+            if not in_multiline:
+                in_multiline = self.match_multiline(text, *self.tri_double_sublime)
+
+        #TODO if there's a selection, highlight same occurrences in the full document. If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
+
+    def match_multiline(self, text, delimiter, in_state, style):
+        '''
+        Check whether highlighting requires multiple lines.
+        '''
+        # If inside triple-single quotes, start at 0
+        if self.previousBlockState() == in_state:
+            start = 0
+            add = 0
+        # Otherwise, look for the delimiter on this line
+        else:
+            start = delimiter.indexIn(text)
+            # Move past this match
+            add = delimiter.matchedLength()
+
+        # As long as there's a delimiter match on this line...
+        while start >= 0:
+            # Look for the ending delimiter
+            end = delimiter.indexIn(text, start + add)
+            # Ending delimiter on this line?
+            if end >= add:
+                length = end - start + add + delimiter.matchedLength()
+                self.setCurrentBlockState(0)
+            # No; multi-line string
+            else:
+                self.setCurrentBlockState(in_state)
+                length = len(text) - start + add
+            # Apply formatting
+            self.setFormat(start, length, style)
+            # Look for the next match
+            start = delimiter.indexIn(text, start + length)
+
+        # Return True if still inside a multi-line string, False otherwise
+        if self.currentBlockState() == in_state:
+            return True
+        else:
+            return False
+
+class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
+    '''
+    Blink code highlighter class!
+    Modified over Foundry's nukescripts.blinkscripteditor module.
+    '''
+    #TODO open curly braces { and enter should bring the } an extra line down 
+
+    def __init__(self, document, parent=None): #TODO THIS FULL CLASSS
+
+        super(KSBlinkHighlighter, self).__init__(document)
+        self.knobScripter = parent
+        self.script_editor = self.knobScripter.script_editor
+        self.selected_text = ""
+        self.selected_text_prev = ""
+
+        self.loadStyles()
+        self.rules = self.rules_default
+
+    def loadStyles(self):
+        ''' Loads the different sets of rules '''
+        self.commentStartEnd = (QtCore.QRegExp("/\\*"),QtCore.QRegExp("\\*/"), 1, self.format([188, 179, 84])) # Default regardless of style
+
+        self.rules_default = self.loadRulesDefault()
+        #self.rules_adrian = self.loadRulesAdrians() # TODO custom set of rules to make it look nicer for blinkscript imo
+
+    def loadRulesDefault(self):
+        '''
+        My adaptation from the default style from Nuke, with some improvements.
+        '''
+        nuke_styles = {
+            'keyword': self.format([122, 136, 53],'bold'), 
+            'stringDoubleQuote': self.format([226, 138, 138]),
+            'stringSingleQuote': self.format([110, 160, 121]),
+            'comments': self.format([188, 179, 84]),
+            'multiline_comments': self.format([188, 179, 84]),
+            'types': self.format([25, 25, 80]),
+            'variableKeywords': self.format([25, 25, 80]),
+            'functions': self.format([3, 185, 191]),#only needed till here for blink?
+            'numbers': self.format([174, 129, 255]),
+            'custom': self.format([255, 170, 0],'italic'),
+            'selected': self.format([255, 255, 255],'bold underline'),
+            'underline':self.format([240, 240, 240],'underline'),
+            }
+
+        nuke_keywords = [
+            "char", "class", "const", "double", "enum", "explicit",
+            "friend", "inline", "int", "long", "namespace", "operator",
+            "private", "protected", "public", "short", "signed", 
+            "static", "struct", "template", "typedef", "typename", 
+            "union", "unsigned", "virtual", "void", "volatile", 
+            "local", "param", "kernel",
+            ]
+
+        nuke_operatorKeywords = [
+            '=','==', '!=', '<', '<=', '>', '>=',
+            '\+', '-', '\*', '/', '//', '\%', '\*\*',
+            '\+=', '-=', '\*=', '/=', '\%=',
+            '\^', '\|', '\&', '\~', '>>', '<<','\+\+'
+            ]
+
+        nuke_variableKeywords = [
+            "int", "int2", "int3", "int4", 
+            "float", "float2", "float3", "float4", "float3x3", "float4x4", "bool"
+            ]
+
+        nuke_blinkTypes = [
+            "Image", "eRead", "eWrite", "eEdgeClamped", "eEdgeConstant", "eEdgeNull",
+            "eAccessPoint", "eAccessRanged1D", "eAccessRanged2D", "eAccessRandom", 
+            "eComponentWise", "ePixelWise", "ImageComputationKernel",
+            ]
+
+        nuke_blinkFunctions = [
+            "define", "defineParam", "process", "init", "setRange", "setAxis", "median", "bilinear",
+            ]
+
+        # Rules
+
+        rules = []
+
+        # 1. Keywords
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['keyword']) for i in nuke_keywords]
+
+        # 2. Funcs
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['functions']) for i in nuke_blinkFunctions]
+
+        # 3. Types
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['types']) for i in nuke_blinkTypes]
+        rules += [(r'\b%s\b' % i, 0, nuke_styles['variableKeywords']) for i in nuke_variableKeywords]
+
+        # 4. String Literals
+        rules += [(r"\"([^\"\\\\]|\\\\.)*\"", 0, nuke_styles['stringDoubleQuote'])]
+
+        # 5. String single quotes
+        rules += [(r"'([^'\\\\]|\\\\.)*'", 0, nuke_styles['stringSingleQuote'])]
+
+        # 6. Comments
+        rules += [(r"//[^\n]*", 0, nuke_styles['comments'])]
+
+        # 7. Multiline comments /* */
+        self.commentStartEnd = (QtCore.QRegExp("/\\*"),QtCore.QRegExp("\\*/"), 1, nuke_styles['multiline_comments'])
+
+        # Return all rules
+        return [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules]
+
+    def format(self,rgb, style=''):
+        '''
+        Return a QtWidgets.QTextCharFormat with the given attributes.
+        '''
+
+        color = QtGui.QColor(*rgb)
+        textFormat = QtGui.QTextCharFormat()
+        textFormat.setForeground(color)
+
+        if 'bold' in style:
+            textFormat.setFontWeight(QtGui.QFont.Bold)
+        if 'italic' in style:
+            textFormat.setFontItalic(True)
+        if 'underline' in style:
+            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
+
+        return textFormat
+
+    def highlightBlock(self, text):
+        '''
+        Apply syntax highlighting to the given block of text.
+        '''
+        for expression, nth, format in self.rules:
+            index = expression.indexIn(text, 0)
+
+            while index >= 0:
+                # We actually want the index of the nth match
+                index = expression.pos(nth)
+                length = len(expression.cap(nth))
+                self.setFormat(index, length, format)
+                index = expression.indexIn(text, index + length)
+
+        self.setCurrentBlockState(0)
+
+        # Multi-line strings etc. based on selected scheme
+        in_multiline = self.match_multiline_blink(text, *self.commentStartEnd)
+
+    def match_multiline_blink(self, text, delimiter_start, delimiter_end, in_state, style):
+        '''
+        Check whether highlighting requires multiple lines.
+        '''
+        # If inside multiline comment, start at 0
+        if self.previousBlockState() == in_state:
+            start = 0
+            add = 0
+        # Otherwise, look for the delimiter on this line
+        else:
+            start = delimiter_start.indexIn(text)
+            # Move past this match
+            add = delimiter_start.matchedLength()
+
+        # As long as there's a delimiter match on this line...
+        while start >= 0:
+            # Look for the ending delimiter
+            end = delimiter_end.indexIn(text, start + add)
+            # Ending delimiter on this line?
+            if end >= add:
+                length = end - start + add + delimiter_end.matchedLength()
+                self.setCurrentBlockState(0)
+            # No; multi-line string
+            else:
+                self.setCurrentBlockState(in_state)
+                length = len(text) - start + add
+            # Apply formatting
+            self.setFormat(start, length, style)
+            # Look for the next match
+            start = delimiter_start.indexIn(text, start + length)
+
+        # Return True if still inside a multi-line string, False otherwise
+        if self.currentBlockState() == in_state:
+            return True
+        else:
+            return False
+
+#--------------------------------------------------------------------------------------
+# Script Output Widget
+# The output logger works the same way as Nuke's python script editor output window
+#--------------------------------------------------------------------------------------
+class ScriptOutputWidget(QtWidgets.QTextEdit) :
+    def __init__(self, parent=None):
+        super(ScriptOutputWidget, self).__init__(parent)
+        self.knobScripter = parent
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.setMinimumHeight(20)
+
+    def keyPressEvent(self, event):
+        ctrl = ((event.modifiers() and (Qt.ControlModifier)) != 0)
+        alt = ((event.modifiers() and (Qt.AltModifier)) != 0)
+        shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
+        key = event.key()
+        if type(event) == QtGui.QKeyEvent:
+            #print event.key()
+            if key in [32]: # Space
+                return KnobScripter.keyPressEvent(self.knobScripter, event)
+            elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
+                self.knobScripter.clearConsole()
+        return QtWidgets.QTextEdit.keyPressEvent(self, event)
+
+#---------------------------------------------------------------------
+# Pop-up hotbox with keywords! Useful for blink, ready for python too.
+#---------------------------------------------------------------------
 class KeywordHotbox(QtWidgets.QDialog):
     '''
     Floating panel with word suggestions
-    Based on the given keywords dictionary of lists.
-    Idea 2: keyword_dict = {
+    Based on the given keywords dictionary of lists. Example:
+    keyword_dict = {
         "Access method": {
             "keywords": ["eAccessPoint","eAccessRanged1D"],
             "description": "the access method defines whatever",
@@ -3560,32 +3557,63 @@ class KeywordHotbox(QtWidgets.QDialog):
 
         master_layout = QtWidgets.QVBoxLayout()
 
-        # 1. Widgets
+        # 1. Main part: Hotbox Buttons
         category = self.findCategory(self.keyword, self.keyword_dict) # Returns something like "Access Method"
-        print "Category found: "+category
-        print category["keywords"]
-        return
-        for keyword in category["keywords"]:
-            button = HotboxButton(keyword)
+        if category:
+            print "Category found: " + self.keyword_dict[category]
+        for keyword in self.keyword_dict[category]["keywords"]:
+            button = KeywordHotboxButton(keyword)
             master_layout.insertWidget(-1, button)
 
-        #for i, (key, val) in enumerate(self.snippets_dict.items()):
-        #    if re.match(r"\[custom-path-[0-9]+\]$",key):
-        #        file_edit = SnippetFilePath(val)
-        #        self.scroll_layout.insertWidget(-1, file_edit)
-        #    else:
-        #        snippet_edit = SnippetEdit(key, val, parent=self)
-        #        self.scroll_layout.insertWidget(-1, snippet_edit)
+        # 2. Category title and help button
 
+        # 2.1. Variables
+        try:
+            category_description = self.keyword_dict[category]["description"]
+        except:
+            category_description = ""
 
-        # 2. Layout
+        try:
+            category_help = self.keyword_dict[category]["help"]
+        except:
+            category_help = ""
+
+        # 2.2. Widgets
+        category_title_label = QtWidgets.QLabel(category)
+
+        category_description_label = QtWidgets.QLabel(category_description)
+
+        help_button = QtWidgets.QPushButton("?")
+        help_button.clicked.connect(self.toggleHelp)
+
+        # 2.3. Layouts
+
+        category_labels_layout = QtWidgets.QVBoxLayout()
+        category_labels_layout.addWidget(category_title_label)
+        category_labels_layout.addWidget(category_description_label)
+
+        category_layout = QtWidgets.QHBoxLayout()
+        category_layout.addLayout(category_labels_layout)
+        category_layout.addStretch()
+        category_layout.addWidget(help_button)
+
+        master_layout.addLayout(category_layout)
+
+        # 3. Help text
+        # TODO: Should this simply be a floating panel????
+        self.help_label = QtWidgets.QLabel()
+        self.help_label.setTextFormat(QtCore.Qt.RichText)
+        self.help_label.setText(category_help)
+        self.help_label.setVisible(False)
+
+        master_layout.addWidget(self.help_label)
 
         self.setLayout(master_layout)
-
         self.adjustSize()
 
     def findCategory(self, keyword, keyword_dict):
         '''
+        findCategory(self, keyword (str), keyword_dict (dict)) -> Returns category (str)
         Looks for keyword in keyword_dict and returns the relevant category name or None
         '''
         for category in keyword_dict:
@@ -3593,6 +3621,10 @@ class KeywordHotbox(QtWidgets.QDialog):
                 return category
         return None
 
+    def toggleHelp(self):
+        ''' Sets the help QLabel's visibility to True or False '''
+        self.help_label.setVisible(self.help_label.isVisible()) # TODO Check if this is correct...
+        return
 
     def eventFilter(self, object, event):
         if event.type() in [QtCore.QEvent.WindowDeactivate,QtCore.QEvent.FocusOut]:
@@ -3600,69 +3632,57 @@ class KeywordHotbox(QtWidgets.QDialog):
             return True
         return False
 
-
-class HotboxButton(QtWidgets.QLabel):
+class KeywordHotboxButton(QtWidgets.QLabel):
     '''
-    Button class
-    #TODO: REDO THIS A LOT
+    Keyword button for the KeywordHotbox. It's really a label, with a selection color and stuff.
     '''
 
-    def __init__(self, name):
+    def __init__(self, name, parent=None):
 
-        super(HotboxButton, self).__init__()
+        super(HotboxButton, self).__init__(parent)
 
-        self.menuButton = False
-        self.filePath = name
-        self.bgColor = '#525252'
+        self.parent = parent
 
-        self.borderColor = '#000000'
+        try:
+            self.knobScripter = parent.script_editor.knobScripter
+        except:
+            self.knobScripter = None
 
-        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.name = name
+        self.highlighted = False
+
         self.setMouseTracking(True)
-
-        #TODO set font etc
-
-        self.setWordWrap(True)
-        self.setTextFormat(QtCore.Qt.RichText)
-
-        self.setText(name)
-
-        self.setAlignment(QtCore.Qt.AlignCenter)
-
-        self.selected = False
+        #self.setTextFormat(QtCore.Qt.RichText)
+        #self.setWordWrap(True)
+        self.setText(self.name)
         self.setSelectionStatus()
 
-    def invokeButton(self):
-        '''
-        Execute script attached to button
-        '''
+        if self.knobScripter:
+            self.setFont(self.knobScripter.script_editor_font)
+        else:
+            font = QtGui.QFont()
+            font.setFamily("Monospace")
+            self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
+            font.setStyleHint(QtGui.QFont.Monospace)
+            font.setFixedPitch(True)
+            font.setPointSize(11)
+            self.setFont(font)
 
-        with nuke.toNode(hotboxInstance.groupRoot):
 
-            try:
-                print "clicked"
-            except:
-                printError(traceback.format_exc(), self.filePath, self.text())
-
-        #if 'close on click' is ticked, close the hotbox
-        if not self.menuButton:
-            if preferencesNode.knob('hotboxCloseOnClick').value() and preferencesNode.knob('hotboxTriggerDropdown').getValue():
-                hotboxInstance.closeHotbox()
-
-    def setSelectionStatus(self, selected = False):
+    def setHighlighted(self, highlighted = False):
         '''
         Define the style of the button for different states
         '''
 
-        #if button becomes selected
-        if selected:
+        # Selected
+        if highlighted:
             self.setStyleSheet("""
                                 border: 1px solid black;
                                 background:#555;
                                 color:#eeeeee;
                                 """)
 
-        #if button becomes unselected
+        # Deselected
         else:
             self.setStyleSheet("""
                                 border: 1px solid #000;
@@ -3670,32 +3690,28 @@ class HotboxButton(QtWidgets.QLabel):
                                 color:#eeeeee;
                                 """)
 
-        self.selected = selected
+        self.highlighted = highlighted
 
     def enterEvent(self, event):
-        '''
-        Change color of the button when the mouse starts hovering over it
-        '''
-        self.setSelectionStatus(True)
+        ''' Mouse hovering '''
+        self.setHighlighted(True)
         return True
 
     def leaveEvent(self,event):
-        '''
-        Change color of the button when the mouse stops hovering over it
-        '''
-        self.setSelectionStatus()
+        ''' Stopped hovering '''
+        self.setHighlighted(False)
         return True
 
     def mouseReleaseEvent(self,event):
         '''
         Execute the buttons' self.function (str)
         '''
-        if self.selected:
-
-            print "clicked-released...."
+        # TODO: I can probably do this via the .clicked() signal????? if not, at least I emit the clicked signal. Code should be executed by the hotbox, not by the button.
+        if self.highlighted:
+            self.parent.close()
+            # TODO: script_editor replace selected text by self.name
 
         return True
-
 
 #---------------------------------------------------------------------
 # Preferences Panel
@@ -3992,8 +4008,9 @@ def updateContext():
 # FindReplace
 #--------------------------------
 class FindReplaceWidget(QtWidgets.QWidget):
-    ''' SearchReplace Widget for the knobscripter. FindReplaceWidget(editor = QPlainTextEdit) '''
-
+    '''
+    SearchReplace Widget for the knobscripter. FindReplaceWidget(parent = QPlainTextEdit)
+    '''
     def __init__(self, parent):
         super(FindReplaceWidget,self).__init__(parent)
 
@@ -4200,7 +4217,6 @@ class FindReplaceWidget(QtWidgets.QWidget):
         cursor.endEditBlock()
         self.replace_lineEdit.setFocus()
         return
-
 
 #--------------------------------
 # Snippets
@@ -4453,6 +4469,21 @@ class SnippetFilePath(QtWidgets.QWidget):
 
         self.filepath_lineEdit.setText(browseLocation)
         return
+
+#--------------------------------------
+# Code Gallery + Snippets super panel
+#--------------------------------------
+class CodeGallery(QtWidgets.QDialog):
+    def __init__(self, _parent=QtWidgets.QApplication.activeWindow()):
+        super(CodeGallery, self).__init__(_parent)
+
+#class CodeGalleryPane(CodeGallery)
+#def __init__(self, node = "", knob="knobChanged"):
+#        super(KnobScripterPane, self).__init__(isPane=True, _parent=QtWidgets.QApplication.activeWindow())
+
+# TODO: Gallery+Snippets as a pane. Find way to use them interchangeably
+# TODO: Gallery will be its own thing? In such case it'll need short explanations, examples with foldable items etc. v >
+# TODO: Snippets: button to delete snippet, add snippet to script
 
 #--------------------------------
 # Implementation
