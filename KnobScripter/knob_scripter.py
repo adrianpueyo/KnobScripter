@@ -801,7 +801,7 @@ class KnobScripter(QtWidgets.QDialog):
                 "selected_line_color" : QtGui.QColor(62, 62, 62, 255), 
                 "lineNumberAreaColor" : QtGui.QColor(36, 36, 36), 
                 "lineNumberColor" : QtGui.QColor(110, 110, 110), 
-                "currentLineNumberColor" : QtGui.QColor(255, 170, 0),
+                "currentLineNumberColor" : QtGui.QColor(255, 170, 0), # TODO: add scrollbar color
             },
             "blink_default" : {
                 "stylesheet" : 'background:#505050;color:#DEDEDE;',
@@ -3178,7 +3178,14 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         selected_text = self.textCursor().selection().toPlainText()
         # TODO show completer etc
         # IDEA Use a custom completer even if text is completely different. maybe take from stamps or sth.
-        hotboxInstance = BlinkWordHotbox(self)
+        keyword_dict = {
+            "Access method": {
+                "keywords": ["eAccessPoint","eAccessRanged1D","eAccessRanged2D","eAccessRandom"],
+                "description": "the access method defines whatever",
+                "help": "Full help!"
+            },
+        }
+        hotboxInstance = KeywordHotbox(self,selected_text,keyword_dict)
         hotboxInstance.show()
         print "should show????"
 
@@ -3517,34 +3524,79 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         nukeSECursor.setPosition(oldPosition, QtGui.QTextCursor.KeepAnchor)
         nukeSEInput.setTextCursor(nukeSECursor)
 
-class BlinkWordHotbox(QtWidgets.QDialog):
-    '''Inserts suggestions
-    #TODO: REDO THIS A LOT'''
-    def __init__(self, parent):
-        super(BlinkWordHotbox, self).__init__(parent)
-        self.parent = parent
+class KeywordHotbox(QtWidgets.QDialog):
+    '''
+    Floating panel with word suggestions
+    Based on the given keywords dictionary of lists.
+    Idea 2: keyword_dict = {
+        "Access method": {
+            "keywords": ["eAccessPoint","eAccessRanged1D"],
+            "description": "the access method defines whatever",
+            "help": "Full help!"
+        },
+    }
+    '''
+    def __init__(self, parent, keyword = "", keyword_dict = {}):
+        super(KeywordHotbox, self).__init__(parent)
+
+        self.script_editor = parent
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint)
         #self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
         #self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
 
-        masterLayout = QtWidgets.QVBoxLayout()
+        self.keyword = keyword
+        self.keyword_dict = keyword_dict
 
-        b1 = HotboxButton("one")
-        b2 = HotboxButton("two")
-        masterLayout.addWidget(b1)
-        masterLayout.addWidget(b2)
-        self.setLayout(masterLayout)
+        if self.keyword == "" or not len(self.keyword_dict):
+            self.close()
+
+        self.initUI()
+
+        # Move hotbox to appropriate position
+        self.move(QtGui.QCursor().pos() - QtCore.QPoint((self.width()/2),-2))
+        self.installEventFilter(self)
+
+    def initUI(self):
+
+        master_layout = QtWidgets.QVBoxLayout()
+
+        # 1. Widgets
+        category = self.findCategory(self.keyword, self.keyword_dict) # Returns something like "Access Method"
+        print "Category found: "+category
+        print category["keywords"]
+        return
+        for keyword in category["keywords"]:
+            button = HotboxButton(keyword)
+            master_layout.insertWidget(-1, button)
+
+        #for i, (key, val) in enumerate(self.snippets_dict.items()):
+        #    if re.match(r"\[custom-path-[0-9]+\]$",key):
+        #        file_edit = SnippetFilePath(val)
+        #        self.scroll_layout.insertWidget(-1, file_edit)
+        #    else:
+        #        snippet_edit = SnippetEdit(key, val, parent=self)
+        #        self.scroll_layout.insertWidget(-1, snippet_edit)
+
+
+        # 2. Layout
+
+        self.setLayout(master_layout)
 
         self.adjustSize()
-        self.spwanPosition = QtGui.QCursor().pos() - QtCore.QPoint((self.width()/2),-2)
-        self.move(self.spwanPosition)
-        print "shown?????"
-        self.installEventFilter(self)
+
+    def findCategory(self, keyword, keyword_dict):
+        '''
+        Looks for keyword in keyword_dict and returns the relevant category name or None
+        '''
+        for category in keyword_dict:
+            if keyword in keyword_dict[category]["keywords"]:
+                return category
+        return None
+
 
     def eventFilter(self, object, event):
         if event.type() in [QtCore.QEvent.WindowDeactivate,QtCore.QEvent.FocusOut]:
-            self.close() #todo restore this
-            print "closing"
+            self.close()
             return True
         return False
 
