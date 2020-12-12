@@ -113,8 +113,8 @@ class KnobScripter(QtWidgets.QDialog):
         self.current_script_modified = False
         self.script_index = 0
         self.toAutosave = False
-        self.runInContext = False # Experimental
-        self.blinkMode = False # True means we're editing a blinkscript knob
+        self.runInContext = False # Experimental, python only
+        self.code_language = "python"
         self.current_knob_modified = False # Convenience variable holding if the current script_editor is modified
 
         self.defaultKnobs = ["knobChanged", "onCreate", "onScriptLoad", "onScriptSave", "onScriptClose", "onDestroy",
@@ -528,13 +528,15 @@ class KnobScripter(QtWidgets.QDialog):
         if self.toLoadKnob == False:
             return
         dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()) # knobChanged...
-        is_blink = dropdown_value == "kernelSource" and self.node.Class()=="BlinkScript"
+        knob_language = self.knobLanguage(self.node, dropdown_value)
         try:
             # If blinkscript, use getValue.
-            if is_blink:
+            if knob_language == "blink":
                 obtained_knobValue = str(self.node[dropdown_value].getValue())
-            else:
+            elif knob_language == "python":
                 obtained_knobValue = str(self.node[dropdown_value].value())
+            else: # knob language is None -> try to get the expression for tcl???
+                return
             obtained_scrollValue = 0
             edited_knobValue = self.script_editor.toPlainText()
         except:
@@ -589,7 +591,7 @@ class KnobScripter(QtWidgets.QDialog):
         cursor = self.script_editor.textCursor()
         self.script_editor.setTextCursor(cursor)
         self.script_editor.verticalScrollBar().setValue(obtained_scrollValue)
-        self.setBlinkMode(is_blink)
+        self.setCodeLanguage(knob_language)
         self.script_editor.blockSignals(False)
         return
 
@@ -770,14 +772,34 @@ class KnobScripter(QtWidgets.QDialog):
         except:
             pass
 
-    def setBlinkMode(self, blink_mode=True):
-        '''
-        Perform all UI changes neccesary for editing Blinkscript! Syntax highlighter, menu buttons, etc.
-        '''
-        self.blinkMode = blink_mode
+    def knobLanguage(self,node,knobName="knobChanged"):
+        ''' Given a node and a knob name, guesses the appropriate code language '''
+        if knobName not in node.knobs():
+            return None
+        if knobName == "kernelSource" and node.Class()=="BlinkScript":
+            return "blink"
+        elif knobName in self.defaultKnobs or node.knob(knobName).Class() in self.permittedKnobClasses:
+            return "python"
+        else:
+            return None
 
-        # 1. Syntax highlighter
-        if blink_mode:
+    def setCodeLanguage(self, code_language="python"):
+        '''
+        Perform all UI changes neccesary for editing a different language! Syntax highlighter, menu buttons, etc.
+        '''
+        # 1. Allow for string or int, 0 being "no language", 1 "python", 2 "blink"
+        code_language_list = [None,"python","blink"]
+        if code_language == None:
+            self.code_language = code_language
+        elif isinstance(code_language, str) and code_language.lower() in code_language_list:
+            self.code_language = code_language.lower()
+        elif isinstance(code_language, int) and code_language_list[code_language]:
+            self.code_language = code_language_list[code_language]
+        else:
+            return False
+
+        # 2. Syntax highlighter
+        if code_language == "blink":
              # Blink bg Colors
             self.highlighter = KSBlinkHighlighter(self.script_editor.document(), self)
             self.setColorStyle("blink_default")
@@ -785,7 +807,7 @@ class KnobScripter(QtWidgets.QDialog):
             self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
             self.setColorStyle("default")
 
-        # 2. Menus
+        # 3. Menus
 
     def setColorStyle(self, style = "default", script_editor = ""):
         '''
@@ -2618,8 +2640,6 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
 
         # Setup Blink doubleclick-popup (the one that lets you change eread-ewrite etc)
         self.all_dc_texts = ["1_eRead","1_eWrite","1_eReadWrite","2_eAccessRandom","2_eAccessPoint"]
-        
-
 
     def findLongestEndingMatch(self, text, dic):
         '''
@@ -2694,18 +2714,69 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         ''' On doublelick on a word, suggestions might show up. i.e. eRead/eWrite, etc. '''
         KnobScripterTextEdit.mouseDoubleClickEvent(self,event)
         selected_text = self.textCursor().selection().toPlainText()
-        # TODO show completer etc
-        # IDEA Use a custom completer even if text is completely different. maybe take from stamps or sth.
-        keyword_dict = {
-            "Access method": {
-                "keywords": ["eAccessPoint","eAccessRanged1D","eAccessRanged2D","eAccessRandom"],
-                "description": "the access method defines whatever",
-                "help": "Full help!"
-            },
-        }
-        hotboxInstance = KeywordHotbox(self,selected_text,keyword_dict)
-        hotboxInstance.show()
-        print "should show????"
+
+        # 1. Doubleclick on blink!
+        if self.knobScripter.code_language == "blink":
+            # 1.1. Define all blink keywords
+            blink_keyword_dict = {
+                "Access Pattern": {
+                    "keywords": ["eAccessPoint","eAccessRanged1D","eAccessRanged2D","eAccessRandom"],
+                    "help": '''This describes how the kernel will access pixels in the image. The options are:
+                                <ul>
+                                    <li><b>eAccessPoint</b>: Access only the current position in the iteration space.</li>
+                                    <li><b>eAccessRanged1D</b>: Access a one-dimensional range of positions relative to the current position in the iteration space.</li>
+                                    <li><b>eAccessRanged2D</b>: Access a two-dimensional range of positions relative to the current position in the iteration space.</li>
+                                    <li><b>eAccessRandom</b>: Access any pixel in the iteration space.</li>
+                                </ul>
+                                The default value is <b>eAccessPoint</b>.
+                            '''
+                },
+                "Edge Method": {
+                    "keywords": ["eEdgeClamped","eEdgeConstant","eEdgeNone"],
+                    "help": '''The edge method for an image defines the behaviour if a kernel function tries to access data outside the image bounds. The options are:
+                                <ul>
+                                    <li><b>eEdgeClamped</b>: The edge values will be repeated outside the image bounds.</li>
+                                    <li><b>eEdgeConstant</b>: Zero values will be returned outside the image bounds.</li>
+                                    <li><b>eEdgeNone</b>: Values are undefined outside the image bounds and no within-bounds checks will be done when you access the image. This is the most efficient access method to use when you do not require access outside the bounds, because of the lack of bounds checks.</li>
+                                </ul>
+                                The default value is <b>eEdgeNone</b>.
+                            '''
+                },
+                "Kernel Granularity": {
+                    "keywords": ["eComponentWise","ePixelWise"],
+                    "help": '''A kernel can be iterated in either a componentwise or pixelwise manner. Componentwise iteration means that the kernel will be executed once for each component at every point in the iteration space. Pixelwise means it will be called once only for every point in the iteration space. The options for the kernel granularity are:
+                                <ul>
+                                    <li><b>eComponentWise</b>: The kernel processes the image one component at a time. Only the current component's value can be accessed in any of the input images, or written to in the output image.</li>
+                                    <li><b>ePixelWise</b>: The kernel processes the image one pixel at a time. All component values can be read from and written to.</li>
+                                </ul>
+                            '''
+                },
+                "Read Spec": {
+                    "keywords": ["eRead","eWrite","eReadWrite"],
+                    "help": '''This describes how the data in the image can be accessed. The options are:
+                                <ul>
+                                    <li><b>eRead</b>: Read-only access to the image data. <i>Common for the input image/s.</i></li>
+                                    <li><b>eWrite</b>: Write-only access to the image data. <i>Common for the output image.</i></li>
+                                    <li><b>eReadWrite</b>: Both read and write access to the image data. <i>Useful when you need to write and read again from the output image.</i></li>
+                                </ul>
+                            '''
+                },
+                "Variable Types": {
+                    "keywords": ["int","int2","int3","int4","float","float2","float3","float4","float3x3","float4x4","bool"],
+                    "help": '''This describes how the data in the image can be accessed. The options are:
+                                <ul>
+                                    <li><b>eRead</b>: Read-only access to the image data. <i>Common for the input image/s.</i></li>
+                                    <li><b>eWrite</b>: Write-only access to the image data. <i>Common for the output image.</i></li>
+                                    <li><b>eReadWrite</b>: Both read and write access to the image data. <i>Useful when you need to write and read again from the output image.</i></li>
+                                </ul>
+                            ''' #TODO finish variable types documentation and do the kernel type (imagecomputation etc...)
+                },
+            }
+            # 1.2. If there's a match, show the hotbox!
+            category = self.findCategory(selected_text, blink_keyword_dict) # Returns something like "Access Method"
+            if category:
+                keyword_hotbox = KeywordHotbox(self, category, blink_keyword_dict[category])
+                keyword_hotbox.show()
 
     def keyPressEvent(self,event):
 
@@ -2797,7 +2868,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                     self.addSnippetText(match_snippet) # This function takes care of adding the appropriate snippet and moving the cursor...
                 except: # Meaning snippet not found...
                     # 3.1. If python mode, go with nuke/python completer
-                    if not self.knobScripter.blinkMode:
+                    if self.knobScripter.code_language == "python":
                         # ADAPTED FROM NUKE's SCRIPT EDITOR:
                         tc = self.textCursor()
                         allCode = self.toPlainText()
@@ -2890,6 +2961,17 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             # Classes
             matches += re.findall(r"^[^#]*class[\s]+([\w\.]+)[\s()\w,]+",s)
         return matches
+
+    # Find category in keyword_dict
+    def findCategory(self, keyword, keyword_dict):
+        '''
+        findCategory(self, keyword (str), keyword_dict (dict)) -> Returns category (str)
+        Looks for keyword in keyword_dict and returns the relevant category name or None
+        '''
+        for category in keyword_dict:
+            if keyword in keyword_dict[category]["keywords"]:
+                return category
+        return None
 
     # Nuke script editor's modules completer
     def completionsForcompletionPart(self, completionPart):
@@ -3382,7 +3464,7 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
             ]
 
         nuke_blinkTypes = [
-            "Image", "eRead", "eWrite", "eEdgeClamped", "eEdgeConstant", "eEdgeNull",
+            "Image", "eRead", "eWrite", "eReadWrite", "eEdgeClamped", "eEdgeConstant", "eEdgeNull",
             "eAccessPoint", "eAccessRanged1D", "eAccessRanged2D", "eAccessRandom", 
             "eComponentWise", "ePixelWise", "ImageComputationKernel",
             ]
@@ -3533,7 +3615,7 @@ class KeywordHotbox(QtWidgets.QDialog):
         },
     }
     '''
-    def __init__(self, parent, keyword = "", keyword_dict = {}):
+    def __init__(self, parent, category = "", category_dict = {}):
         super(KeywordHotbox, self).__init__(parent)
 
         self.script_editor = parent
@@ -3541,16 +3623,18 @@ class KeywordHotbox(QtWidgets.QDialog):
         #self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
         #self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
 
-        self.keyword = keyword
-        self.keyword_dict = keyword_dict
+        if not category or "keywords" not in category_dict:
+            self.reject()
+            return
 
-        if self.keyword == "" or not len(self.keyword_dict):
-            self.close()
+        self.category = category
+        self.category_dict = category_dict
+
 
         self.initUI()
 
         # Move hotbox to appropriate position
-        self.move(QtGui.QCursor().pos() - QtCore.QPoint((self.width()/2),-2))
+        self.move(QtGui.QCursor().pos() - QtCore.QPoint((self.width()/2),-6))
         self.installEventFilter(self)
 
     def initUI(self):
@@ -3558,68 +3642,34 @@ class KeywordHotbox(QtWidgets.QDialog):
         master_layout = QtWidgets.QVBoxLayout()
 
         # 1. Main part: Hotbox Buttons
-        category = self.findCategory(self.keyword, self.keyword_dict) # Returns something like "Access Method"
-        if category:
-            print "Category found: " + self.keyword_dict[category]
-        for keyword in self.keyword_dict[category]["keywords"]:
-            button = KeywordHotboxButton(keyword)
+
+        for keyword in self.category_dict["keywords"]:
+            button = KeywordHotboxButton(keyword, self)
             master_layout.insertWidget(-1, button)
 
-        # 2. Category title and help button
-
-        # 2.1. Variables
-        try:
-            category_description = self.keyword_dict[category]["description"]
-        except:
-            category_description = ""
+        # 2. ToolTip etc
 
         try:
-            category_help = self.keyword_dict[category]["help"]
+            category_help = self.category_dict["help"]
         except:
             category_help = ""
 
-        # 2.2. Widgets
-        category_title_label = QtWidgets.QLabel(category)
+        try: #>n11
+            master_layout.setMargin(0)
+            master_layout.setSpacing(0)
+        except: #<n10
+            master_layout.setContentsMargins(0,0,0,0)
 
-        category_description_label = QtWidgets.QLabel(category_description)
+        self.setToolTip("<h2>{}</h2>".format(self.category)+category_help)
 
-        help_button = QtWidgets.QPushButton("?")
-        help_button.clicked.connect(self.toggleHelp)
-
-        # 2.3. Layouts
-
-        category_labels_layout = QtWidgets.QVBoxLayout()
-        category_labels_layout.addWidget(category_title_label)
-        category_labels_layout.addWidget(category_description_label)
-
-        category_layout = QtWidgets.QHBoxLayout()
-        category_layout.addLayout(category_labels_layout)
-        category_layout.addStretch()
-        category_layout.addWidget(help_button)
-
-        master_layout.addLayout(category_layout)
-
-        # 3. Help text
-        # TODO: Should this simply be a floating panel????
-        self.help_label = QtWidgets.QLabel()
-        self.help_label.setTextFormat(QtCore.Qt.RichText)
-        self.help_label.setText(category_help)
-        self.help_label.setVisible(False)
-
-        master_layout.addWidget(self.help_label)
+        self.setStyleSheet('''QToolTip{
+                                border: 1px solid black;
+                                padding: 10px;
+                                }
+                            ''')
 
         self.setLayout(master_layout)
         self.adjustSize()
-
-    def findCategory(self, keyword, keyword_dict):
-        '''
-        findCategory(self, keyword (str), keyword_dict (dict)) -> Returns category (str)
-        Looks for keyword in keyword_dict and returns the relevant category name or None
-        '''
-        for category in keyword_dict:
-            if keyword in keyword_dict[category]["keywords"]:
-                return category
-        return None
 
     def toggleHelp(self):
         ''' Sets the help QLabel's visibility to True or False '''
@@ -3639,7 +3689,7 @@ class KeywordHotboxButton(QtWidgets.QLabel):
 
     def __init__(self, name, parent=None):
 
-        super(HotboxButton, self).__init__(parent)
+        super(KeywordHotboxButton, self).__init__(parent)
 
         self.parent = parent
 
@@ -3650,24 +3700,23 @@ class KeywordHotboxButton(QtWidgets.QLabel):
 
         self.name = name
         self.highlighted = False
+        self.defaultStyle = self.style()
 
         self.setMouseTracking(True)
         #self.setTextFormat(QtCore.Qt.RichText)
         #self.setWordWrap(True)
         self.setText(self.name)
-        self.setSelectionStatus()
+        self.setHighlighted(False)
 
         if self.knobScripter:
             self.setFont(self.knobScripter.script_editor_font)
         else:
             font = QtGui.QFont()
             font.setFamily("Monospace")
-            self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
             font.setStyleHint(QtGui.QFont.Monospace)
             font.setFixedPitch(True)
             font.setPointSize(11)
             self.setFont(font)
-
 
     def setHighlighted(self, highlighted = False):
         '''
@@ -3676,18 +3725,22 @@ class KeywordHotboxButton(QtWidgets.QLabel):
 
         # Selected
         if highlighted:
+            #self.setStyle(QtWidgets.QStyleFactory.create('Plastique')) #background:#e90;
             self.setStyleSheet("""
-                                border: 1px solid black;
-                                background:#555;
+                                border: 0px solid black;
+                                background:#555; 
                                 color:#eeeeee;
+                                padding: 6px 4px;
                                 """)
 
         # Deselected
         else:
+            #self.setStyle(self.defaultStyle)
             self.setStyleSheet("""
-                                border: 1px solid #000;
-                                background:#333;
+                                border: 0px solid #000;
+                                background:#3e3e3e;
                                 color:#eeeeee;
+                                padding: 6px 4px;
                                 """)
 
         self.highlighted = highlighted
@@ -3706,9 +3759,10 @@ class KeywordHotboxButton(QtWidgets.QLabel):
         '''
         Execute the buttons' self.function (str)
         '''
-        # TODO: I can probably do this via the .clicked() signal????? if not, at least I emit the clicked signal. Code should be executed by the hotbox, not by the button.
+        # TODO can be done via clicked()?
         if self.highlighted:
-            self.parent.close()
+            self.parent.script_editor.textCursor().insertText(self.name)
+            self.parent.accept()
             # TODO: script_editor replace selected text by self.name
 
         return True
@@ -4480,9 +4534,7 @@ class CodeGallery(QtWidgets.QDialog):
 #class CodeGalleryPane(CodeGallery)
 #def __init__(self, node = "", knob="knobChanged"):
 #        super(KnobScripterPane, self).__init__(isPane=True, _parent=QtWidgets.QApplication.activeWindow())
-
-# TODO: Gallery+Snippets as a pane. Find way to use them interchangeably
-# TODO: Gallery will be its own thing? In such case it'll need short explanations, examples with foldable items etc. v >
+# TODO Pane instead, its own thing
 # TODO: Snippets: button to delete snippet, add snippet to script
 
 #--------------------------------
