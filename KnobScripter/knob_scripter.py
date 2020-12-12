@@ -281,15 +281,16 @@ class KnobScripter(QtWidgets.QDialog):
         # ---
         # 2.4. Right Side buttons
 
-        # Run script
+        # Python: Run script
         self.run_script_button = QtWidgets.QToolButton()
         self.run_script_button.setIcon(QtGui.QIcon(icons_path+"icon_run.png"))
+        #self.run_script_button.setIcon(QtGui.QIcon(icons_path+"icon_enter.png"))
         self.run_script_button.setIconSize(self.qt_icon_size)
         self.run_script_button.setFixedSize(self.qt_btn_size)
         self.run_script_button.setToolTip("Execute the current selection on the KnobScripter, or the whole script if no selection.\nShortcut: Ctrl+Enter")
         self.run_script_button.clicked.connect(self.runScript)
 
-        # Clear console
+        # Python: Clear console
         self.clear_console_button = QtWidgets.QToolButton()
         self.clear_console_button.setIcon(QtGui.QIcon(icons_path+"icon_clearConsole.png"))
         self.clear_console_button.setIconSize(QtCore.QSize(50,50))
@@ -298,6 +299,31 @@ class KnobScripter(QtWidgets.QDialog):
         self.clear_console_button.setToolTip("Clear the text in the console window.\nShortcut: Ctrl+Backspace, or click+Backspace on the console.")
         self.clear_console_button.setShortcut('Ctrl+Backspace')
         self.clear_console_button.clicked.connect(self.clearConsole)
+
+        # Blink: Save & Compile
+        self.save_recompile_button = QtWidgets.QToolButton()
+        self.save_recompile_button.setIcon(QtGui.QIcon(icons_path+"icon_play.png"))
+        self.save_recompile_button.setIconSize(self.qt_icon_size)
+        self.save_recompile_button.setFixedSize(self.qt_btn_size)
+        self.save_recompile_button.setToolTip("Save the blink code and recompile the Blinkscript node.\nShortcut: Ctrl+Enter")
+        self.save_recompile_button.clicked.connect(self.blinkSaveRecompile)
+
+        # Blink: Backups
+        self.createBlinkBackupsMenu()
+        self.backup_button = QtWidgets.QPushButton()
+        self.backup_button.setIcon(QtGui.QIcon(icons_path+"icon_backups.png"))
+        self.backup_button.setIconSize(self.qt_icon_size)
+        self.backup_button.setFixedSize(self.qt_btn_size)
+        self.backup_button.setToolTip("Enable and retrieve auto-saves of the code")
+        self.backup_button.setMenu(self.blinkBackupMenu)
+        #self.backup_button.setFixedSize(QtCore.QSize(self.btn_size+10,self.btn_size))
+        self.backup_button.setStyleSheet("text-align:left;padding-left:2px;")
+        #self.backup_button.clicked.connect(self.blinkBackup) #TODO: whatever this does
+
+        #TODO Backups options:
+        # A. Toolbutton when just clicking it saves the latest state
+        # B. pushbutton, does nothing only submenus where you can find the latest backups?
+        # Option: internal backup only, or actually (aditionally?) put the file on the blinkscript node's kernelSourceFile (and ask for title)
 
         # FindReplace button
         self.find_button = QtWidgets.QToolButton()
@@ -334,7 +360,9 @@ class KnobScripter(QtWidgets.QDialog):
         # Layout
         self.top_right_bar_layout = QtWidgets.QHBoxLayout()
         self.top_right_bar_layout.addWidget(self.run_script_button)
+        self.top_right_bar_layout.addWidget(self.save_recompile_button)
         self.top_right_bar_layout.addWidget(self.clear_console_button)
+        self.top_right_bar_layout.addWidget(self.backup_button)
         self.top_right_bar_layout.addWidget(self.find_button)
         ##self.top_right_bar_layout.addWidget(self.snippets_button)
         #self.top_right_bar_layout.addSpacing(10)
@@ -434,6 +462,7 @@ class KnobScripter(QtWidgets.QDialog):
             self.splitter.setSizes([0,1])
         else:
             self.exitNodeMode()
+
         self.script_editor.setFocus()
 
     # Preferences submenus
@@ -487,6 +516,28 @@ class KnobScripter(QtWidgets.QDialog):
 
     def showHelp(self):
         openUrl("https://vimeo.com/adrianpueyo/knobscripter2")
+
+    # Blink Backups menu
+    def createBlinkBackupsMenu(self):
+        # Actions
+        self.blinkBackups_autoSave_act = QtWidgets.QAction("Auto-save backups", self, checkable=True, statusTip="Auto-save code backup on disk every time you save it", triggered=self.toggleBlinkBackupsAutosave)
+        #if nuke.toNode("preferences").knob("echoAllCommands").value():
+        #    self.echoAct.toggle()
+        #self.runInContextAct = QtWidgets.QAction("Run in context (beta)", self, checkable=True, statusTip="When inside a node, run the code replacing nuke.thisNode() to the node's name, etc.", triggered=self.toggleRunInContext)
+        #self.runInContextAct.setChecked(self.runInContext)
+        #self.helpAct = QtWidgets.QAction("&Help", self, statusTip="Open the KnobScripter help in your browser.", shortcut="F1", triggered=self.showHelp)
+        #self.nukepediaAct = QtWidgets.QAction("Show in Nukepedia", self, statusTip="Open the KnobScripter download page on Nukepedia.", triggered=self.showInNukepedia)
+        #self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
+        #self.snippetsAct = QtWidgets.QAction("Snippets", self, statusTip="Open the Snippets editor.", triggered=self.openSnippets)
+        #self.snippetsAct.setIcon(QtGui.QIcon(icons_path+"icon_snippets.png"))
+        #self.prefsAct = QtWidgets.QAction("Preferences", self, statusTip="Open the Preferences panel.", triggered=self.openPrefs)
+        #self.prefsAct.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
+
+        # Menus
+        self.blinkBackupMenu = QtWidgets.QMenu("Blink Backups")
+        self.blinkBackupMenu.addAction(self.blinkBackups_autoSave_act)
+        #self.prefsMenu.addSeparator()
+
 
     # Node Mode
     def updateKnobDropdown(self):
@@ -807,7 +858,12 @@ class KnobScripter(QtWidgets.QDialog):
             self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
             self.setColorStyle("default")
 
+
         # 3. Menus
+        self.run_script_button.setVisible(code_language != "blink")
+        self.clear_console_button.setVisible(code_language != "blink")
+        self.save_recompile_button.setVisible(code_language == "blink")
+        self.backup_button.setVisible(code_language == "blink")
 
     def setColorStyle(self, style = "default", script_editor = ""):
         '''
@@ -845,6 +901,25 @@ class KnobScripter(QtWidgets.QDialog):
         script_editor.highlightCurrentLine()
         script_editor.scrollToCursor()
 
+        return
+
+    def blinkSaveRecompile(self):
+        '''
+        If blink mode is on, tries to save the blink code in the node (and performs a backup) and executes the Recompile button.
+        '''
+        if self.code_language != "blink":
+            return False
+
+        # TODO perform backup first!! backupBlink function or something...
+        self.saveKnobValue(check=False)
+        try:
+            self.node.knob("recompile").execute()
+        except:
+            print "Error recompiling the Blinkscript node."
+
+    def toggleBlinkBackupsAutosave(self):
+        ''' TODO Figure out the best behavior for this '''
+        autosave_selection = self.blinkBackups_autoSave_act.isChecked() #TODO Finish this and put it on the prefs too...
         return
 
     # Script Mode
@@ -2919,7 +2994,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             elif event.key() in [Qt.Key_Enter, Qt.Key_Return]:
                 modifiers = QtWidgets.QApplication.keyboardModifiers()
                 if modifiers == QtCore.Qt.ControlModifier:
-                    self.runScript()
+                    # Ctrl + Enter! Python or blink?
+                    if self.knobScripter.code_language == "python":
+                        self.runScript()
+                    else:
+                        self.knobScripter.blinkSaveRecompile()
                 else:
                     KnobScripterTextEdit.keyPressEvent(self,event)
             else:
