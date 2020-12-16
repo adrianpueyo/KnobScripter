@@ -52,6 +52,7 @@ AllKnobScripters = [] # All open instances at a given time
 
 PrefsPanel = ""
 SnippetEditPanel = ""
+CodeGalleryPanel = ""
 
 nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2020 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
@@ -107,6 +108,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.nukeSERunBtn = self.findSERunBtn(self.nukeSE)
 
         self.scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
+        self.blink_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts")) # TODO enable a different default folder to be set on Preferences
         self.current_folder = "scripts"
         self.folder_index = 0
         self.current_script = "Untitled.py"
@@ -320,11 +322,6 @@ class KnobScripter(QtWidgets.QDialog):
         self.backup_button.setStyleSheet("text-align:left;padding-left:2px;")
         #self.backup_button.clicked.connect(self.blinkBackup) #TODO: whatever this does
 
-        #TODO Backups options:
-        # A. Toolbutton when just clicking it saves the latest state
-        # B. pushbutton, does nothing only submenus where you can find the latest backups?
-        # Option: internal backup only, or actually (aditionally?) put the file on the blinkscript node's kernelSourceFile (and ask for title)
-
         # FindReplace button
         self.find_button = QtWidgets.QToolButton()
         self.find_button.setIcon(QtGui.QIcon(icons_path+"icon_search.png"))
@@ -338,6 +335,15 @@ class KnobScripter(QtWidgets.QDialog):
         self.find_button.clicked[bool].connect(self.toggleFRW)
         if self.frw_open:
             self.find_button.toggle()
+
+        # Gallery
+        self.codegallery_button = QtWidgets.QToolButton()
+        self.codegallery_button.setIcon(QtGui.QIcon(icons_path+"icon_enter.png"))
+        self.codegallery_button.setIconSize(QtCore.QSize(50,50))
+        self.codegallery_button.setIconSize(self.qt_icon_size)
+        self.codegallery_button.setFixedSize(self.qt_btn_size)
+        self.codegallery_button.setToolTip("Open the code gallery panel.")
+        self.codegallery_button.clicked.connect(self.openCodeGallery)
 
         # Snippets
         self.snippets_button = QtWidgets.QToolButton()
@@ -363,6 +369,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.top_right_bar_layout.addWidget(self.save_recompile_button)
         self.top_right_bar_layout.addWidget(self.clear_console_button)
         self.top_right_bar_layout.addWidget(self.backup_button)
+        self.top_right_bar_layout.addWidget(self.codegallery_button)
         self.top_right_bar_layout.addWidget(self.find_button)
         ##self.top_right_bar_layout.addWidget(self.snippets_button)
         #self.top_right_bar_layout.addSpacing(10)
@@ -461,6 +468,7 @@ class KnobScripter(QtWidgets.QDialog):
             self.current_knob_dropdown.blockSignals(False)
             self.splitter.setSizes([0,1])
         else:
+            self.setCodeLanguage("python")
             self.exitNodeMode()
 
         self.script_editor.setFocus()
@@ -519,8 +527,27 @@ class KnobScripter(QtWidgets.QDialog):
 
     # Blink Backups menu
     def createBlinkBackupsMenu(self):
+
+        # (..)Click on button = save current state? or better just open menu
+        # [] Auto-save .blink scratch file <- toggle on/off <- if .blink is set-up, it saves it there. otherwise it saves it on the knobscripter blink temp path (.nuke/KnobScripter_Scripts/autosave.blink)
+        # Create .blink scratch file <- should be bold, and visible only when there's no .blink scratch file added on the Blinkscript kernel
+        # [] Load .blink contents
+        # [] Save .blink contents
+        # ---
+        # [] Open (in sublime or whatever)
+        # Version-up blink
+
         # Actions
-        self.blinkBackups_autoSave_act = QtWidgets.QAction("Auto-save backups", self, checkable=True, statusTip="Auto-save code backup on disk every time you save it", triggered=self.toggleBlinkBackupsAutosave)
+        self.blinkBackups_autoSave_act = QtWidgets.QAction("Auto-save to disk on compile", self, checkable=True, statusTip="Auto-save code backup on disk every time you save it", triggered=self.toggleBlinkBackupsAutosave)
+        self.blinkBackups_createFile_act = QtWidgets.QAction("Create .blink scratch file", self, statusTip="Auto-save code backup on disk every time you save it", triggered=self.blinkCreateFile)
+        self.blinkBackups_load_act = QtWidgets.QAction("Load .blink", self, statusTip="Load the .blink code.", triggered=self.toggleBlinkBackupsAutosave)
+        self.blinkBackups_save_act = QtWidgets.QAction("Save .blink", self, statusTip="Save the .blink code.", triggered=self.toggleBlinkBackupsAutosave)
+
+        font = self.blinkBackups_createFile_act.font()
+        font.setBold(True)
+        self.blinkBackups_createFile_act.setFont(font)
+        self.blinkBackups_createFile_act.setEnabled(False)
+
         #if nuke.toNode("preferences").knob("echoAllCommands").value():
         #    self.echoAct.toggle()
         #self.runInContextAct = QtWidgets.QAction("Run in context (beta)", self, checkable=True, statusTip="When inside a node, run the code replacing nuke.thisNode() to the node's name, etc.", triggered=self.toggleRunInContext)
@@ -536,8 +563,13 @@ class KnobScripter(QtWidgets.QDialog):
         # Menus
         self.blinkBackupMenu = QtWidgets.QMenu("Blink Backups")
         self.blinkBackupMenu.addAction(self.blinkBackups_autoSave_act)
-        #self.prefsMenu.addSeparator()
-
+        self.blinkBackupMenu.addSeparator()
+        self.blinkBackupMenu.addAction(self.blinkBackups_createFile_act) #This should be visible when no blink file only
+        #TODO Show the blink name here when found
+        self.blinkBackupMenu.addAction(self.blinkBackups_load_act)
+        self.blinkBackupMenu.addAction(self.blinkBackups_save_act)
+        # TODO: Checkbox autosave should be enabled or disabled by default based on preferences...
+        # TODO: the actions should do something! inc. regex
 
     # Node Mode
     def updateKnobDropdown(self):
@@ -850,6 +882,7 @@ class KnobScripter(QtWidgets.QDialog):
             return False
 
         # 2. Syntax highlighter
+        self.highlighter.setDocument(None)
         if code_language == "blink":
              # Blink bg Colors
             self.highlighter = KSBlinkHighlighter(self.script_editor.document(), self)
@@ -921,6 +954,17 @@ class KnobScripter(QtWidgets.QDialog):
         ''' TODO Figure out the best behavior for this '''
         autosave_selection = self.blinkBackups_autoSave_act.isChecked() #TODO Finish this and put it on the prefs too...
         return
+
+    def blinkCreateFile(self):
+        '''
+        Make a .blink file and populate the Blinkscript file knob.
+        Name for the file is chosen through a floating panel that by default tries to guess the kernel name (+ 1st available integer) or a hash-
+        '''
+        # 1. Guess a good name via regex etc (except if SaturationKernel)
+
+        # 2. Open panel asking for name+location
+        # 3. make the file
+        # 4. populate the knob on the node
 
     # Script Mode
     def updateFoldersDropdown(self):
@@ -1581,7 +1625,7 @@ class KnobScripter(QtWidgets.QDialog):
             self.saveScriptContents()
             self.toAutosave = False
             self.saveScriptState()
-            self.splitter.setSizes([0,1])
+            #self.splitter.setSizes([0,1])
 
         # If already selected, pass
         if self.node is not None and selection[0].fullName() == self.node.fullName() and self.nodeMode:
@@ -1634,13 +1678,13 @@ class KnobScripter(QtWidgets.QDialog):
         self.setWindowTitle("KnobScripter - Script Mode")
         self.node_mode_bar.setVisible(False)
         self.script_mode_bar.setVisible(True)
+        self.setCodeLanguage("python")
         self.node = nuke.toNode("root")
         #self.updateFoldersDropdown()
         #self.updateScriptsDropdown()
         self.splitter.setSizes([1,1])
         self.loadScriptState()
         self.setLastScript()
-
         self.loadScriptContents(check = False)
         self.setScriptState()
 
@@ -1662,7 +1706,7 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Whenever the 'snippets' button is pressed... open the panel '''
         global SnippetEditPanel
         if SnippetEditPanel == "":
-            SnippetEditPanel = SnippetsPanel(self)
+            SnippetEditPanel = SnippetsPanel(self,self._parent)
 
         if not SnippetEditPanel.isVisible():
             SnippetEditPanel.reload()
@@ -1670,6 +1714,19 @@ class KnobScripter(QtWidgets.QDialog):
         if SnippetEditPanel.show():
             self.snippets = self.loadSnippets(maxDepth=5)
             SnippetEditPanel = ""
+
+    def openCodeGallery(self):
+        ''' Open the floating code gallery panel (although it'll also be able to be opened as pane) '''
+        global CodeGalleryPanel
+        if CodeGalleryPanel == "":
+            CodeGalleryPanel = CodeGallery(self,self._parent)
+
+        #if not CodeGalleryPanel.isVisible():
+        #    CodeGalleryPanel.reload()
+
+        if CodeGalleryPanel.show():
+            # Something else to do when clicking OK?
+            CodeGalleryPanel = ""
 
     def loadSnippets(self, path="", maxDepth=5, depth=0):
         '''
@@ -4355,12 +4412,13 @@ class FindReplaceWidget(QtWidgets.QWidget):
 # Snippets
 #--------------------------------
 class SnippetsPanel(QtWidgets.QDialog):
-    def __init__(self, parent):
-        super(SnippetsPanel, self).__init__(parent)
+    def __init__(self, knobScripter="", _parent=QtWidgets.QApplication.activeWindow()):
+        super(SnippetsPanel, self).__init__(_parent)
+        #TODO delete buttons on the snippets! and categories per code languages (meaning dynamically show/hide widgets on request)
 
-        self.knobScripter = parent
+        self.knobScripter = knobScripter
 
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        #self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Snippet editor")
 
         self.snippets_txt_path = self.knobScripter.snippets_txt_path
@@ -4607,8 +4665,44 @@ class SnippetFilePath(QtWidgets.QWidget):
 # Code Gallery + Snippets super panel
 #--------------------------------------
 class CodeGallery(QtWidgets.QDialog):
-    def __init__(self, _parent=QtWidgets.QApplication.activeWindow()):
+    def __init__(self, knobScripter = "", _parent=QtWidgets.QApplication.activeWindow()):
         super(CodeGallery, self).__init__(_parent)
+
+        self.knobScripter = knobScripter
+        self.setWindowTitle("Code Gallery")
+
+        self.initUI()
+        self.resize(500,300)
+
+    def initUI(self):
+
+        master_layout = QtWidgets.QVBoxLayout()
+
+        # 1. First Area (Mode and language)
+
+        # 1.1. Mode! Code Gallery VS Snippet Editor
+        mode_and_language_layout = QtWidgets.QHBoxLayout()
+
+        self.modeCodeGallery_button = QtWidgets.QRadioButton("Code Gallery")
+        self.modeSnippets_button = QtWidgets.QRadioButton("Snippet Editor")
+
+        modeButtonGroup = QtWidgets.QGroupBox("mode")
+
+        modeButtonLayout = QtWidgets.QHBoxLayout()
+        modeButtonLayout.addWidget(self.modeCodeGallery_button)
+        modeButtonLayout.addWidget(self.modeSnippets_button)
+
+        modeButtonGroup.setLayout(modeButtonLayout)
+        mode_and_language_layout.addWidget(modeButtonGroup) #,stretch=1)
+        master_layout.addLayout(mode_and_language_layout)
+
+        # TODO: Same for code language and make them bold!!!!! and no stretch maybe...
+
+
+
+        self.setLayout(master_layout)
+
+
 
 #class CodeGalleryPane(CodeGallery)
 #def __init__(self, node = "", knob="knobChanged"):
