@@ -1719,7 +1719,7 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Open the floating code gallery panel (although it'll also be able to be opened as pane) '''
         global CodeGalleryPanel
         if CodeGalleryPanel == "":
-            CodeGalleryPanel = CodeGallery(self,self._parent)
+            CodeGalleryPanel = GalleryAndSnippets(self,self._parent)
 
         #if not CodeGalleryPanel.isVisible():
         #    CodeGalleryPanel.reload()
@@ -1765,7 +1765,7 @@ class KnobScripter(QtWidgets.QDialog):
         ''' Open the preferences panel '''
         global PrefsPanel
         if PrefsPanel == "":
-            PrefsPanel = KnobScripterPrefs(self)
+            PrefsPanel = KnobScripterPrefs(self,self._parent)
         else:
             try:
                 PrefsPanel.knobScripter = self
@@ -3907,13 +3907,12 @@ class KeywordHotboxButton(QtWidgets.QLabel):
 # Preferences Panel
 #---------------------------------------------------------------------
 class KnobScripterPrefs(QtWidgets.QDialog):
-    def __init__(self, knobScripter):
-        super(KnobScripterPrefs, self).__init__(knobScripter)
+    def __init__(self, knobScripter = "", _parent=QtWidgets.QApplication.activeWindow()):
+        super(KnobScripterPrefs, self).__init__(_parent)
 
         # Vars
         self.knobScripter = knobScripter
         self.prefs_txt = self.knobScripter.prefs_txt
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.oldFontSize = self.knobScripter.script_editor_font.pointSize()
         self.oldFont = self.knobScripter.script_editor_font.family()
         self.oldScheme = self.knobScripter.color_scheme
@@ -4102,7 +4101,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.master_layout.addLayout(colorScheme_layout)
         self.master_layout.addWidget(self.buttonBox)
         self.setLayout(self.master_layout)
-        self.setFixedSize(self.minimumSize())
+        #self.setFixedSize(self.minimumSize())
 
     def savePrefs(self):
         self.font = self.fontBox.currentFont().family()
@@ -4664,44 +4663,104 @@ class SnippetFilePath(QtWidgets.QWidget):
 #--------------------------------------
 # Code Gallery + Snippets super panel
 #--------------------------------------
-class CodeGallery(QtWidgets.QDialog):
+class GalleryAndSnippets(QtWidgets.QDialog): #TODO Rename to multipanel
     def __init__(self, knobScripter = "", _parent=QtWidgets.QApplication.activeWindow()):
-        super(CodeGallery, self).__init__(_parent)
+        super(GalleryAndSnippets, self).__init__(_parent)
+
+        # TODO future (for now current method works, this is only for when this is a Pane) Find a way to connect this to a KnobScripter!!! Or open the panel as part of the KnobScripter itself??????? Showing the tabs+widgets on the right
+        # TODO future (really, future): enable drag and drop of snippet and gallery into the knobscripter??
+        # TODO add on knobscripter button to Reload Style and Snippets
 
         self.knobScripter = knobScripter
-        self.setWindowTitle("Code Gallery")
+        self.setWindowTitle("Code Gallery + Snippet Editor")
 
         self.initUI()
-        self.resize(500,300)
+        #self.resize(500,300)
 
     def initUI(self):
 
         master_layout = QtWidgets.QVBoxLayout()
 
+        '''
+
         # 1. First Area (Mode and language)
 
         # 1.1. Mode! Code Gallery VS Snippet Editor
-        mode_and_language_layout = QtWidgets.QHBoxLayout()
+        self.modeCodeGallery_button = QtWidgets.QPushButton("Code Gallery") #TODO set margin 0 or spacing, set pressed etc. and maybe no need for buttongroup
+        self.modeSnippets_button = QtWidgets.QPushButton("Snippet Editor")
 
-        self.modeCodeGallery_button = QtWidgets.QRadioButton("Code Gallery")
-        self.modeSnippets_button = QtWidgets.QRadioButton("Snippet Editor")
+        modeLanguage_layout = QtWidgets.QHBoxLayout()
+        #modeLanguage_layout.addWidget(self.modeCodeGallery_button)
+        #modeLanguage_layout.addWidget(self.modeSnippets_button)
+        modeLanguage_layout.addStretch()
 
-        modeButtonGroup = QtWidgets.QGroupBox("mode")
+        #modeGroupBox.setLayout(modeLanguage_layout)
 
-        modeButtonLayout = QtWidgets.QHBoxLayout()
-        modeButtonLayout.addWidget(self.modeCodeGallery_button)
-        modeButtonLayout.addWidget(self.modeSnippets_button)
+        # 1.2. Code language
+        codeLanguage_label = QtWidgets.QLabel("Language:")
+        self.languagePython_button = QtWidgets.QRadioButton("Python")
+        self.languageBlink_button = QtWidgets.QRadioButton("Blink")
+        #self.languageTCL_button = QtWidgets.QRadioButton("TCL") #Snippets and code that will work on TCL language
+        #self.languageAll_button = QtWidgets.QRadioButton("All") #Snippets and code that will work on TCL language
+        #TODO Compatible with expressions and TCL knobs too!!
+        
+        langButtonGroup = QtWidgets.QButtonGroup(self)
+        langButtonGroup.addButton(self.languagePython_button)
+        langButtonGroup.addButton(self.languageBlink_button)
+        langButtonGroup.buttonClicked.connect(self.printLangBtnGroup)
 
-        modeButtonGroup.setLayout(modeButtonLayout)
-        mode_and_language_layout.addWidget(modeButtonGroup) #,stretch=1)
-        master_layout.addLayout(mode_and_language_layout)
+        modeLanguage_layout.addWidget(codeLanguage_label)
+        modeLanguage_layout.addWidget(self.languagePython_button)
+        modeLanguage_layout.addWidget(self.languageBlink_button)
+        modeLanguage_layout.addStretch()
 
-        # TODO: Same for code language and make them bold!!!!! and no stretch maybe...
+        self.reload_button = QtWidgets.QPushButton("Reload")
+        modeLanguage_layout.addWidget(self.reload_button)
 
+        modeLanguage_groupBox = QtWidgets.QGroupBox()
+        modeLanguage_groupBox.setLayout(modeLanguage_layout)
+        '''
+
+
+
+        #Main TabWidget
+        tabWidget = QtWidgets.QTabWidget()
+
+        self.code_gallery = CodeGallery(self.knobScripter,None)
+        self.snippet_editor = SnippetsPanel(self.knobScripter,None) #TODO The widget (not panel mode) shouldn't have the OK button etc. Only apply... OK doesn't really make sense in this context, right? or it can be below everything? or simply the OK button closes the full panel (parent) too and thats it
+        self.ks_prefs = KnobScripterPrefs(self.knobScripter,None)
+        # TODO ADD PREFERENCES IN A THIRD TAB!!!!!!
+
+        tabWidget.addTab(self.code_gallery,"Code Gallery")
+        tabWidget.addTab(self.snippet_editor, "Snippet Editor")
+        tabWidget.addTab(self.ks_prefs, "Preferences")
+
+        tabStyle = '''QTabBar { }
+                   QTabBar::tab:!selected {font-weight:bold; height: 30px; width:150px;}
+                   QTabBar::tab:selected {font-weight:bold; height: 30px; width:150px;}'''
+        tabWidget.setStyleSheet(tabStyle)
+
+        master_layout.addWidget(tabWidget)
+        self.setLayout(master_layout)
+
+class CodeGallery(QtWidgets.QDialog):
+    def __init__(self, knobScripter = "", _parent=QtWidgets.QApplication.activeWindow()):
+        super(CodeGallery, self).__init__(_parent)
+
+        self.knobScripter = knobScripter
+        self.setWindowTitle("Code Gallery + Snippet Editor")
+
+        self.initUI()
+        #self.resize(500,300)
+
+    def initUI(self):
+        master_layout = QtWidgets.QVBoxLayout()
+
+        test_label = QtWidgets.QLabel("test")
+        master_layout.addWidget(test_label)
 
 
         self.setLayout(master_layout)
-
 
 
 #class CodeGalleryPane(CodeGallery)
