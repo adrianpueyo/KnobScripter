@@ -2783,8 +2783,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         match_key = None
         match_snippet = ""
         for key, val in dic.items():
-            #match = re.search(r"[\s\.({\[,;=+-]"+key+r"(?:[\s)\]\"]+|$)",text)
-            match = re.search(r"[\s\.({\[,;=+-]"+key+r"$",text)
+            match = re.search(r"[\s\.(){}\[\],;=+-]"+key+r"$",text) # TODO check if worked
             if match or text == key:
                 if len(key) > longest:
                     longest = len(key)
