@@ -2907,7 +2907,8 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             category = self.findCategory(selected_text, blink_keyword_dict) # Returns something like "Access Method"
             if category:
                 keyword_hotbox = KeywordHotbox(self, category, blink_keyword_dict[category])
-                keyword_hotbox.show()
+                if keyword_hotbox.exec_() == QtWidgets.QDialog.Accepted:
+                    self.textCursor().insertText(keyword_hotbox.selection)
 
     def keyPressEvent(self,event):
 
@@ -3745,18 +3746,17 @@ class KeywordHotbox(QtWidgets.QDialog):
     keyword_dict = {
         "Access method": {
             "keywords": ["eAccessPoint","eAccessRanged1D"],
-            "description": "the access method defines whatever",
-            "help": "Full help!"
+            "help": "Full help! <with html tags and whatever><li><ul><b>..."
         },
     }
+    When clicking on a button, the accept() signal is emitted, and the button's text is stored under self.selection
     '''
     def __init__(self, parent, category = "", category_dict = {}):
         super(KeywordHotbox, self).__init__(parent)
 
         self.script_editor = parent
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint)
-        #self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
-        #self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        #self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.Popup)
+        self.setWindowFlags(QtCore.Qt.FramelessWindowHint | QtCore.Qt.Popup) # Without self.windowFlags() first, it closes on click outside as intended
 
         if not category or "keywords" not in category_dict:
             self.reject()
@@ -3764,7 +3764,7 @@ class KeywordHotbox(QtWidgets.QDialog):
 
         self.category = category
         self.category_dict = category_dict
-
+        self.selection = ""
 
         self.initUI()
 
@@ -3777,13 +3777,12 @@ class KeywordHotbox(QtWidgets.QDialog):
         master_layout = QtWidgets.QVBoxLayout()
 
         # 1. Main part: Hotbox Buttons
-
         for keyword in self.category_dict["keywords"]:
             button = KeywordHotboxButton(keyword, self)
+            button.clicked.connect(partial(self.pressed,keyword))
             master_layout.insertWidget(-1, button)
 
         # 2. ToolTip etc
-
         try:
             category_help = self.category_dict["help"]
         except:
@@ -3802,26 +3801,22 @@ class KeywordHotbox(QtWidgets.QDialog):
                                 padding: 10px;
                                 }
                             ''')
-
         self.setLayout(master_layout)
         self.adjustSize()
 
-    def toggleHelp(self):
-        ''' Sets the help QLabel's visibility to True or False '''
-        self.help_label.setVisible(self.help_label.isVisible()) # TODO Check if this is correct...
-        return
+    def pressed(self,keyword=""):
+        if keyword != "":
+            self.selection = keyword
+        self.accept()
 
-    def eventFilter(self, object, event):
-        if event.type() in [QtCore.QEvent.WindowDeactivate,QtCore.QEvent.FocusOut]:
-            self.close()
-            return True
-        return False
+    def focusOutEvent(self,event):
+        self.close()
 
 class KeywordHotboxButton(QtWidgets.QLabel):
     '''
     Keyword button for the KeywordHotbox. It's really a label, with a selection color and stuff.
     '''
-
+    clicked = QtCore.Signal()
     def __init__(self, name, parent=None):
 
         super(KeywordHotboxButton, self).__init__(parent)
@@ -3894,13 +3889,10 @@ class KeywordHotboxButton(QtWidgets.QLabel):
         '''
         Execute the buttons' self.function (str)
         '''
-        # TODO can be done via clicked()?
         if self.highlighted:
-            self.parent.script_editor.textCursor().insertText(self.name)
-            self.parent.accept()
-            # TODO: script_editor replace selected text by self.name
-
-        return True
+            self.clicked.emit()
+            pass
+        super(KeywordHotboxButton, self).mouseReleaseEvent(event)
 
 #---------------------------------------------------------------------
 # Preferences Panel
@@ -4767,6 +4759,7 @@ class CodeGallery(QtWidgets.QDialog):
 #        super(KnobScripterPane, self).__init__(isPane=True, _parent=QtWidgets.QApplication.activeWindow())
 # TODO Pane instead, its own thing
 # TODO: Snippets: button to delete snippet, add snippet to script
+# TODO: Snippet editor and preferences apply changes (via "Reload Snippets and Settings button or whatever...") on all knobscripters? (by having a set of the active knobscripters and removing them on close)
 
 #--------------------------------
 # Implementation
