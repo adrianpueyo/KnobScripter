@@ -1,12 +1,11 @@
 #-------------------------------------------------
 # KnobScripter by Adrian Pueyo
-# Complete python sript editor for Nuke
+# Complete python script editor for Nuke
 # adrianpueyo.com, 2016-2020
 version = "3.0a0"
 date = "Dec 11 2020"
 #-------------------------------------------------
 
-import nuke
 import os
 import json
 from nukescripts import panels
@@ -49,7 +48,7 @@ KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR+"/icons/"
 DebugMode = False
 AllKnobScripters = [] # All open instances at a given time
-
+tresr = 0
 PrefsPanel = ""
 SnippetEditPanel = ""
 CodeGalleryPanel = ""
@@ -101,9 +100,9 @@ class KnobScripter(QtWidgets.QDialog):
         self.btn_size = 24
         self.qt_icon_size = QtCore.QSize(self.icon_size,self.icon_size)
         self.qt_btn_size = QtCore.QSize(self.btn_size,self.btn_size)
-        self.origConsoleText = ""
+        self.omit_se_console_text = ""
         self.nukeSE = self.findSE()
-        self.nukeSEOutput = self.findSEOutput(self.nukeSE)
+        self.nukeSEOutput = self.findSEConsole(self.nukeSE)
         self.nukeSEInput = self.findSEInput(self.nukeSE)
         self.nukeSERunBtn = self.findSERunBtn(self.nukeSE)
 
@@ -948,7 +947,7 @@ class KnobScripter(QtWidgets.QDialog):
         try:
             self.node.knob("recompile").execute()
         except:
-            print "Error recompiling the Blinkscript node."
+            print("Error recompiling the Blinkscript node.")
 
     def toggleBlinkBackupsAutosave(self):
         ''' TODO Figure out the best behavior for this '''
@@ -1018,6 +1017,7 @@ class KnobScripter(QtWidgets.QDialog):
         current_folder_path = os.path.join(self.scripts_dir,self.current_folder)
         defaultScripts = ["Untitled.py"]
         found_scripts = []
+        found_temp_scripts = []
         counter = 0
         dir_list = os.listdir(current_folder_path) # All files and folders inside of the folder
         try:
@@ -1072,7 +1072,7 @@ class KnobScripter(QtWidgets.QDialog):
                 os.makedirs(folder_path)
                 return True
             except:
-                print "Couldn't create the scripting folders.\nPlease check your OS write permissions."
+                print("Couldn't create the scripting folders.\nPlease check your OS write permissions.")
                 return False
 
     def makeScriptFile(self, name = "Untitled.py", folder = "scripts", empty = True):
@@ -1082,7 +1082,7 @@ class KnobScripter(QtWidgets.QDialog):
                 self.current_script_file = open(script_path, 'w')
                 return True
             except:
-                print "Couldn't create the scripting folders.\nPlease check your OS write permissions."
+                print("Couldn't create the scripting folders.\nPlease check your OS write permissions.")
                 return False
 
     def setCurrentFolder(self, folderName):
@@ -1135,7 +1135,7 @@ class KnobScripter(QtWidgets.QDialog):
             log("Loading .py file\n---")
             with open(script_path, 'r') as script:
                 content = script.read()
-            current_text = self.script_editor.toPlainText().encode("utf8")
+            current_text = self.script_editor.toPlainText()
             if check and current_text != content and current_text.strip() != "":
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setText("The script has been modified.")
@@ -1204,7 +1204,7 @@ class KnobScripter(QtWidgets.QDialog):
         script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         orig_content = ""
-        content = self.script_editor.toPlainText().encode('utf8')
+        content = self.script_editor.toPlainText()
 
         if temp == True:
             if os.path.isfile(script_path):
@@ -1223,7 +1223,7 @@ class KnobScripter(QtWidgets.QDialog):
                 return
         else:
             with open(script_path, 'w') as script:
-                script.write(self.script_editor.toPlainText().encode('utf8'))
+                script.write(str(self.script_editor.toPlainText()))
             # Clear trash
             if os.path.isfile(script_path_temp):
                 os.remove(script_path_temp)
@@ -1576,12 +1576,6 @@ class KnobScripter(QtWidgets.QDialog):
         self.highlighter.selected_text = self.script_editor.textCursor().selection().toPlainText()
         return
 
-    def eventFilter(self, object, event):
-        if event.type() == QtCore.QEvent.KeyPress:
-            return QtWidgets.QWidget.eventFilter(self, object, event)
-        else:
-            return QtWidgets.QWidget.eventFilter(self, object, event)
-
     def resizeEvent(self, res_event):
         w = self.frameGeometry().width()
         self.current_node_label_node.setVisible(w>460)
@@ -1591,7 +1585,7 @@ class KnobScripter(QtWidgets.QDialog):
     def changeClicked(self, newNode=""):
         ''' Change node '''
         try:
-            print "Changing from " + self.node.name()
+            print("Changing from " + self.node.name())
             self.clearConsole()
         except:
             self.node = None
@@ -1689,7 +1683,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.setScriptState()
 
     def clearConsole(self):
-        self.origConsoleText = self.nukeSEOutput.document().toPlainText().encode("utf8")
+        self.omit_se_console_text = self.nukeSEOutput.document().toPlainText()
         self.script_output.setPlainText("")
 
     def toggleFRW(self, frw_pressed):
@@ -1743,7 +1737,7 @@ class KnobScripter(QtWidgets.QDialog):
             with open(path, "r") as f:
                 file = json.load(f)
                 for i, (key, val) in enumerate(file.items()):
-                    if re.match(r"\[custom-path-[0-9]+\]$",key):
+                    if re.match(r"\[custom-path-[0-9]+]$",key):
                         if cur_depth < max_depth:
                             new_dict = self.loadSnippets(path = val, maxDepth=max_depth, depth = cur_depth+1)
                             loaded_snippets.update(new_dict)
@@ -1828,14 +1822,14 @@ class KnobScripter(QtWidgets.QDialog):
     def refreshClicked(self):
         ''' Function to refresh the dropdowns '''
         if self.nodeMode:
-            knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()).encode('UTF8')
+            knob = self.current_knob_dropdown.itemData(str(self.current_knob_dropdown.currentIndex()).encode('UTF8'))
             self.current_knob_dropdown.blockSignals(True)
             self.current_knob_dropdown.clear() # First remove all items
             self.updateKnobDropdown()
             availableKnobs = []
             for i in range(self.current_knob_dropdown.count()):
                 if self.current_knob_dropdown.itemData(i) is not None:
-                    availableKnobs.append(self.current_knob_dropdown.itemData(i).encode('UTF8'))
+                    availableKnobs.append(str(self.current_knob_dropdown.itemData(i).encode('UTF8')))
             if knob in availableKnobs:
                 self.setCurrentKnob(knob)
             self.current_knob_dropdown.blockSignals(False)
@@ -1892,7 +1886,9 @@ class KnobScripter(QtWidgets.QDialog):
                 return widget
         return None
 
-    def findSEOutput(self, se):
+    def findSEConsole(self, se=None):
+        if not se:
+            se = self.findSE()
         children = se.children()
         splitter = [w for w in children if isinstance(w, QtWidgets.QSplitter)]
         if not splitter:
@@ -1914,10 +1910,10 @@ class KnobScripter(QtWidgets.QDialog):
 
     def setSEOutputEvent(self):
         se = self.findSE()
-        se_output = self.findSEOutput(se)
-        self.origConsoleText = se_output.document().toPlainText().encode('utf8')
+        se_output = self.findSEConsole(se)
+        self.omit_se_console_text = se_output.document().toPlainText()
         se_output.textChanged.connect(partial(consoleChanged, se_output, self))
-        consoleChanged(se_output, self)
+        #consoleChanged(se_output, self)
 
 class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
@@ -1936,22 +1932,28 @@ class KnobScripterPane(KnobScripter):
         self.autosave()
         return KnobScripter.hideEvent(self,the_event)
 
-def consoleChanged(self, ks):
+def consoleChanged(self, ks=None):
     ''' This will be called every time the ScriptEditor Output text is changed '''
+    # TODO Try to make this in the knobscripter itself! as an internal function...
+    # TODO make knobscripters, global list/set
     try:
         if ks: # KS exists
-            ksOutput = ks.script_output # The console TextEdit widget
-            ksText = self.document().toPlainText().encode("utf8")
-            origConsoleText = ks.origConsoleText # The text from the console that will be omitted
-            if ksText.startswith(origConsoleText):
-                ksText = ksText[len(origConsoleText):]
+            console_text = self.document().toPlainText()
+            omit_se_console_text = ks.omit_se_console_text # The text from the console that will be omitted
+            ks_output = ks.script_output # The console TextEdit widget
+            e=0
+            if omit_se_console_text == "":
+                ks_text = console_text
+            elif console_text.startswith(omit_se_console_text):
+                ks_text = str(console_text[len(omit_se_console_text):])
             else:
-                ks.origConsoleText = ""
-            ksOutput.setPlainText(ksText)
-            ksOutput.verticalScrollBar().setValue(ksOutput.verticalScrollBar().maximum())
+                ks_text = console_text
+                ks.omit_se_console_text = ""
+            ks_output.setPlainText(ks_text)
+            ks_output.verticalScrollBar().setValue(ks_output.verticalScrollBar().maximum())
     except:
         pass
-    
+
 def killPaneMargins(widget_object):
     if widget_object:
         target_widgets = set()
@@ -2617,7 +2619,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         #new line
         self.insertPlainText('\n')
         #match indent
-        self.insertPlainText(' '*(self.tabSpaces*indentLevel))
+        self.insertPlainText(' '*int(self.tabSpaces*indentLevel))
 
     def indentation(self, mode):
 
@@ -2673,7 +2675,8 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
         self.setTextCursor(self.cursor)
         self.verticalScrollBar().setValue(pre_scroll)
 
-    def findBlocks(self, first = 0, last = None, exclude = []):
+    def findBlocks(self, first = 0, last = None, exclude = None):
+        exclude = exclude or []
         blocks = []
         if last == None:
             last = self.document().characterCount()
@@ -2783,7 +2786,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         match_key = None
         match_snippet = ""
         for key, val in dic.items():
-            match = re.search(r"[\s\.(){}\[\],;=+-]"+key+r"$",text) # TODO check if worked
+            match = re.search(r"[\s.(){}\[\],;=+-]"+key+r"$",text) # TODO check if worked
             if match or text == key:
                 if len(key) > longest:
                     longest = len(key)
@@ -3083,19 +3086,19 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
         #4. Go case by case.
         for s in segments:
             # Declared vars
-            matches += re.findall(r"([\w\.]+)(?=[,\s\w]*=[^=]+$)",s)
+            matches += re.findall(r"([\w.]+)(?=[,\s\w]*=[^=]+$)",s)
             # Def functions and arguments
-            function = re.findall(r"[\s]*def[\s]+([\w\.]+)[\s]*\([\s]*",s)
+            function = re.findall(r"[\s]*def[\s]+([\w.]+)[\s]*\([\s]*",s)
             if len(function):
                 matches += function
-                args = re.split(r"[\s]*def[\s]+([\w\.]+)[\s]*\([\s]*",s)
+                args = re.split(r"[\s]*def[\s]+([\w.]+)[\s]*\([\s]*",s)
                 if len(args) > 1:
                     args = args[-1]
-                    matches += re.findall(r"(?<![=\"\'])[\s]*([\w\.]+)[\s]*(?==|,|\))",args)
+                    matches += re.findall(r"(?<![=\"\'])[\s]*([\w.]+)[\s]*(?=[=,)])",args)
             # Lambda
-            matches += re.findall(r"^[^#]*lambda[\s]+([\w\.]+)[\s()\w,]+",s)
+            matches += re.findall(r"^[^#]*lambda[\s]+([\w.]+)[\s()\w,]+",s)
             # Classes
-            matches += re.findall(r"^[^#]*class[\s]+([\w\.]+)[\s()\w,]+",s)
+            matches += re.findall(r"^[^#]*class[\s]+([\w.]+)[\s()\w,]+",s)
         return matches
 
     # Find category in keyword_dict
@@ -3736,6 +3739,7 @@ class ScriptOutputWidget(QtWidgets.QTextEdit) :
                 self.knobScripter.clearConsole()
         return QtWidgets.QTextEdit.keyPressEvent(self, event)
 
+
 #---------------------------------------------------------------------
 # Pop-up hotbox with keywords! Useful for blink, ready for python too.
 #---------------------------------------------------------------------
@@ -3751,8 +3755,9 @@ class KeywordHotbox(QtWidgets.QDialog):
     }
     When clicking on a button, the accept() signal is emitted, and the button's text is stored under self.selection
     '''
-    def __init__(self, parent, category = "", category_dict = {}):
+    def __init__(self, parent, category = "", category_dict = None):
         super(KeywordHotbox, self).__init__(parent)
+        category_dict = category_dict or {}
 
         self.script_editor = parent
         #self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.Popup)
