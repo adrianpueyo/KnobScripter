@@ -13,6 +13,9 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
+from ..scripteditor.ksscripteditor import KSScriptEditor
+from ..scripteditor.pythonhighlighter import KSPythonHighlighter
+
 class SnippetsPanel(QtWidgets.QDialog):
     def __init__(self, knobScripter="", _parent=QtWidgets.QApplication.activeWindow()):
         super(SnippetsPanel, self).__init__(_parent)
@@ -206,10 +209,10 @@ class SnippetEdit(QtWidgets.QWidget):
         self.shortcut_editor.setFont(f)
         self.shortcut_editor.setText(str(key))
         #self.script_editor = QtWidgets.QTextEdit(self)
-        self.script_editor = KnobScripterTextEdit()
+        self.script_editor = KSScriptEditor()
         self.script_editor.setMinimumHeight(100)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
-        self.highlighter = KSScriptEditorHighlighter(self.script_editor.document(), self)
+        self.highlighter = KSPythonHighlighter(self.script_editor.document(), self)
         self.script_editor_font = self.knobScripter.script_editor_font
         self.script_editor.setFont(self.script_editor_font)
         self.script_editor.resize(90,90)

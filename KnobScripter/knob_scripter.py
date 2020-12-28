@@ -1,5 +1,5 @@
 '''
-KnobScripter 3 by Adrian Pueyo - Complete python script editor for Nuke
+KnobScripterWidget 3 by Adrian Pueyo - Complete python script editor for Nuke
 adrianpueyo.com, 2016-2020
 '''
 
@@ -49,10 +49,10 @@ CodeGalleryPanel = ""
 
 # ks imports
 from info import __version__, __date__
-from panels.snippets import SnippetsPanel
-from panels.codegallery import CodeGallery
-from panels.prefs import KnobScripterPrefs
-from panels.dialogs import FileNameDialog, ChooseNodeDialog
+from kspanels.snippets import SnippetsPanel
+from kspanels.codegallery import CodeGallery
+from kspanels.prefs import KnobScripterPrefs
+from kspanels.dialogs import FileNameDialog, ChooseNodeDialog
 from scripteditor.ksscripteditormain import KSScriptEditorMain
 from scripteditor.findreplace import FindReplaceWidget
 from scripteditor.blinkhighlighter import KSBlinkHighlighter
@@ -67,10 +67,16 @@ nuke.tprint(
 logging.debug('Initializing KnobScripter')
 
 
-class KnobScripter(QtWidgets.QDialog):
+class KnobScripterWidget(QtWidgets.QDialog):
 
     def __init__(self, node="", knob="", isPane=False, _parent=QtWidgets.QApplication.activeWindow()):
-        super(KnobScripter, self).__init__(_parent)
+        super(KnobScripterWidget, self).__init__(_parent)
+
+        #TODO remove
+        import kspanels.codegallery
+        reload(kspanels.codegallery)
+        global CodeGallery
+        CodeGallery = kspanels.codegallery.CodeGallery
 
         # Autosave the other knobscripters and add this one
         for ks in nuke.AllKnobScripters:
@@ -1619,7 +1625,7 @@ class KnobScripter(QtWidgets.QDialog):
         w = self.frameGeometry().width()
         self.current_node_label_node.setVisible(w > 460)
         self.script_label.setVisible(w > 460)
-        return super(KnobScripter, self).resizeEvent(res_event)
+        return super(KnobScripterWidget, self).resizeEvent(res_event)
 
     def changeClicked(self, newNode=""):
         ''' Change node '''
@@ -1915,7 +1921,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.runInContext = pressed
         self.runInContextAct.setChecked(pressed)
 
-class KnobScripterPane(KnobScripter):
+class KnobScripterPane(KnobScripterWidget):
     def __init__(self, node="", knob="knobChanged"):
         super(KnobScripterPane, self).__init__(isPane=True, _parent=QtWidgets.QApplication.activeWindow())
         ctrlS_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+S"), self)
@@ -1926,11 +1932,11 @@ class KnobScripterPane(KnobScripter):
             killPaneMargins(self)
         except:
             pass
-        return KnobScripter.showEvent(self, the_event)
+        return KnobScripterWidget.showEvent(self, the_event)
 
     def hideEvent(self, the_event):
         self.autosave()
-        return KnobScripter.hideEvent(self, the_event)
+        return KnobScripterWidget.hideEvent(self, the_event)
 
 def updateContext():
     ''' 
@@ -2029,9 +2035,9 @@ class GalleryAndSnippets(QtWidgets.QDialog):  # TODO Rename to multipanel
 def showKnobScripter(knob=""):
     selection = nuke.selectedNodes()
     if not len(selection):
-        pan = KnobScripter(_parent=QtWidgets.QApplication.activeWindow())
+        pan = KnobScripterWidget(_parent=QtWidgets.QApplication.activeWindow())
     else:
-        pan = KnobScripter(selection[0], knob, _parent=QtWidgets.QApplication.activeWindow())
+        pan = KnobScripterWidget(selection[0], knob, _parent=QtWidgets.QApplication.activeWindow())
     pan.show()
 
 def addKnobScripterPane():
@@ -2043,7 +2049,6 @@ def addKnobScripterPane():
     except:
         nuke.knobScripterPane = panels.registerWidgetAsPanel('nuke.KnobScripterPane', 'Knob Scripter',
                                                          'com.adrianpueyo.KnobScripterPane')
-
 
 nuke.KnobScripterPane = KnobScripterPane
 logging.debug("KS LOADED")
