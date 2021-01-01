@@ -27,7 +27,6 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
 
         self.styles = self.loadStyles()  # Holds a dict for each style
         self._style = style # Can be set via setStyle
-        print self._style
         self.setStyle(self._style)  # Set default style
         # self.updateStyle()  # Load ks color scheme
 
