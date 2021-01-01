@@ -26,8 +26,6 @@ if os.name == "nt":
                 raise ctypes.WinError()
         except:
             pass
-
-
     os.symlink = symlink_ms
 
 try:
@@ -47,10 +45,17 @@ PrefsPanel = ""
 SnippetEditPanel = ""
 CodeGalleryPanel = ""
 
+"""
+nuke.KnobScripterPrefs = {
+    "python_color_style" : "sublime",
+    "blink_color_style" : "default",
+}
+"""
+
 # ks imports
 from info import __version__, __date__
 from kspanels.snippets import SnippetsPanel
-from kspanels.codegallery import CodeGallery
+from kspanels.codegallery import CodeGalleryWidget
 from kspanels.prefs import KnobScripterPrefs
 from kspanels.dialogs import FileNameDialog, ChooseNodeDialog
 from scripteditor.ksscripteditormain import KSScriptEditorMain
@@ -75,8 +80,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         #TODO remove
         import kspanels.codegallery
         reload(kspanels.codegallery)
+
         global CodeGallery
-        CodeGallery = kspanels.codegallery.CodeGallery
+        CodeGallery = kspanels.codegallery.CodeGalleryWidget
 
         # Autosave the other knobscripters and add this one
         for ks in nuke.AllKnobScripters:
@@ -111,7 +117,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.font = "Monospace"
         self.tabSpaces = 4
         self.windowDefaultSize = [500, 300]
-        self.color_scheme = "sublime"  # Can be nuke or sublime
+        self.color_style_python = "nuke"  # Can be nuke, sublime...
+        self.color_style_blink = "default"  # Can be nuke, sublime...
         self.toLoadKnob = True
         self.frw_open = False  # Find replace widget closed by default
         self.icon_size = 17
@@ -432,7 +439,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
-        self.highlighter = KSPythonHighlighter(self.script_editor.document(), self)
+        self.highlighter = KSPythonHighlighter(self.script_editor.document())
+        self.highlighter.setStyle(self.color_style_python)
         self.script_editor.cursorPositionChanged.connect(self.setTextSelection)
         self.script_editor_font = QtGui.QFont()
         self.script_editor_font.setFamily(self.font)
@@ -931,10 +939,11 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.highlighter.setDocument(None)
         if code_language == "blink":
             # Blink bg Colors
-            self.highlighter = KSBlinkHighlighter(self.script_editor.document(), self)
+            self.highlighter = KSBlinkHighlighter(self.script_editor.document())
+            self.highlighte.setStyle(self.color_style_blink)
             self.setColorStyle("blink_default")
         else:
-            self.highlighter = KSPythonHighlighter(self.script_editor.document(), self)
+            self.highlighter = KSPythonHighlighter(self.script_editor.document())
             self.setColorStyle("default")
 
         # 3. Menus

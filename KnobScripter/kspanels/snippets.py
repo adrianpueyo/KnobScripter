@@ -212,7 +212,8 @@ class SnippetEdit(QtWidgets.QWidget):
         self.script_editor = KSScriptEditor()
         self.script_editor.setMinimumHeight(100)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;') # Main Colors
-        self.highlighter = KSPythonHighlighter(self.script_editor.document(), self)
+        self.highlighter = KSPythonHighlighter(self.script_editor.document())
+        self.highlighter.setStyle(self.knobScripter.color_scheme)
         self.script_editor_font = self.knobScripter.script_editor_font
         self.script_editor.setFont(self.script_editor_font)
         self.script_editor.resize(90,90)

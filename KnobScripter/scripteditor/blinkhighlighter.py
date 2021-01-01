@@ -192,3 +192,6 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
             return True
         else:
             return False
+
+    def setStyle(self,style=""):
+        pass

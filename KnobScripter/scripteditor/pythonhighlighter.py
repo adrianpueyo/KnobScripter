@@ -19,23 +19,23 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
     modifications to make it fit my needs.
     '''
 
-    def __init__(self, document, parent=None):
+    def __init__(self, document, style="sublime"):
 
         super(KSPythonHighlighter, self).__init__(document)
-        self.knobScripter = parent
-        self.script_editor = self.knobScripter.script_editor
         self.selected_text = ""
         self.selected_text_prev = ""
 
         self.styles = self.loadStyles()  # Holds a dict for each style
-        self.setStyle()  # Set default style
-        self.updateStyle()  # Load ks color scheme
+        self._style = style # Can be set via setStyle
+        print self._style
+        self.setStyle(self._style)  # Set default style
+        # self.updateStyle()  # Load ks color scheme
 
     def loadStyles(self):
         ''' Loads the different sets of rules '''
         styles = dict()
 
-        # LOAD ANY STYLE - HARDCODED INTO SUBLIME FOR NOW
+        # LOAD ANY STYLE
         default_styles_list = [
             {
                 "title": "nuke",
@@ -248,7 +248,10 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         # TODO if there's a selection, highlight same occurrences in the full document. If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
 
     def updateStyle(self):
-        self.setStyle(self.knobScripter.color_scheme)
+        try:
+            self.setStyle(self.color_scheme)
+        except:
+            pass
 
     def setStyle(self, style_name="nuke"):
         if style_name in self.styles.keys():

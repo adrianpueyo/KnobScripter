@@ -28,7 +28,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.oldDefaultH = self.knobScripter.windowDefaultSize[1]
 
         # Widgets
-        kspTitle = QtWidgets.QLabel("KnobScripterWidget v" + __version__)
+        kspTitle = QtWidgets.QLabel("KnobScripter v" + __version__)
         kspTitle.setStyleSheet("font-weight:bold;color:#CCCCCC;font-size:24px;")
         kspSubtitle = QtWidgets.QLabel("Script editor for python and callback knobs")
         kspSubtitle.setStyleSheet("color:#999")
