@@ -14,6 +14,7 @@ except ImportError:
 
 
 from ksscripteditor import KSScriptEditor
+import keywordhotbox
 
 
 class KSScriptEditorMain(KSScriptEditor):
@@ -184,7 +185,7 @@ class KSScriptEditorMain(KSScriptEditor):
             # 1.2. If there's a match, show the hotbox!
             category = self.findCategory(selected_text, blink_keyword_dict)  # Returns something like "Access Method"
             if category:
-                keyword_hotbox = KeywordHotbox(self, category, blink_keyword_dict[category])
+                keyword_hotbox = keywordhotbox.KeywordHotbox(self, category, blink_keyword_dict[category])
                 if keyword_hotbox.exec_() == QtWidgets.QDialog.Accepted:
                     self.textCursor().insertText(keyword_hotbox.selection)
 

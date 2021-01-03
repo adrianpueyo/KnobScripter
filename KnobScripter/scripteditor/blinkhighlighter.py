@@ -18,44 +18,71 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
 
     # TODO open curly braces { and enter should bring the } an extra line down
 
-    def __init__(self, document, parent=None):
+    def __init__(self, document,  style="default"):
 
-        super(KSBlinkHighlighter, self).__init__(document)
-        self.knobScripter = parent
-        self.script_editor = self.knobScripter.script_editor
         self.selected_text = ""
         self.selected_text_prev = ""
 
         self.styles = self.loadStyles()  # Holds a dict for each style
-        self.setStyle()  # Set default style
-        self.updateStyle()  # Load ks color scheme
+        self._style = style  # Can be set via setStyle
+        self._style = "default"  # TODO REMOVE
+        self.setStyle(self._style)  # Set default style
+
+        super(KSBlinkHighlighter, self).__init__(document)
 
     def loadStyles(self):
         ''' Loads the different sets of rules '''
         styles = dict()
-        styles["nuke"] = self.loadStyleNuke()
+
+        # LOAD ANY STYLE
+        default_styles_list = [
+            {
+                "title": "default",
+                "desc": "My adaptation from the default style from Nuke, with some improvements.",
+                "styles": {
+                    'keyword': ([122, 136, 53], 'bold'),
+                    'stringDoubleQuote': ([226, 138, 138]),
+                    'stringSingleQuote': ([110, 160, 121]),
+                    'comment': ([188, 179, 84]),
+                    'multiline_comment': ([188, 179, 84]),
+                    'type': ([25, 25, 80]),
+                    'variableKeyword': ([25, 25, 80]),
+                    'function': ([3, 185, 191]),  # only needed till here for blink?
+                    'number': ([174, 129, 255]),
+                    'custom': ([255, 170, 0], 'italic'),
+                    'selected': ([255, 255, 255], 'bold underline'),
+                    'underline': ([240, 240, 240], 'underline'),
+                },
+                "keywords": {},
+            },
+        ]
+
+        for style_dict in default_styles_list:
+            if all(k in style_dict.keys() for k in ["title", "styles"]):
+                styles[style_dict["title"]] = self.loadStyle(style_dict)
+
         return styles
 
-    def loadStyleNuke(self):
+    def loadStyle(self, style_dict):
         '''
-        My adaptation from the default style from Nuke, with some improvements.
+        Given a dictionary of styles and keywords, returns the style as a dict
         '''
-        styles = {
-            'keyword': self.format([122, 136, 53], 'bold'),
-            'stringDoubleQuote': self.format([226, 138, 138]),
-            'stringSingleQuote': self.format([110, 160, 121]),
-            'comments': self.format([188, 179, 84]),
-            'multiline_comments': self.format([188, 179, 84]),
-            'types': self.format([25, 25, 80]),
-            'variableKeywords': self.format([25, 25, 80]),
-            'functions': self.format([3, 185, 191]),  # only needed till here for blink?
-            'numbers': self.format([174, 129, 255]),
-            'custom': self.format([255, 170, 0], 'italic'),
-            'selected': self.format([255, 255, 255], 'bold underline'),
-            'underline': self.format([240, 240, 240], 'underline'),
-        }
 
-        keywords = [
+        styles = style_dict["styles"]
+
+        # 1. Base settings
+        if "base" in styles:
+            base_format = styles["base"]
+        else:
+            base_format = self.format([255, 255, 255])
+
+        for key in styles:
+            if type(styles[key]) == list:
+                styles[key] = self.format(styles[key])
+            elif styles[key][1]:
+                styles[key] = self.format(styles[key][0], styles[key][1])
+
+        mainKeywords = [
             "char", "class", "const", "double", "enum", "explicit",
             "friend", "inline", "int", "long", "namespace", "operator",
             "private", "protected", "public", "short", "signed",
@@ -73,7 +100,7 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
 
         variableKeywords = [
             "int", "int2", "int3", "int4",
-            "float", "float2", "float3", "float4", "float3x3", "float4x4", "bool"
+            "float", "float2", "float3", "float4", "float3x3", "float4x4", "bool",
         ]
 
         blinkTypes = [
@@ -86,38 +113,49 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
             "define", "defineParam", "process", "init", "setRange", "setAxis", "median", "bilinear",
         ]
 
-        # Rules
+        singletons = ['true', 'false']
 
+        if 'multiline_comments' in styles:
+            multiline_delimiter = (QtCore.QRegExp("/\\*"), QtCore.QRegExp("\\*/"), 1, styles['multiline_comments'])
+        else:
+            multiline_delimiter = (QtCore.QRegExp("/\\*"), QtCore.QRegExp("\\*/"), 1, base_format)
+
+        # 2. Rules
         rules = []
 
-        # 1. Keywords
-        rules += [(r'\b%s\b' % i, 0, styles['keyword']) for i in keywords]
+        # Keywords
+        if 'keyword' in styles:
+            rules += [(r'\b%s\b' % i, 0, styles['keyword']) for i in mainKeywords]
 
-        # 2. Funcs
-        rules += [(r'\b%s\b' % i, 0, styles['functions']) for i in blinkFunctions]
+        # Funcs
+        if 'function' in styles:
+            rules += [(r'\b%s\b' % i, 0, styles['function']) for i in blinkFunctions]
 
-        # 3. Types
-        rules += [(r'\b%s\b' % i, 0, styles['types']) for i in blinkTypes]
-        rules += [(r'\b%s\b' % i, 0, styles['variableKeywords']) for i in variableKeywords]
+        # Types
+        if 'type' in styles:
+            rules += [(r'\b%s\b' % i, 0, styles['type']) for i in blinkTypes]
 
-        # 4. String Literals
-        rules += [(r"\"([^\"\\\\]|\\\\.)*\"", 0, styles['stringDoubleQuote'])]
+        if 'variableKeyword' in styles:
+            rules += [(r'\b%s\b' % i, 0, styles['variableKeyword']) for i in variableKeywords]
 
-        # 5. String single quotes
-        rules += [(r"'([^'\\\\]|\\\\.)*'", 0, styles['stringSingleQuote'])]
+        # String Literals
+        if 'stringDoubleQuote' in styles:
+            rules += [(r"\"([^\"\\\\]|\\\\.)*\"", 0, styles['stringDoubleQuote'])]
 
-        # 6. Comments
-        rules += [(r"//[^\n]*", 0, styles['comments'])]
+        # String single quotes
+        if 'stringSingleQuote' in styles:
+            rules += [(r"'([^'\\\\]|\\\\.)*'", 0, styles['stringSingleQuote'])]
 
-        # 7. Multiline comments /* */
-        multiline_delimiter = (QtCore.QRegExp("/\\*"), QtCore.QRegExp("\\*/"), 1, styles['multiline_comments'])
+        # Comments
+        if 'comment' in styles:
+            rules += [(r"//[^\n]*", 0, styles['comment'])]
 
         # Return all rules
-        style = {
+        result = {
             "rules": [(QtCore.QRegExp(pat), index, fmt) for (pat, index, fmt) in rules],
             "multiline_delimiter": multiline_delimiter,
         }
-        return style
+        return result
 
     def format(self, rgb, style=''):
         '''
@@ -141,7 +179,8 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
         '''
         Apply syntax highlighting to the given block of text.
         '''
-        for expression, nth, format in self.rules:
+
+        for expression, nth, format in self.styles[self._style]["rules"]:
             index = expression.indexIn(text, 0)
 
             while index >= 0:
@@ -154,7 +193,7 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
         self.setCurrentBlockState(0)
 
         # Multi-line strings etc. based on selected scheme
-        in_multiline = self.match_multiline_blink(text, *self.commentStartEnd)
+        in_multiline = self.match_multiline_blink(text, *self.styles[self._style]["multiline_delimiter"])
 
     def match_multiline_blink(self, text, delimiter_start, delimiter_end, in_state, style):
         '''

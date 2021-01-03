@@ -60,8 +60,8 @@ from kspanels.prefs import KnobScripterPrefs
 from kspanels.dialogs import FileNameDialog, ChooseNodeDialog
 from scripteditor.ksscripteditormain import KSScriptEditorMain
 from scripteditor.findreplace import FindReplaceWidget
-from scripteditor.blinkhighlighter import KSBlinkHighlighter
-from scripteditor.pythonhighlighter import KSPythonHighlighter
+from scripteditor import blinkhighlighter
+from scripteditor import pythonhighlighter
 from script_output import ScriptOutputWidget
 from utils import killPaneMargins, findSE, findSEInput, findSEConsole, findSERunBtn, setSEConsoleChanged
 
@@ -141,7 +141,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.script_index = 0
         self.toAutosave = False
         self.runInContext = False  # Experimental, python only
-        self.code_language = "python"
+        self.code_language = None
         self.current_knob_modified = False  # Convenience variable holding if the current script_editor is modified
 
         self.defaultKnobs = ["knobChanged", "onCreate", "onScriptLoad", "onScriptSave", "onScriptClose", "onDestroy",
@@ -439,7 +439,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.script_editor.setMinimumHeight(30)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
-        self.highlighter = KSPythonHighlighter(self.script_editor.document())
+        self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
         self.highlighter.setStyle(self.color_style_python)
         self.script_editor.cursorPositionChanged.connect(self.setTextSelection)
         self.script_editor_font = QtGui.QFont()
@@ -924,27 +924,31 @@ class KnobScripterWidget(QtWidgets.QDialog):
         '''
         Perform all UI changes neccesary for editing a different language! Syntax highlighter, menu buttons, etc.
         '''
+
         # 1. Allow for string or int, 0 being "no language", 1 "python", 2 "blink"
         code_language_list = [None, "python", "blink"]
         if code_language == None:
-            self.code_language = code_language
+            new_code_language = code_language
         elif isinstance(code_language, str) and code_language.lower() in code_language_list:
-            self.code_language = code_language.lower()
+            new_code_language = code_language.lower()
         elif isinstance(code_language, int) and code_language_list[code_language]:
-            self.code_language = code_language_list[code_language]
+            new_code_language = code_language_list[code_language]
         else:
             return False
 
         # 2. Syntax highlighter
-        self.highlighter.setDocument(None)
-        if code_language == "blink":
-            # Blink bg Colors
-            self.highlighter = KSBlinkHighlighter(self.script_editor.document())
-            self.highlighte.setStyle(self.color_style_blink)
-            self.setColorStyle("blink_default")
-        else:
-            self.highlighter = KSPythonHighlighter(self.script_editor.document())
-            self.setColorStyle("default")
+        if new_code_language != self.code_language:
+            self.highlighter.setDocument(None)
+            if code_language == "blink":
+                # Blink bg Colors
+                self.highlighter = blinkhighlighter.KSBlinkHighlighter(self.script_editor.document())
+                self.highlighter.setStyle(self.color_style_blink)
+                self.setColorStyle("blink_default")
+            else:
+                self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
+                self.setColorStyle("default")
+
+        self.code_language = new_code_language
 
         # 3. Menus
         self.run_script_button.setVisible(code_language != "blink")

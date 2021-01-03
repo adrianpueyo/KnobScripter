@@ -12,7 +12,8 @@ except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
 from ..scripteditor.ksscripteditor import KSScriptEditor
-from ..scripteditor.pythonhighlighter import KSPythonHighlighter
+from ..scripteditor import pythonhighlighter
+from ..scripteditor import blinkhighlighter
 
 # TODO these panels should be global and not depend on a single knobscripter? they can have it still, but only useful when adding the snippet etc (and it can ask which knobscripter to Pick)
 # TODO get the style from somewhere else, not the knobscripter
@@ -23,6 +24,7 @@ code_gallery_dict = {
             "desc": "Basic code structure for starting a Blink kernel.",
             "cat": ["Base codes"],
             "code": """\nkernel KernelName : ImageComputationKernel<ePixelWise>\n{\n  Image<eRead, eAccessPoint, eEdgeClamped> src;\n  Image<eWrite> dst;\n\n  param:\n\n\n  local:\n\n\n  void init() {\n\n  }\n\n  void process(int2 pos) {\n    dst() = src();\n  }\n};\n""",
+            "editor_height" : 40,
         },
         {
             "title": "Process function",
@@ -57,10 +59,17 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         if self.knobScripter:
             self.color_style_python = self.knobScripter.color_style_python
             self.color_style_blink = self.knobScripter.color_style_blink
+            self.script_editor_font = self.knobScripter.script_editor_font
         else:
             self.color_style_python = "sublime"
             self.color_style_blink = "default"
+            self.script_editor_font = QtGui.QFont()
+            self.script_editor_font.setFamily("Monospace")
+            self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
+            self.script_editor_font.setFixedPitch(True)
+            self.script_editor_font.setPointSize(self.fontSize)
         self.color_style_python = "sublime"
+
 
         self.setWindowTitle("Code Gallery + Snippet Editor")
 
@@ -102,6 +111,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         #master_layout.setSpacing(0)
         self.scroll_layout.addStretch()
 
+        self.layout.setContentsMargins(8,10,0,0)
         self.setLayout(self.layout)
 
     def build_gallery(self):
@@ -119,12 +129,25 @@ class CodeGalleryWidget(QtWidgets.QWidget):
                     cgi.setTitle(title)
 
                     # 2. Content
-                    highlighter = KSPythonHighlighter(cgi.script_editor.document())
-                    highlighter.setStyle(self.color_style_python)
+                    if lang.lower() == "blink":
+                        #highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
+                        #highlighter.setStyle(self.color_style_blink)
+                        pass
+                    elif lang.lower() == "python":
+                        highlighter = pythonhighlighter.KSPythonHighlighter(cgi.script_editor.document())
+                        highlighter.setStyle(self.color_style_python)
+
+                    cgi.script_editor.setFont(self.script_editor_font)
+
+                    if "editor_height" in code:
+                        cgi.setFixedHeight(cgi.top_layout.sizeHint().height()+40+code["editor_height"])
+                    else:
+                        cgi.setFixedHeight(cgi.top_layout.sizeHint().height()+140)
 
                     tg.content_layout.addWidget(cgi)
 
             self.scroll_layout.insertWidget(-1, tg)
+            self.scroll_layout.addSpacing(10)
 
     def filter_code(self, lang=None):
         """ Hide and show the widgets inside the scroll area based on selected parameters."""
@@ -176,9 +199,9 @@ class ToggableGroup(QtWidgets.QFrame):
         self.top_clickable_layout.setAlignment(Qt.AlignVCenter)
 
         # Together
-        top_layout = QtWidgets.QHBoxLayout()
-        top_layout.addWidget(self.top_clickable_widget)
-        top_layout.addLayout(self.top_right_layout)
+        self.top_layout = QtWidgets.QHBoxLayout()
+        self.top_layout.addWidget(self.top_clickable_widget)
+        self.top_layout.addLayout(self.top_right_layout)
 
         # 2. Main content area
         self.content_widget = QtWidgets.QFrame()
@@ -190,7 +213,7 @@ class ToggableGroup(QtWidgets.QFrame):
 
         # 3. Vertical layout of 1 and 2
         master_layout = QtWidgets.QVBoxLayout()
-        master_layout.addLayout(top_layout)
+        master_layout.addLayout(self.top_layout)
         master_layout.addWidget(self.content_widget)
 
         self.setLayout(master_layout)
@@ -199,6 +222,7 @@ class ToggableGroup(QtWidgets.QFrame):
         master_layout.setMargin(0)
         self.content_layout.setMargin(0)
         self.content_layout.setSizeConstraint(self.content_layout.SetNoConstraint)
+        self.setMinimumHeight(10)
         self.top_clickable_layout.setMargin(0)
 
     def setTitle(self,text=""):
@@ -246,9 +270,6 @@ class CodeGalleryItem(ToggableGroup):
 
         self.script_editor.setPlainText("function(2)")
 
-        grip_handle = GripHandle(self)
-        self.script_editor.setCornerWidget(grip_handle)
-
         #temp
         """
         sewidget = QtWidgets.QWidget()
@@ -263,10 +284,13 @@ class CodeGalleryItem(ToggableGroup):
 
         #self.content_layout.addWidget(self.script_editor)
         self.content_layout.addWidget(self.script_editor)
+        self.content_layout.setSpacing(1)
 
+        hline = HLine()
+        #hline.setStyleSheet("margin:0px;padding:0px;")
         self.grip_line = GripWidget(self, inner_widget=HLine())
+        self.grip_line.setStyleSheet("GripWidget:hover{border: 1px solid #DDD;}")
         self.grip_line.parent_min_size = (100,100)
-
         self.content_layout.addWidget(self.grip_line)
     
     def setCollapsed(self, collapsed=True):
@@ -279,8 +303,6 @@ class CodeGalleryItem(ToggableGroup):
 
         super(CodeGalleryItem, self).setCollapsed(collapsed)
 
-# TODO white lines on splitter line when hovering
-# TODO knobscripter font
 
 class GripWidget(QtWidgets.QFrame):
     def __init__(self, parent=None, inner_widget = None, resize_x=False, resize_y=True):
@@ -300,6 +322,7 @@ class GripWidget(QtWidgets.QFrame):
             cursor = Qt.SplitVCursor
 
         self.setCursor(QtGui.QCursor(cursor))
+
 
         self.parent = parent
         self.resize_x = resize_x
@@ -338,33 +361,6 @@ class HLine(QtWidgets.QFrame):
         self.setFrameStyle(QtWidgets.QFrame.HLine | QtWidgets.QFrame.Sunken)
         self.setLineWidth(1)
         self.setMidLineWidth(0)
-
-class GripHandle(QtWidgets.QPushButton):
-    def __init__(self,parent=None, resize_x = False, resize_y = True):
-        super(GripHandle, self).__init__(parent)
-        self.parent = parent
-        self.resize_x = resize_x
-        self.resize_y = resize_y
-        self.setMouseTracking(True)
-
-        self.click_pos = None
-        self.click_offset = None
-
-    def mousePressEvent(self, e):
-        self.click_pos = self.mapToParent(e.pos())
-        g = self.parent.geometry()
-        self.click_offset = [g.width()-self.click_pos.x(),g.height()-self.click_pos.y()]
-        super(GripHandle,self).mousePressEvent(e)
-
-    def mouseMoveEvent(self, e):
-        if self.isDown():
-            p = self.mapToParent(e.pos())
-            if self.resize_x:
-                self.parent.setFixedWidth(p.x()+self.click_offset[0])
-            if self.resize_y:
-                self.parent.setFixedHeight(p.y()+self.click_offset[1])
-
-    #TODO implement as horizontal line with scroll arrows instead of a stupid corner
 
 
 class ClickableWidget(QtWidgets.QFrame):

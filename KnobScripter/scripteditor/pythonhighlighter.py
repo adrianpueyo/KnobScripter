@@ -21,14 +21,17 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
 
     def __init__(self, document, style="sublime"):
 
-        super(KSPythonHighlighter, self).__init__(document)
         self.selected_text = ""
         self.selected_text_prev = ""
+
+        self.blocked = False
 
         self.styles = self.loadStyles()  # Holds a dict for each style
         self._style = style # Can be set via setStyle
         self.setStyle(self._style)  # Set default style
         # self.updateStyle()  # Load ks color scheme
+
+        super(KSPythonHighlighter, self).__init__(document)
 
     def loadStyles(self):
         ''' Loads the different sets of rules '''
@@ -39,36 +42,36 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             {
                 "title": "nuke",
                 "styles": {
-                    'base': self.format([255, 255, 255]),
-                    'keyword': self.format([238, 117, 181], 'bold'),
-                    'operator': self.format([238, 117, 181], 'bold'),
-                    'number': self.format([174, 129, 255]),
-                    'singleton': self.format([174, 129, 255]),
-                    'string': self.format([242, 136, 135]),
-                    'comment': self.format([143, 221, 144]),
+                    'base': ([255, 255, 255]),
+                    'keyword': ([238, 117, 181], 'bold'),
+                    'operator': ([238, 117, 181], 'bold'),
+                    'number': ([174, 129, 255]),
+                    'singleton': ([174, 129, 255]),
+                    'string': ([242, 136, 135]),
+                    'comment': ([143, 221, 144]),
                 },
                 "keywords": {},
             },
             {
                 "title": "sublime",
                 "styles": {
-                    'base': self.format([255, 255, 255]),
-                    'keyword': self.format([237, 36, 110]),
-                    'operator': self.format([237, 36, 110]),
-                    'string': self.format([237, 229, 122]),
-                    'comment': self.format([125, 125, 125]),
-                    'number': self.format([165, 120, 255]),
-                    'singleton': self.format([165, 120, 255]),
-                    'function': self.format([184, 237, 54]),
-                    'argument': self.format([255, 170, 10], 'italic'),
-                    'class': self.format([184, 237, 54]),
-                    'callable': self.format([130, 226, 255]),
-                    'error': self.format([130, 226, 255], 'italic'),
-                    'underline': self.format([240, 240, 240], 'underline'),
-                    'selected': self.format([255, 255, 255], 'bold underline'),
-                    'custom': self.format([200, 200, 200], 'italic'),
-                    'blue': self.format([130, 226, 255], 'italic'),
-                    'self': self.format([255, 170, 10], 'italic'),
+                    'base': ([255, 255, 255]),
+                    'keyword': ([237, 36, 110]),
+                    'operator': ([237, 36, 110]),
+                    'string': ([237, 229, 122]),
+                    'comment': ([125, 125, 125]),
+                    'number': ([165, 120, 255]),
+                    'singleton': ([165, 120, 255]),
+                    'function': ([184, 237, 54]),
+                    'argument': ([255, 170, 10], 'italic'),
+                    'class': ([184, 237, 54]),
+                    'callable': ([130, 226, 255]),
+                    'error': ([130, 226, 255], 'italic'),
+                    'underline': ([240, 240, 240], 'underline'),
+                    'selected': ([255, 255, 255], 'bold underline'),
+                    'custom': ([200, 200, 200], 'italic'),
+                    'blue': ([130, 226, 255], 'italic'),
+                    'self': ([255, 170, 10], 'italic'),
                 },
                 "keywords": {
                     'custom': ['nuke'],
@@ -90,13 +93,26 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         Given a dictionary of styles and keywords, returns the style as a dict
         '''
 
-        styles = style_dict["styles"]
+        styles = style_dict["styles"].copy()
 
         # 1. Base settings
         if "base" in styles:
             base_format = styles["base"]
         else:
             base_format = self.format([255, 255, 255])
+
+        for key in styles:
+            try:
+                styles[key] = self.format(styles[key][0], styles[key][1])
+            except:
+                styles[key] = self.format(styles[key])
+            """
+            if type(styles[key]) == list:
+                styles[key] = self.format(styles[key])
+            elif styles[key][1]:
+                styles[key] = self.format(styles[key][0],styles[key][1])
+            """
+            #TODO FIX THIS
 
         mainKeywords = [
             'and', 'assert', 'break', 'continue',
@@ -225,7 +241,6 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         '''
         Apply syntax highlighting to the given block of text.
         '''
-        self.updateStyle()
 
         for expression, nth, format in self.styles[self._style]["rules"]:
             index = expression.indexIn(text, 0)
@@ -234,7 +249,10 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
                 # We actually want the index of the nth match
                 index = expression.pos(nth)
                 length = len(expression.cap(nth))
-                self.setFormat(index, length, format)
+                try:
+                    self.setFormat(index, length, format)
+                except:
+                    return False
                 index = expression.indexIn(text, index + length)
 
         self.setCurrentBlockState(0)
@@ -245,12 +263,6 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             in_multiline = self.match_multiline(text, *self.styles[self._style]["tri_double"])
 
         # TODO if there's a selection, highlight same occurrences in the full document. If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
-
-    def updateStyle(self):
-        try:
-            self.setStyle(self.color_scheme)
-        except:
-            pass
 
     def setStyle(self, style_name="nuke"):
         if style_name in self.styles.keys():
