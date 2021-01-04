@@ -1,5 +1,6 @@
 import nuke
 import logging
+from functools import partial
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -14,6 +15,7 @@ except ImportError:
 from ..scripteditor.ksscripteditor import KSScriptEditor
 from ..scripteditor import pythonhighlighter
 from ..scripteditor import blinkhighlighter
+from .. import utils
 
 # TODO these panels should be global and not depend on a single knobscripter? they can have it still, but only useful when adding the snippet etc (and it can ask which knobscripter to Pick)
 # TODO get the style from somewhere else, not the knobscripter
@@ -100,6 +102,8 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
         self.layout.addWidget(self.scroll)
 
+        self.scroll.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
+
         #temp
         """
         tg = ToggableGroup(self)
@@ -110,6 +114,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.scroll_layout.setMargin(0)
         #master_layout.setSpacing(0)
         self.scroll_layout.addStretch()
+        #self.layout.addStretch()
 
         self.layout.setContentsMargins(8,10,0,0)
         self.setLayout(self.layout)
@@ -128,14 +133,17 @@ class CodeGalleryWidget(QtWidgets.QWidget):
                         title += "<br><small style='color:#999'>{}</small>".format(code["desc"])
                     cgi.setTitle(title)
 
+                    cgi.btn_insert_code.clicked.connect(partial(self.insert_code,cgi))
+
                     # 2. Content
                     if lang.lower() == "blink":
-                        #highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
-                        #highlighter.setStyle(self.color_style_blink)
-                        pass
+                        highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
+                        highlighter.setStyle(self.color_style_blink)
+                        self.knobScripter.setColorStyle("blink_default", cgi.script_editor)
                     elif lang.lower() == "python":
                         highlighter = pythonhighlighter.KSPythonHighlighter(cgi.script_editor.document())
                         highlighter.setStyle(self.color_style_python)
+                        self.knobScripter.setColorStyle("default", cgi.script_editor)
 
                     cgi.script_editor.setFont(self.script_editor_font)
 
@@ -152,6 +160,26 @@ class CodeGalleryWidget(QtWidgets.QWidget):
     def filter_code(self, lang=None):
         """ Hide and show the widgets inside the scroll area based on selected parameters."""
         return True
+
+    def insert_code(self, code_gallery_item):
+        """ Insert the code contained in code_gallery_item in the knobScripter's texteditmain. """
+        ks = None
+        utils.relistAllKnobScripterPanes()
+        if self.knobScripter in nuke.AllKnobScripters:
+            ks = self.knobScripter
+        elif len(nuke.AllKnobScripters):
+            for widget in nuke.AllKnobScripters:
+                if widget.metaObject().className() == 'KnobScripterPane' and widget.isVisible():
+                    ks = widget
+            if not ks:
+                ks = nuke.AllKnobScripters[-1]
+        else:
+            nuke.message("No KnobScripters found!")
+            return False
+
+        code = code_gallery_item.script_editor.toPlainText()
+        ks.script_editor.addSnippetText(code)
+
 
 
 # class CodeGalleryPane(CodeGallery)
@@ -248,15 +276,15 @@ class CodeGalleryItem(ToggableGroup):
 
         # Add buttons
         btn1_text = "Insert code"
-        btn1 = QtWidgets.QPushButton(btn1_text)
-        btn1.setMaximumWidth(btn1.fontMetrics().boundingRect(btn1_text).width() + 14)
+        self.btn_insert_code = QtWidgets.QPushButton(btn1_text)
+        self.btn_insert_code.setMaximumWidth(self.btn_insert_code.fontMetrics().boundingRect(btn1_text).width() + 14)
 
         btn2_text = "Save snippet"
-        btn2 = QtWidgets.QPushButton(btn2_text)
-        btn2.setMaximumWidth(btn1.fontMetrics().boundingRect(btn2_text).width() + 14)
+        self.btn_save_snippet = QtWidgets.QPushButton(btn2_text)
+        self.btn_save_snippet.setMaximumWidth(self.btn_save_snippet.fontMetrics().boundingRect(btn2_text).width() + 14)
 
-        self.top_right_layout.addWidget(btn1)
-        self.top_right_layout.addWidget(btn2)
+        self.top_right_layout.addWidget(self.btn_insert_code)
+        self.top_right_layout.addWidget(self.btn_save_snippet)
 
         # Add content
         self.script_editor = KSScriptEditor()

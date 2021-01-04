@@ -1774,6 +1774,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         global CodeGalleryPanel
         if CodeGalleryPanel == "":
             CodeGalleryPanel = GalleryAndSnippets(self, self._parent)
+        else:
+            CodeGalleryPanel.setKnobScripter(self)
 
         # if not CodeGalleryPanel.isVisible():
         #    CodeGalleryPanel.reload()
@@ -2039,6 +2041,12 @@ class GalleryAndSnippets(QtWidgets.QDialog):  # TODO Rename to multipanel
 
         master_layout.addWidget(tabWidget)
         self.setLayout(master_layout)
+
+    def setKnobScripter(self, knobScripter = None):
+        self.code_gallery.knobScripter = knobScripter
+        self.snippet_editor.knobScripter = knobScripter
+        self.ks_prefs.knobScripter = knobScripter
+        self.knobScripter = knobScripter
 
 
 # --------------------------------

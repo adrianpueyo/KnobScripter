@@ -42,36 +42,36 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             {
                 "title": "nuke",
                 "styles": {
-                    'base': ([255, 255, 255]),
-                    'keyword': ([238, 117, 181], 'bold'),
-                    'operator': ([238, 117, 181], 'bold'),
-                    'number': ([174, 129, 255]),
-                    'singleton': ([174, 129, 255]),
-                    'string': ([242, 136, 135]),
-                    'comment': ([143, 221, 144]),
+                    'base': self.format([255, 255, 255]),
+                    'keyword': self.format([238, 117, 181], 'bold'),
+                    'operator': self.format([238, 117, 181], 'bold'),
+                    'number': self.format([174, 129, 255]),
+                    'singleton': self.format([174, 129, 255]),
+                    'string': self.format([242, 136, 135]),
+                    'comment': self.format([143, 221, 144]),
                 },
                 "keywords": {},
             },
             {
                 "title": "sublime",
                 "styles": {
-                    'base': ([255, 255, 255]),
-                    'keyword': ([237, 36, 110]),
-                    'operator': ([237, 36, 110]),
-                    'string': ([237, 229, 122]),
-                    'comment': ([125, 125, 125]),
-                    'number': ([165, 120, 255]),
-                    'singleton': ([165, 120, 255]),
-                    'function': ([184, 237, 54]),
-                    'argument': ([255, 170, 10], 'italic'),
-                    'class': ([184, 237, 54]),
-                    'callable': ([130, 226, 255]),
-                    'error': ([130, 226, 255], 'italic'),
-                    'underline': ([240, 240, 240], 'underline'),
-                    'selected': ([255, 255, 255], 'bold underline'),
-                    'custom': ([200, 200, 200], 'italic'),
-                    'blue': ([130, 226, 255], 'italic'),
-                    'self': ([255, 170, 10], 'italic'),
+                    'base': self.format([255, 255, 255]),
+                    'keyword': self.format([237, 36, 110]),
+                    'operator': self.format([237, 36, 110]),
+                    'string': self.format([237, 229, 122]),
+                    'comment': self.format([125, 125, 125]),
+                    'number': self.format([165, 120, 255]),
+                    'singleton': self.format([165, 120, 255]),
+                    'function': self.format([184, 237, 54]),
+                    'argument': self.format([255, 170, 10], 'italic'),
+                    'class': self.format([184, 237, 54]),
+                    'callable': self.format([130, 226, 255]),
+                    'error': self.format([130, 226, 255], 'italic'),
+                    'underline': self.format([240, 240, 240], 'underline'),
+                    'selected': self.format([255, 255, 255], 'bold underline'),
+                    'custom': self.format([200, 200, 200], 'italic'),
+                    'blue': self.format([130, 226, 255], 'italic'),
+                    'self': self.format([255, 170, 10], 'italic'),
                 },
                 "keywords": {
                     'custom': ['nuke'],
@@ -82,6 +82,7 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
                 },
             }
         ]
+        # TODO separate the format before the loadstyle thing. should be done here before looping.
         for style_dict in default_styles_list:
             if all(k in style_dict.keys() for k in ["title", "styles"]):
                 styles[style_dict["title"]] = self.loadStyle(style_dict)
@@ -100,19 +101,23 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             base_format = styles["base"]
         else:
             base_format = self.format([255, 255, 255])
-
+        """
         for key in styles:
+            '''
             try:
                 styles[key] = self.format(styles[key][0], styles[key][1])
             except:
                 styles[key] = self.format(styles[key])
-            """
-            if type(styles[key]) == list:
-                styles[key] = self.format(styles[key])
-            elif styles[key][1]:
-                styles[key] = self.format(styles[key][0],styles[key][1])
-            """
-            #TODO FIX THIS
+            '''
+            try:
+                if isinstance(styles[key],list):
+                    styles[key] = self.format(styles[key])
+                else:
+                    styles[key] = self.format(*styles[key])
+            except:
+                print type(styles[key])
+        """
+
 
         mainKeywords = [
             'and', 'assert', 'break', 'continue',

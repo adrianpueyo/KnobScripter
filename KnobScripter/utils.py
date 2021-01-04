@@ -124,3 +124,17 @@ def consoleChanged(self):
             ks_output.verticalScrollBar().setValue(ks_output.verticalScrollBar().maximum())
         except:
             pass
+
+
+def relistAllKnobScripterPanes():
+    """ Removes from nuke.AllKnobScripters the panes that are closed. """
+    def topParent(qwidget):
+        parent = qwidget.parent()
+        if not parent:
+            return qwidget
+        else:
+            return topParent(parent)
+    for ks in nuke.AllKnobScripters:
+        if ks.isPane:
+            if topParent(ks).metaObject().className() != "Foundry::UI::DockMainWindow":
+                nuke.AllKnobScripters.remove(ks)
