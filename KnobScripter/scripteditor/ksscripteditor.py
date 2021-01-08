@@ -11,6 +11,9 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
+from .. import config
+
+
 
 class KSScriptEditor(QtWidgets.QPlainTextEdit):
     '''
@@ -27,10 +30,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         self.selected_text = ""
 
         # Setup line numbers
-        if self.knobScripter != "":
-            self.tabSpaces = self.knobScripter.tabSpaces
-        else:
-            self.tabSpaces = 4
+        self.tabSpaces = config.prefs["se_tab_spaces"]
 
         self.lineColor = QtGui.QColor(62, 62, 62, 255)  # Default bg color for selected line
         self.lineNumberAreaColor = QtGui.QColor(36, 36, 36)  # Default
@@ -90,13 +90,10 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
         painter.setPen(self.palette().color(QtGui.QPalette.Text))
 
-        painterFont = QtGui.QFont()
-        painterFont.setFamily("Courier")
-        painterFont.setStyleHint(QtGui.QFont.Monospace)
-        painterFont.setFixedPitch(True)
+        painterFont = config.script_editor_font
         if self.knobScripter != "":
-            painterFont.setPointSize(self.knobScripter.fontSize)
-            painter.setFont(self.knobScripter.script_editor_font)
+            painterFont.setPointSize(self.knobScripter.font_size)
+        painter.setFont(painterFont)
 
         while (block.isValid() and top <= event.rect().bottom()):
 
@@ -548,6 +545,26 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
         return textFormat
 
+    def setColorStyle(self, style=None):
+        '''
+        Change bg and text color configurations regarding the editor style. This doesn't change the syntax highlighter
+        '''
+        styles = config.script_editor_styles
+
+        if not style:
+            style = config.script_editor_style
+
+        if style not in styles:
+            return False
+
+        self.setStyleSheet(styles[style]["stylesheet"])
+        self.lineColor = QtGui.QColor(*styles[style]["selected_line_color"])
+        self.lineNumberAreaColor = QtGui.QColor(*styles[style]["lineNumberAreaColor"])
+        self.lineNumberColor = QtGui.QColor(*styles[style]["lineNumberColor"])
+        self.currentLineNumberColor = QtGui.QColor(*styles[style]["currentLineNumberColor"])
+        self.highlightCurrentLine()
+        self.scrollToCursor()
+        return True
 
 class KSLineNumberArea(QtWidgets.QWidget):
     def __init__(self, scriptEditor):

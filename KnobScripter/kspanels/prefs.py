@@ -227,7 +227,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         self.knobScripter.runInContext = self.contextDefaultValue()
         self.knobScripter.runInContextAct.setChecked(self.contextDefaultValue())
         self.knobScripter.tabSpaces = self.tabSpaceValue()
-        self.knobScripter.script_editor.tabSpaces = self.tabSpaceValue()
+        self.knobScripter.script_editor.tab_spaces = self.tabSpaceValue()
         with open(self.prefs_txt, "w") as f:
             prefs = json.dump(ks_prefs, f, sort_keys=True, indent=4)
         self.accept()

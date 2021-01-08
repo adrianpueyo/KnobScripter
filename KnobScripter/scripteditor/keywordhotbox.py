@@ -102,7 +102,7 @@ class KeywordHotboxButton(QtWidgets.QLabel):
         self.parent = parent
 
         try:
-            self.knobScripter = parent.script_editor.knobScripter
+            self.knobScripter = parent.script_editor.knob_scripter
         except:
             self.knobScripter = None
 

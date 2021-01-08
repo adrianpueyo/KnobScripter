@@ -1,6 +1,7 @@
 import nuke
 import logging
 from functools import partial
+import json
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -16,7 +17,11 @@ from ..scripteditor.ksscripteditor import KSScriptEditor
 from ..scripteditor import pythonhighlighter
 from ..scripteditor import blinkhighlighter
 from .. import utils
+import dialogs
+import snippets
+from .. import config
 
+# TODO Flat is better than nested, bring panels up!
 # TODO these panels should be global and not depend on a single knobscripter? they can have it still, but only useful when adding the snippet etc (and it can ask which knobscripter to Pick)
 # TODO get the style from somewhere else, not the knobscripter
 code_gallery_dict = {
@@ -59,19 +64,14 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
         self.knobScripter = knobScripter
         if self.knobScripter:
-            self.color_style_python = self.knobScripter.color_style_python
-            self.color_style_blink = self.knobScripter.color_style_blink
             self.script_editor_font = self.knobScripter.script_editor_font
         else:
-            self.color_style_python = "sublime"
-            self.color_style_blink = "default"
             self.script_editor_font = QtGui.QFont()
             self.script_editor_font.setFamily("Monospace")
             self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
             self.script_editor_font.setFixedPitch(True)
             self.script_editor_font.setPointSize(self.fontSize)
         self.color_style_python = "sublime"
-
 
         self.setWindowTitle("Code Gallery + Snippet Editor")
 
@@ -134,16 +134,17 @@ class CodeGalleryWidget(QtWidgets.QWidget):
                     cgi.setTitle(title)
 
                     cgi.btn_insert_code.clicked.connect(partial(self.insert_code,cgi))
+                    cgi.btn_save_snippet.clicked.connect(partial(self.save_snippet,cgi))
 
                     # 2. Content
                     if lang.lower() == "blink":
                         highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
-                        highlighter.setStyle(self.color_style_blink)
-                        self.knobScripter.setColorStyle("blink_default", cgi.script_editor)
+                        highlighter.setStyle(config.code_style_blink)
+                        cgi.script_editor.setColorStyle("blink_default", cgi.script_editor)
                     elif lang.lower() == "python":
                         highlighter = pythonhighlighter.KSPythonHighlighter(cgi.script_editor.document())
-                        highlighter.setStyle(self.color_style_python)
-                        self.knobScripter.setColorStyle("default", cgi.script_editor)
+                        highlighter.setStyle(config.code_style_python)
+                        cgi.script_editor.setColorStyle("default", cgi.script_editor)
 
                     cgi.script_editor.setFont(self.script_editor_font)
 
@@ -179,6 +180,19 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
         code = code_gallery_item.script_editor.toPlainText()
         ks.script_editor.addSnippetText(code)
+
+    def save_snippet(self, code_gallery_item, shortcode = ""):
+        """ Save the current code as a snippet (by introducing a shortcode) """
+        # while...
+        # 1. Ask for the shortcode
+        return
+
+
+        # 2. Try to save it!
+        snippets.appendSnippet()
+
+        # 3. Find the ks and refresh it
+        #TODO: Snippets should refresh every time the window shows? Maybe not
 
 
 

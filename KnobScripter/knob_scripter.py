@@ -54,7 +54,8 @@ nuke.KnobScripterPrefs = {
 
 # ks imports
 from info import __version__, __date__
-from kspanels.snippets import SnippetsPanel
+import config
+from kspanels import snippets
 from kspanels.codegallery import CodeGalleryWidget
 from kspanels.prefs import KnobScripterPrefs
 from kspanels.dialogs import FileNameDialog, ChooseNodeDialog
@@ -67,9 +68,43 @@ from utils import killPaneMargins, findSE, findSEInput, findSEConsole, findSERun
 
 logging.basicConfig(level=logging.DEBUG)
 
+
+# TODO: Move the next things (all the initializations) into a different script! leave this one just for the knob_scripter widget etc. All global vars etc go elsewhere. In a way that a KS widget is not needed in order to have the font setup etc, like in the preferences panel and snippets etc
 nuke.tprint(
     'KnobScripter v{}, built {}.\nCopyright (c) 2016-2020 Adrian Pueyo. All Rights Reserved.'.format(__version__, __date__))
 logging.debug('Initializing KnobScripter')
+
+# Init config.script_editor_font (will be overwritten once reading the prefs)
+config.script_editor_font = QtGui.QFont()
+config.script_editor_font.setFamily(config.prefs["se_font_family"])
+config.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
+config.script_editor_font.setFixedPitch(True)
+config.script_editor_font.setPointSize(config.prefs["se_font_size"])
+
+def loadPrefs():
+    ''' Load prefs json file '''
+    path = config.prefs_txt_path
+    if not os.path.isfile(path):
+        return []
+    else:
+        with open(path, "r") as f:
+            prefs = json.load(f)
+            return prefs
+
+loaded_prefs = loadPrefs()
+for pref in loaded_prefs:
+    config.prefs[pref] = loaded_prefs[pref]
+
+# TODO ctrl + +/- for live-changing the font size just for the current script editor????? nice
+
+def is_blink_knob(knob):
+    ''' Return True if knob is Blink type '''
+    node = knob.node()
+    kn = knob.name()
+    if kn in ["kernelSource"] and node.Class() in ["BlinkScript"]:
+        return True
+    else:
+        return False
 
 
 class KnobScripterWidget(QtWidgets.QDialog):
@@ -113,12 +148,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.modifiedKnobs = set()
         self.scrollPos = {}
         self.cursorPos = {}
-        self.fontSize = 10
-        self.font = "Monospace"
-        self.tabSpaces = 4
-        self.windowDefaultSize = [500, 300]
-        self.color_style_python = "nuke"  # Can be nuke, sublime...
-        self.color_style_blink = "default"  # Can be nuke, sublime...
+        self.font_size = config.prefs["se_font_size"] #Can potentially be changed at runtime per ks instance
         self.toLoadKnob = True
         self.frw_open = False  # Find replace widget closed by default
         self.icon_size = 17
@@ -131,9 +161,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.nukeSEInput = findSEInput(self.nukeSE)
         self.nukeSERunBtn = findSERunBtn(self.nukeSE)
 
-        self.scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
-        self.blink_dir = os.path.expandvars(os.path.expanduser(
-            "~/.nuke/KnobScripter_Scripts"))  # TODO enable a different default folder to be set on Preferences
         self.current_folder = "scripts"
         self.folder_index = 0
         self.current_script = "Untitled.py"
@@ -147,34 +174,14 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.defaultKnobs = ["knobChanged", "onCreate", "onScriptLoad", "onScriptSave", "onScriptClose", "onDestroy",
                              "updateUI", "autolabel", "beforeRender", "beforeFrameRender", "afterFrameRender",
                              "afterRender"]
-        self.permittedKnobClasses = ["PyScript_Knob", "PythonCustomKnob"]
+        self.python_knob_classes = ["PyScript_Knob", "PythonCustomKnob"]
 
         # Load prefs
-        self.prefs_txt = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Prefs.txt"))
-        self.loadedPrefs = self.loadPrefs()
-        if self.loadedPrefs != []:
-            try:
-                if "font_size" in self.loadedPrefs:
-                    self.fontSize = self.loadedPrefs['font_size']
-                self.windowDefaultSize = [self.loadedPrefs['window_default_w'], self.loadedPrefs['window_default_h']]
-                self.tabSpaces = self.loadedPrefs['tab_spaces']
-                if "font" in self.loadedPrefs:
-                    self.font = self.loadedPrefs['font']
-                if "color_scheme" in self.loadedPrefs:
-                    self.color_scheme = self.loadedPrefs['color_scheme']
-                if "show_labels" in self.loadedPrefs:
-                    self.show_labels = self.loadedPrefs['show_labels']
-                if "context_default" in self.loadedPrefs:
-                    self.runInContext = self.loadedPrefs['context_default']
-            except TypeError:
-                logging.debug("KnobScripter: Failed to load preferences.")
+        # TODO THIS SHOULD JUST RELOAD THEM? OR ACTIVATE THE GLOBAL LOADPREFS
+        # self.loadedPrefs = self.loadPrefs()
 
         # Load snippets
-        self.snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Snippets.txt"))
-        self.snippets = self.loadSnippets(maxDepth=5)
-
-        # Current state of script (loaded when exiting node mode)
-        self.state_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_State.txt"))
+        self.snippets = snippets.loadAllSnippets(max_depth=5)
 
         # Init UI
         self.initUI()
@@ -187,7 +194,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # -------------------
         # 1. MAIN WINDOW
         # -------------------
-        self.resize(self.windowDefaultSize[0], self.windowDefaultSize[1])
+        self.resize(config.prefs["ks_default_size"][0], config.prefs["ks_default_size"][1])
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(), self.knob))
         self.setObjectName("com.adrianpueyo.knobscripter")
         self.move(QtGui.QCursor().pos() - QtCore.QPoint(32, 74))
@@ -428,7 +435,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.script_output = ScriptOutputWidget(parent=self)
         self.script_output.setReadOnly(1)
         self.script_output.setAcceptRichText(0)
-        if self.tabSpaces != 0:
+        if config.prefs["se_tab_spaces"] != 0:
             self.script_output.setTabStopWidth(self.script_output.tabStopWidth() / 4)
         self.script_output.setFocusPolicy(Qt.ClickFocus)
         self.script_output.setAutoFillBackground(0)
@@ -440,16 +447,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
         self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
-        self.highlighter.setStyle(self.color_style_python)
+        self.highlighter.setStyle(config.prefs["code_style_python"])
         self.script_editor.cursorPositionChanged.connect(self.setTextSelection)
-        self.script_editor_font = QtGui.QFont()
-        self.script_editor_font.setFamily(self.font)
-        self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
-        self.script_editor_font.setFixedPitch(True)
-        self.script_editor_font.setPointSize(self.fontSize)
-        self.script_editor.setFont(self.script_editor_font)
-        if self.tabSpaces != 0:
-            self.script_editor.setTabStopWidth(self.tabSpaces * QtGui.QFontMetrics(self.script_editor_font).width(' '))
+
+        self.script_editor.setFont(config.script_editor_font)
+
+        if config.prefs["se_tab_spaces"] != 0:
+            self.script_editor.setTabStopWidth(config.prefs["se_tab_spaces"] * QtGui.QFontMetrics(config.script_editor_font).width(' '))
 
         # Add input and output to splitter
         self.splitter.addWidget(self.script_output)
@@ -627,8 +631,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         counter = 0
 
         for i in self.node.knobs():
-            if i not in self.defaultKnobs and self.node.knob(i).Class() in self.permittedKnobClasses:
-                if i == "kernelSource" and self.node.Class() == "BlinkScript":
+            k = self.node.knob(i)
+            if i not in self.defaultKnobs and self.node.knob(i).Class() in self.python_knob_classes:
+                if is_blink_knob(k):
                     i_full = "Blinkscript Code (kernelSource)"
                 elif self.show_labels:
                     i_full = "{} ({})".format(self.node.knob(i).label(), i)
@@ -915,7 +920,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             return None
         if knobName == "kernelSource" and node.Class() == "BlinkScript":
             return "blink"
-        elif knobName in self.defaultKnobs or node.knob(knobName).Class() in self.permittedKnobClasses:
+        elif knobName in self.defaultKnobs or node.knob(knobName).Class() in self.python_knob_classes:
             return "python"
         else:
             return None
@@ -940,13 +945,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if new_code_language != self.code_language:
             self.highlighter.setDocument(None)
             if code_language == "blink":
-                # Blink bg Colors
                 self.highlighter = blinkhighlighter.KSBlinkHighlighter(self.script_editor.document())
-                self.highlighter.setStyle(self.color_style_blink)
-                self.setColorStyle("blink_default")
+                self.highlighter.setStyle(config.prefs["code_style_blink"])
+                self.script_editor.setColorStyle("blink_default")
             else:
                 self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
-                self.setColorStyle("default")
+                self.highlighter.setStyle(config.prefs["code_style_python"])
+                self.script_editor.setColorStyle("default")
 
         self.code_language = new_code_language
 
@@ -955,43 +960,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.clear_console_button.setVisible(code_language != "blink")
         self.save_recompile_button.setVisible(code_language == "blink")
         self.backup_button.setVisible(code_language == "blink")
-
-    def setColorStyle(self, style="default", script_editor=""):
-        '''
-        Change bg and text color configurations regarding the editor style. This doesn't change the syntax highlighter
-        '''
-        if script_editor == "":
-            script_editor = self.script_editor
-
-        styles = {
-            "default": {
-                "stylesheet": 'background:#282828;color:#EEE;',
-                "selected_line_color": QtGui.QColor(62, 62, 62, 255),
-                "lineNumberAreaColor": QtGui.QColor(36, 36, 36),
-                "lineNumberColor": QtGui.QColor(110, 110, 110),
-                "currentLineNumberColor": QtGui.QColor(255, 170, 0),  # TODO: add scrollbar color
-            },
-            "blink_default": {
-                "stylesheet": 'background:#505050;color:#DEDEDE;',
-                "selected_line_color": QtGui.QColor(110, 110, 110, 255),
-                "lineNumberAreaColor": QtGui.QColor(72, 72, 72),
-                "lineNumberColor": QtGui.QColor(34, 34, 34),
-                "currentLineNumberColor": QtGui.QColor(255, 255, 255),
-            }
-        }
-
-        if style not in styles:
-            style = "default"
-
-        script_editor.setStyleSheet(styles[style]["stylesheet"])
-        script_editor.lineColor = (styles[style]["selected_line_color"])
-        script_editor.lineNumberAreaColor = (styles[style]["lineNumberAreaColor"])
-        script_editor.lineNumberColor = (styles[style]["lineNumberColor"])
-        script_editor.currentLineNumberColor = (styles[style]["currentLineNumberColor"])
-        script_editor.highlightCurrentLine()
-        script_editor.scrollToCursor()
-
-        return
 
     def blinkSaveRecompile(self):
         '''
@@ -1037,8 +1005,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
             counter += 1
 
         try:
-            scriptFolders = sorted([f for f in os.listdir(self.scripts_dir) if
-                                    os.path.isdir(os.path.join(self.scripts_dir, f))])  # Accepts symlinks!!!
+            scriptFolders = sorted([f for f in os.listdir(config.scripts_dir) if
+                                    os.path.isdir(os.path.join(config.scripts_dir, f))])  # Accepts symlinks!!!
         except:
             logging.debug("Couldn't read any script folders.")
 
@@ -1069,11 +1037,11 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.current_script_dropdown.clear()  # First remove all items
         QtWidgets.QApplication.processEvents()
         logging.debug("# Updating scripts dropdown...")
-        logging.debug("scripts dir:" + self.scripts_dir)
+        logging.debug("scripts dir:" + config.scripts_dir)
         logging.debug("current folder:" + self.current_folder)
         logging.debug("previous current script:" + self.current_script)
         # current_folder = self.current_folder_dropdown.itemData(self.current_folder_dropdown.currentIndex())
-        current_folder_path = os.path.join(self.scripts_dir, self.current_folder)
+        current_folder_path = os.path.join(config.scripts_dir, self.current_folder)
         defaultScripts = ["Untitled.py"]
         found_scripts = []
         found_temp_scripts = []
@@ -1125,7 +1093,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         return
 
     def makeScriptFolder(self, name="scripts"):
-        folder_path = os.path.join(self.scripts_dir, name)
+        folder_path = os.path.join(config.scripts_dir, name)
         if not os.path.exists(folder_path):
             try:
                 os.makedirs(folder_path)
@@ -1135,7 +1103,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 return False
 
     def makeScriptFile(self, name="Untitled.py", folder="scripts", empty=True):
-        script_path = os.path.join(self.scripts_dir, self.current_folder, name)
+        script_path = os.path.join(config.scripts_dir, self.current_folder, name)
         if not os.path.isfile(script_path):
             try:
                 self.current_script_file = open(script_path, 'w')
@@ -1173,7 +1141,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         obtained_cursorPosValue = [0, 0]  # Position, anchor
         if folder == "":
             folder = self.current_folder
-        script_path = os.path.join(self.scripts_dir, folder, self.current_script)
+        script_path = os.path.join(config.scripts_dir, folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         if (self.current_folder + "/" + self.current_script) in self.scrollPos:
             obtained_scrollValue = self.scrollPos[self.current_folder + "/" + self.current_script]
@@ -1260,7 +1228,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         logging.debug("Temp mode is: " + str(temp))
         logging.debug("self.current_folder: " + self.current_folder)
         logging.debug("self.current_script: " + self.current_script)
-        script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+        script_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         orig_content = ""
         content = self.script_editor.toPlainText()
@@ -1299,7 +1267,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         logging.debug("# About to delete the .py and/or autosave script now.")
         if folder == "":
             folder = self.current_folder
-        script_path = os.path.join(self.scripts_dir, folder, self.current_script)
+        script_path = os.path.join(config.scripts_dir, folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         if check:
             msgBox = QtWidgets.QMessageBox()
@@ -1338,7 +1306,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             if panel.exec_():
                 # Accepted
                 folder_name = panel.text
-                if os.path.isdir(os.path.join(self.scripts_dir, folder_name)):
+                if os.path.isdir(os.path.join(config.scripts_dir, folder_name)):
                     self.messageBox("Folder already exists.")
                     self.setCurrentFolder(self.current_folder)
                 if self.makeScriptFolder(name=folder_name):
@@ -1362,7 +1330,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 return
 
         elif fd_data == "open in browser":
-            current_folder_path = os.path.join(self.scripts_dir, self.current_folder)
+            current_folder_path = os.path.join(config.scripts_dir, self.current_folder)
             self.openInFileBrowser(current_folder_path)
             self.current_folder_dropdown.blockSignals(True)
             self.current_folder_dropdown.setCurrentIndex(self.folder_index)
@@ -1382,7 +1350,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                     self.messageBox("Folder with the same name already exists. Please delete or rename it first.")
                 else:
                     # All good
-                    os.symlink(folder_path, os.path.join(self.scripts_dir, aliasName))
+                    os.symlink(folder_path, os.path.join(config.scripts_dir, aliasName))
                     self.saveScriptContents(temp=True)
                     self.current_folder = aliasName
                     self.updateFoldersDropdown()
@@ -1424,7 +1392,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             if panel.exec_():
                 # Accepted
                 script_name = panel.text + ".py"
-                script_path = os.path.join(self.scripts_dir, self.current_folder, script_name)
+                script_path = os.path.join(config.scripts_dir, self.current_folder, script_name)
                 logging.debug(script_name)
                 logging.debug(script_path)
                 if os.path.isfile(script_path):
@@ -1451,8 +1419,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         elif sd_data == "create duplicate":
             self.current_script_dropdown.blockSignals(True)
-            current_folder_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
-            current_script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+            current_folder_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
+            current_script_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
 
             current_name = self.current_script
             if self.current_script.endswith(".py"):
@@ -1461,7 +1429,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             test_name = current_name
             while True:
                 test_name += "_copy"
-                new_script_path = os.path.join(self.scripts_dir, self.current_folder, test_name + ".py")
+                new_script_path = os.path.join(config.scripts_dir, self.current_folder, test_name + ".py")
                 if not os.path.isfile(new_script_path):
                     break
 
@@ -1482,7 +1450,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.current_script_dropdown.blockSignals(False)
 
         elif sd_data == "open in browser":
-            current_script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
+            current_script_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
             self.openInFileBrowser(current_script_path)
             self.current_script_dropdown.blockSignals(True)
             self.current_script_dropdown.setCurrentIndex(self.script_index)
@@ -1545,10 +1513,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
         SAVES self.scroll_pos, self.cursor_pos, self.last_open_script
         '''
         self.state_dict = {}
-        if not os.path.isfile(self.state_txt_path):
+        if not os.path.isfile(config.state_txt_path):
             return False
         else:
-            with open(self.state_txt_path, "r") as f:
+            with open(config.state_txt_path, "r") as f:
                 self.state_dict = json.load(f)
 
         logging.debug("Loading script state into self.state_dict, self.scrollPos, self.cursorPos")
@@ -1593,8 +1561,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         logging.debug("About to save script state...")
         '''
         # self.state_dict = {}
-        if os.path.isfile(self.state_txt_path):
-            with open(self.state_txt_path, "r") as f:
+        if os.path.isfile(config.state_txt_path):
+            with open(config.state_txt_path, "r") as f:
                 self.state_dict = json.load(f)
 
         if "scroll_pos" in self.state_dict:
@@ -1615,7 +1583,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.state_dict['last_script'] = self.current_script
         self.state_dict['splitter_sizes'] = self.splitter.sizes()
 
-        with open(self.state_txt_path, "w") as f:
+        with open(config.state_txt_path, "w") as f:
             state = json.dump(self.state_dict, f, sort_keys=True, indent=4)
         return state
 
@@ -1760,13 +1728,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
         ''' Whenever the 'snippets' button is pressed... open the panel '''
         global SnippetEditPanel
         if SnippetEditPanel == "":
-            SnippetEditPanel = SnippetsPanel(self, self._parent)
+            SnippetEditPanel = snippets.SnippetsPanel(self, self._parent)
 
         if not SnippetEditPanel.isVisible():
             SnippetEditPanel.reload()
 
         if SnippetEditPanel.show():
-            self.snippets = self.loadSnippets(maxDepth=5)
+            self.snippets = self.loadAllSnippets(max_depth=5)
             SnippetEditPanel = ""
 
     def openCodeGallery(self):
@@ -1783,29 +1751,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if CodeGalleryPanel.show():
             # Something else to do when clicking OK?
             CodeGalleryPanel = ""
-
-    def loadSnippets(self, path="", maxDepth=5, depth=0):
-        '''
-        Load prefs recursive. When maximum recursion depth, ignores paths.
-        '''
-        max_depth = maxDepth
-        cur_depth = depth
-        if path == "":
-            path = self.snippets_txt_path
-        if not os.path.isfile(path):
-            return {}
-        else:
-            loaded_snippets = {}
-            with open(path, "r") as f:
-                file = json.load(f)
-                for i, (key, val) in enumerate(file.items()):
-                    if re.match(r"\[custom-path-[0-9]+]$", key):
-                        if cur_depth < max_depth:
-                            new_dict = self.loadSnippets(path=val, maxDepth=max_depth, depth=cur_depth + 1)
-                            loaded_snippets.update(new_dict)
-                    else:
-                        loaded_snippets[key] = val
-                return loaded_snippets
 
     def messageBox(self, the_text=""):
         ''' Just a simple message box '''
@@ -2025,7 +1970,7 @@ class GalleryAndSnippets(QtWidgets.QDialog):  # TODO Rename to multipanel
         tabWidget = QtWidgets.QTabWidget()
 
         self.code_gallery = CodeGallery(self.knobScripter, None)
-        self.snippet_editor = SnippetsPanel(self.knobScripter,
+        self.snippet_editor = snippets.SnippetsPanel(self.knobScripter,
                                             None)  # TODO The widget (not panel mode) shouldn't have the OK button etc. Only apply... OK doesn't really make sense in this context, right? or it can be below everything? or simply the OK button closes the full panel (parent) too and thats it
         self.ks_prefs = KnobScripterPrefs(self.knobScripter, None)
         # TODO ADD PREFERENCES IN A THIRD TAB!!!!!!
@@ -2044,7 +1989,7 @@ class GalleryAndSnippets(QtWidgets.QDialog):  # TODO Rename to multipanel
 
     def setKnobScripter(self, knobScripter = None):
         self.code_gallery.knobScripter = knobScripter
-        self.snippet_editor.knobScripter = knobScripter
+        self.snippet_editor.knob_scripter = knobScripter
         self.ks_prefs.knobScripter = knobScripter
         self.knobScripter = knobScripter
 

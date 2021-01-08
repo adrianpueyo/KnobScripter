@@ -11,6 +11,20 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
+def ask(question, parent=None, default_yes = True):
+    msgBox = QtWidgets.QMessageBox(parent=parent)
+    msgBox.setText(question)
+    msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+    msgBox.setIcon(QtWidgets.QMessageBox.Question)
+    msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+    if default_yes:
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
+    else:
+        msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
+    reply = msgBox.exec_()
+    return reply == QtWidgets.QMessageBox.Yes
+
+
 
 class FileNameDialog(QtWidgets.QDialog):
     '''
@@ -83,13 +97,10 @@ class TextInputDialog(QtWidgets.QDialog):
     Simple dialog for a text input.
     '''
     def __init__(self, parent = None, name = "", text = "", title=""):
-        if parent.isPane:
-            super(TextInputDialog, self).__init__()
-        else:
-            super(TextInputDialog, self).__init__(parent)
+        super(TextInputDialog, self).__init__(parent)
 
-        self.name = name #title of textinput
-        self.text = text #default content of textinput
+        self.name = name # title of textinput
+        self.text = text # default content of textinput
 
         self.setWindowTitle(title)
 
