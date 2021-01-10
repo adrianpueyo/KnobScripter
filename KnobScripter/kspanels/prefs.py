@@ -1,6 +1,7 @@
 import json
 import nuke
 from ..info import __version__, __author__, __date__
+from .. import config
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -19,13 +20,10 @@ class KnobScripterPrefs(QtWidgets.QDialog):
 
         # Vars
         self.knobScripter = knobScripter
-        self.prefs_txt = self.knobScripter.prefs_txt
-        self.oldFontSize = self.knobScripter.script_editor_font.pointSize()
-        self.oldFont = self.knobScripter.script_editor_font.family()
-        self.oldScheme = self.knobScripter.color_scheme
+        self.oldFontSize = config.script_editor_font.pointSize()
+        self.oldFont = config.script_editor_font.family()
+        self.oldScheme = config.prefs["code_style_python"]
         self.font = self.oldFont
-        self.oldDefaultW = self.knobScripter.windowDefaultSize[0]
-        self.oldDefaultH = self.knobScripter.windowDefaultSize[1]
 
         # Widgets
         kspTitle = QtWidgets.QLabel("KnobScripter v" + __version__)
@@ -65,7 +63,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         windowWLabel = QtWidgets.QLabel("Width (px):")
         windowWLabel.setToolTip("Default window width in pixels")
         self.windowWBox = QtWidgets.QSpinBox()
-        self.windowWBox.setValue(self.knobScripter.windowDefaultSize[0])
+        self.windowWBox.setValue(config.prefs["ks_default_size"][0])
         self.windowWBox.setMinimum(200)
         self.windowWBox.setMaximum(4000)
         self.windowWBox.setToolTip("Default window width in pixels")
@@ -73,7 +71,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         windowHLabel = QtWidgets.QLabel("Height (px):")
         windowHLabel.setToolTip("Default window height in pixels")
         self.windowHBox = QtWidgets.QSpinBox()
-        self.windowHBox.setValue(self.knobScripter.windowDefaultSize[1])
+        self.windowHBox.setValue(config.prefs["ks_default_size"][1])
         self.windowHBox.setMinimum(100)
         self.windowHBox.setMaximum(2000)
         self.windowHBox.setToolTip("Default window height in pixels")
@@ -88,8 +86,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         tabSpaceButtonGroup = QtWidgets.QButtonGroup(self)
         tabSpaceButtonGroup.addButton(self.tabSpace2)
         tabSpaceButtonGroup.addButton(self.tabSpace4)
-        self.tabSpace2.setChecked(self.knobScripter.tabSpaces == 2)
-        self.tabSpace4.setChecked(self.knobScripter.tabSpaces == 4)
+        self.tabSpace2.setChecked(config.prefs["se_tab_spaces"] == 2)
+        self.tabSpace4.setChecked(config.prefs["se_tab_spaces"] == 4)
 
         contextDefaultLabel = QtWidgets.QLabel("Run in context (beta):")
         contextDefaultLabel.setToolTip("Default mode for running code in context (when in node mode).")
@@ -98,8 +96,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         contextDefaultButtonGroup = QtWidgets.QButtonGroup(self)
         contextDefaultButtonGroup.addButton(self.contextDefaultOn)
         contextDefaultButtonGroup.addButton(self.contextDefaultOff)
-        self.contextDefaultOn.setChecked(self.knobScripter.runInContext == True)
-        self.contextDefaultOff.setChecked(self.knobScripter.runInContext == False)
+        self.contextDefaultOn.setChecked(config.prefs["ks_run_in_context"] == True)
+        self.contextDefaultOff.setChecked(config.prefs["ks_run_in_context"] == False)
         self.contextDefaultOn.clicked.connect(lambda: self.knobScripter.setRunInContext(True))
         self.contextDefaultOff.clicked.connect(lambda: self.knobScripter.setRunInContext(False))
 
@@ -111,8 +109,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         colorSchemeButtonGroup.addButton(self.colorSchemeSublime)
         colorSchemeButtonGroup.addButton(self.colorSchemeNuke)
         colorSchemeButtonGroup.buttonClicked.connect(self.colorSchemeChanged)
-        self.colorSchemeSublime.setChecked(self.knobScripter.color_scheme == "sublime")
-        self.colorSchemeNuke.setChecked(self.knobScripter.color_scheme == "nuke")
+        self.colorSchemeSublime.setChecked(config.prefs["code_style_python"] == "sublime")
+        self.colorSchemeNuke.setChecked(config.prefs["code_style_python"] == "nuke")
 
         showLabelsLabel = QtWidgets.QLabel("Show labels:")
         showLabelsLabel.setToolTip("Display knob labels on the knob dropdown\nOtherwise, shows the internal name only.")
@@ -121,15 +119,15 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         showLabelsButtonGroup = QtWidgets.QButtonGroup(self)
         showLabelsButtonGroup.addButton(self.showLabelsOn)
         showLabelsButtonGroup.addButton(self.showLabelsOff)
-        self.showLabelsOn.setChecked(self.knobScripter.show_labels == True)
-        self.showLabelsOff.setChecked(self.knobScripter.show_labels == False)
+        self.showLabelsOn.setChecked(config.prefs["ks_show_knob_labels"] == True)
+        self.showLabelsOff.setChecked(config.prefs["ks_show_knob_labels"] == False)
 
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         self.buttonBox.accepted.connect(self.savePrefs)
         self.buttonBox.rejected.connect(self.cancelPrefs)
 
         # Loaded custom values
-        self.ksPrefs = self.knobScripter.loadPrefs()
+        self.ksPrefs = self.knobScripter.loadPrefs() #TODO This function should go here, and not be nested? Or leave this just for the panel?? there should probably be a prefs file and a prefs panel/widget...
         if self.ksPrefs != []:
             try:
                 self.fontSizeBox.setValue(self.ksPrefs['font_size'])
@@ -220,15 +218,15 @@ class KnobScripterPrefs(QtWidgets.QDialog):
             'font': self.font,
             'color_scheme': self.colorSchemeValue(),
         }
-        self.knobScripter.script_editor_font.setFamily(self.font)
-        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
+        config.script_editor_font.setFamily(self.font)
+        self.knobScripter.script_editor.setFont(config.script_editor_font)
         self.knobScripter.font = self.font
         self.knobScripter.color_scheme = self.colorSchemeValue()
         self.knobScripter.runInContext = self.contextDefaultValue()
         self.knobScripter.runInContextAct.setChecked(self.contextDefaultValue())
         self.knobScripter.tabSpaces = self.tabSpaceValue()
         self.knobScripter.script_editor.tab_spaces = self.tabSpaceValue()
-        with open(self.prefs_txt, "w") as f:
+        with open(config.prefs_txt_path, "w") as f:
             prefs = json.dump(ks_prefs, f, sort_keys=True, indent=4)
         self.accept()
         self.knobScripter.highlighter.rehighlight()
@@ -238,8 +236,8 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         return prefs
 
     def cancelPrefs(self):
-        self.knobScripter.script_editor_font.setPointSize(self.oldFontSize)
-        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
+        config.script_editor_font.setPointSize(self.oldFontSize)
+        self.knobScripter.script_editor.setFont(config.script_editor_font)
         self.knobScripter.color_scheme = self.oldScheme
         self.knobScripter.highlighter.rehighlight()
         self.reject()
@@ -247,18 +245,18 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         PrefsPanel = ""
 
     def fontSizeChanged(self):
-        self.knobScripter.script_editor_font.setPointSize(self.fontSizeBox.value())
-        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
+        config.script_editor_font.setPointSize(self.fontSizeBox.value())
+        self.knobScripter.script_editor.setFont(config.script_editor_font)
         return
 
     def fontChanged(self):
         self.font = self.fontBox.currentFont().family()
-        self.knobScripter.script_editor_font.setFamily(self.font)
-        self.knobScripter.script_editor.setFont(self.knobScripter.script_editor_font)
+        config.script_editor_font.setFamily(self.font)
+        self.knobScripter.script_editor.setFont(config.script_editor_font)
         return
 
     def colorSchemeChanged(self):
-        self.knobScripter.color_scheme = self.colorSchemeValue()
+        config.prefs["code_style_python"] = self.colorSchemeValue()
         self.knobScripter.highlighter.rehighlight()
         return
 

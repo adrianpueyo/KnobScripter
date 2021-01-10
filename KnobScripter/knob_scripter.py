@@ -96,6 +96,7 @@ for pref in loaded_prefs:
     config.prefs[pref] = loaded_prefs[pref]
 
 # TODO ctrl + +/- for live-changing the font size just for the current script editor????? nice
+# TODO Different snippets for python and blink etc. With the lang selector.
 
 def is_blink_knob(knob):
     ''' Return True if knob is Blink type '''
@@ -1778,10 +1779,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
     def loadPrefs(self):
         ''' Load prefs '''
-        if not os.path.isfile(self.prefs_txt):
+        if not os.path.isfile(config.prefs_txt_path):
             return []
         else:
-            with open(self.prefs_txt, "r") as f:
+            with open(config.prefs_txt_path, "r") as f:
                 prefs = json.load(f)
                 return prefs
 

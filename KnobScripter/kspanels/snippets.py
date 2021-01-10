@@ -248,7 +248,6 @@ class SnippetEdit(QtWidgets.QWidget):
         super(SnippetEdit, self).__init__(parent)
 
         self.knob_scripter = parent.knob_scripter
-        self.color_scheme = self.knob_scripter.color_scheme
         self.layout = QtWidgets.QHBoxLayout()
 
         self.shortcut_editor = QtWidgets.QLineEdit(self)
@@ -261,9 +260,8 @@ class SnippetEdit(QtWidgets.QWidget):
         self.script_editor.setMinimumHeight(100)
         self.script_editor.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
         self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
-        self.highlighter.setStyle(self.knob_scripter.color_scheme)
-        self.script_editor_font = self.knob_scripter.script_editor_font
-        self.script_editor.setFont(self.script_editor_font)
+        self.highlighter.setStyle(config.prefs["code_style_python"])
+        self.script_editor.setFont(config.script_editor_font)
         self.script_editor.resize(90, 90)
         self.script_editor.setPlainText(str(val))
         self.layout.addWidget(self.shortcut_editor, stretch=1, alignment=Qt.AlignTop)
@@ -271,6 +269,8 @@ class SnippetEdit(QtWidgets.QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.setLayout(self.layout)
+
+        # TODO: Base gallery of snippets that can be imported or something. Or button to Import Defaults, when empty...
 
 
 class SnippetFilePath(QtWidgets.QWidget):
@@ -288,12 +288,7 @@ class SnippetFilePath(QtWidgets.QWidget):
         self.filepath_lineEdit.setText(str(path))
         # self.script_editor = QtWidgets.QTextEdit(self)
         self.filepath_lineEdit.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
-        self.script_editor_font = QtGui.QFont()
-        self.script_editor_font.setFamily("Courier")
-        self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
-        self.script_editor_font.setFixedPitch(True)
-        self.script_editor_font.setPointSize(11)
-        self.filepath_lineEdit.setFont(self.script_editor_font)
+        self.filepath_lineEdit.setFont(config.script_editor_font)
 
         self.file_button = QtWidgets.QPushButton(self)
         self.file_button.setText("Browse...")

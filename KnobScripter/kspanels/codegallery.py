@@ -2,6 +2,7 @@ import nuke
 import logging
 from functools import partial
 import json
+from collections import OrderedDict
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -22,8 +23,6 @@ import snippets
 from .. import config
 
 # TODO Flat is better than nested, bring panels up!
-# TODO these panels should be global and not depend on a single knobscripter? they can have it still, but only useful when adding the snippet etc (and it can ask which knobscripter to Pick)
-# TODO get the style from somewhere else, not the knobscripter
 code_gallery_dict = {
     "blink" : [
         {
@@ -42,7 +41,7 @@ code_gallery_dict = {
         {
             "title": "Longer text? what would happen exactly? lets try it like right now yes yes yes yes yes ",
             "desc": "Example template for the main processing function in Blink. this is the same but with a way longer description to see what happens... lets see!!!!.",
-            "cat":["Base codes"],
+            "cat":["Base codes", "Example"],
             "code": """void process() {\n    // Read the input image\n    SampleType(src) input = src();\n\n    // Isolate the RGB components\n    float3 srcPixel(input.x, input.y, input.z);\n\n    // Calculate luma\n    float luma = srcPixel.x * coefficients.x\n               + srcPixel.y * coefficients.y\n               + srcPixel.z * coefficients.z;\n    // Apply saturation\n    float3 saturatedPixel = (srcPixel - luma) * saturation + luma;\n\n    // Write the result to the output image\n    dst() = float4(saturatedPixel.x, saturatedPixel.y, saturatedPixel.z, input.w);\n  }"""
         },
     ],
@@ -56,32 +55,68 @@ code_gallery_dict = {
     ],
 }
 
-
+def clearLayout(layout):
+    if layout is not None:
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget() is not None:
+                child.widget().deleteLater()
+            elif child.layout() is not None:
+                clearLayout(child.layout())
 
 class CodeGalleryWidget(QtWidgets.QWidget):
     def __init__(self, knobScripter="", _parent=QtWidgets.QApplication.activeWindow()):
         super(CodeGalleryWidget, self).__init__(_parent)
 
         self.knobScripter = knobScripter
-        if self.knobScripter:
-            self.script_editor_font = self.knobScripter.script_editor_font
-        else:
-            self.script_editor_font = QtGui.QFont()
-            self.script_editor_font.setFamily("Monospace")
-            self.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
-            self.script_editor_font.setFixedPitch(True)
-            self.script_editor_font.setPointSize(self.fontSize)
         self.color_style_python = "sublime"
+
+        self.code_language = "python"
+
+        self.lang_buttons = OrderedDict([
+            ("python", QtWidgets.QRadioButton("Python")),
+            ("blink", QtWidgets.QRadioButton("Blink")),
+            ("all", QtWidgets.QRadioButton("All")),
+        ])
 
         self.setWindowTitle("Code Gallery + Snippet Editor")
 
         self.initUI()
         # self.resize(500,300)
+        self.set_code_language(self.code_language)
 
     def initUI(self):
         self.layout = QtWidgets.QVBoxLayout()
 
         # 1. Filters (language etc)
+        self.filter_widget = QtWidgets.QFrame()
+        #self.filter_widget.setContentsMargins(0,0,0,0)
+        filter_layout = QtWidgets.QHBoxLayout()
+
+        code_language_label = QtWidgets.QLabel("Language:")
+        filter_layout.addWidget(code_language_label)
+        # TODO Compatible with expressions and TCL knobs too!!
+
+        self.lang_button_group = QtWidgets.QButtonGroup(self)
+        for btn in self.lang_buttons:
+            self.lang_button_group.addButton(self.lang_buttons[btn])
+            filter_layout.addWidget(self.lang_buttons[btn])
+        self.lang_button_group.buttonClicked.connect(self.lang_btn_pressed)
+        filter_layout.addStretch()
+
+        self.reload_button = QtWidgets.QPushButton("Reload")
+        self.reload_button.clicked.connect(self.reload)
+        filter_layout.setMargin(0)
+        #filter_layout.addSpacing(14)
+        #self.expand_all_button = QtWidgets.QPushButton("Expand")
+        #self.collapse_all_button = QtWidgets.QPushButton("Collapse")
+        #filter_layout.addWidget(self.expand_all_button)
+        #filter_layout.addWidget(self.collapse_all_button)
+        filter_layout.addWidget(self.reload_button)
+
+        self.filter_widget.setLayout(filter_layout)
+        self.layout.addWidget(self.filter_widget)
+        self.layout.addWidget(HLine())
 
         # 2. Scroll Area
         # 2.1. Inner scroll content
@@ -90,7 +125,8 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.scroll_content.setLayout(self.scroll_layout)
         self.scroll_content.setContentsMargins(0,0,8,0)
 
-        self.build_gallery()
+        #self.build_gallery()
+        self.set_code_language(self.code_language, force_reload=True)
         #self.filter_gallery(lang="python")
 
         # 2.2. External Scroll Area
@@ -101,6 +137,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.scroll.setWidget(self.scroll_content)
 
         self.layout.addWidget(self.scroll)
+        #self.layout.setSpacing(0)
 
         self.scroll.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
 
@@ -116,10 +153,108 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.scroll_layout.addStretch()
         #self.layout.addStretch()
 
-        self.layout.setContentsMargins(8,10,0,0)
+        #self.layout.setContentsMargins(10,10,0,8)
         self.setLayout(self.layout)
 
-    def build_gallery(self):
+    def lang_btn_pressed(self,button):
+        """ Find the code language corresponding to the pressed button and call self.set_code_language with it. """
+        if button not in self.lang_buttons.values():
+            return False
+        self.set_code_language(self.get_button_language(button))
+
+    def get_button_language(self, button):
+        """ Return (str) the languaage of the selected button """
+        lang = next((l for l in self.lang_buttons if self.lang_buttons[l] == button), None)
+        return lang
+
+    def reload(self):
+        """ Force a rebuild of the widgets in the current filter status. """
+        lang = self.get_button_language(self.lang_button_group.checkedButton())
+        self.set_code_language(lang, force_reload=True)
+
+    def set_code_language(self,lang,force_reload=False):
+        """ Set the code language, clear the scroll layout and rebuild it as needed. """
+        lang = lang.lower()
+        if lang not in self.lang_buttons:
+            return False
+        elif force_reload == False and lang == self.code_language:
+            logging.debug("KS: Doing nothing because the language was already selected.")
+            return False
+
+        self.lang_buttons[lang].setChecked(True)
+        self.code_language = lang
+        logging.debug("Setting code language to "+lang)
+
+        # Clear scroll area
+        clearLayout(self.scroll_layout)
+
+        # Build widgets as needed
+        if lang == "all":
+            for lang in code_gallery_dict.keys():
+                tg = ToggableGroup(self)
+                tg.setTitle("<big><b>{}</b></big>".format(lang.capitalize()))
+                self.build_gallery_group(code_gallery_dict[lang], tg.content_layout)
+                self.scroll_layout.insertWidget(-1, tg)
+                self.scroll_layout.addSpacing(10)
+        else:
+            self.build_gallery_group(code_gallery_dict[lang], self.scroll_layout)
+        self.scroll_layout.addStretch()
+
+    def build_gallery_group(self, code_list, layout, lang="python"):
+        """ Given a list of code gallery items, it builds the widgets in the given layout """
+        # 1. Get available categories
+        categories = []
+        for code in code_list:
+            for cat in code["cat"]:
+                categories.append(cat)
+        categories = list(set(categories))
+
+        # 2. Build gallery items
+        for cat in categories:
+            tg = ToggableGroup(self)
+            tg.setTitle("<big><b>{}</b></big>".format(cat))
+            for code in code_list:
+                if cat in code["cat"]:
+                    cgi = self.code_gallery_item(code, lang = lang)
+                    tg.content_layout.addWidget(cgi)
+
+            layout.insertWidget(-1, tg)
+            layout.addSpacing(4)
+
+    def code_gallery_item(self, code, lang="python"):
+        """ Given a code dict, returns the corresponding code gallery widget. """
+        if not all(i in code for i in ["title", "code"]):
+            return False
+        cgi = CodeGalleryItem(self)
+
+        # 1. Title/description
+        title = "<b>{0}</b>".format(code["title"])
+        if "desc" in code:
+            title += "<br><small style='color:#999'>{}</small>".format(code["desc"])
+        cgi.setTitle(title)
+
+        cgi.btn_insert_code.clicked.connect(partial(self.insert_code, cgi))
+        cgi.btn_save_snippet.clicked.connect(partial(self.save_snippet, cgi))
+
+        # 2. Content
+        if lang.lower() == "blink":
+            highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
+            highlighter.setStyle(config.prefs["code_style_blink"])
+            cgi.script_editor.setColorStyle("blink_default")
+        elif lang.lower() == "python":
+            highlighter = pythonhighlighter.KSPythonHighlighter(cgi.script_editor.document())
+            highlighter.setStyle(config.prefs["code_style_python"])
+            cgi.script_editor.setColorStyle("default")
+        cgi.script_editor.setFont(config.script_editor_font)
+
+        if "editor_height" in code:
+            cgi.setFixedHeight(cgi.top_layout.sizeHint().height() + 40 + code["editor_height"])
+        else:
+            cgi.setFixedHeight(cgi.top_layout.sizeHint().height() + 140)
+
+        return cgi
+
+    def build_gallery(self, language = "all"):
         for lang in code_gallery_dict.keys():
             tg = ToggableGroup(self)
             tg.setTitle("<big><b>{}</b></big>".format(lang))
@@ -139,14 +274,14 @@ class CodeGalleryWidget(QtWidgets.QWidget):
                     # 2. Content
                     if lang.lower() == "blink":
                         highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
-                        highlighter.setStyle(config.code_style_blink)
-                        cgi.script_editor.setColorStyle("blink_default", cgi.script_editor)
+                        highlighter.setStyle(config.prefs["code_style_blink"])
+                        cgi.script_editor.setColorStyle("blink_default")
                     elif lang.lower() == "python":
                         highlighter = pythonhighlighter.KSPythonHighlighter(cgi.script_editor.document())
-                        highlighter.setStyle(config.code_style_python)
-                        cgi.script_editor.setColorStyle("default", cgi.script_editor)
+                        highlighter.setStyle(config.prefs["code_style_python"])
+                        cgi.script_editor.setColorStyle("default")
 
-                    cgi.script_editor.setFont(self.script_editor_font)
+                    cgi.script_editor.setFont(config.script_editor_font)
 
                     if "editor_height" in code:
                         cgi.setFixedHeight(cgi.top_layout.sizeHint().height()+40+code["editor_height"])
@@ -427,11 +562,11 @@ class ClickableWidget(QtWidgets.QFrame):
 
     def mouseReleaseEvent(self, event):
         ''' Emit clicked '''
+        super(ClickableWidget, self).mouseReleaseEvent(event)
         if event.button() == Qt.LeftButton:
             if self.highlighted:
                 self.clicked.emit()
                 pass
-        super(ClickableWidget, self).mouseReleaseEvent(event)
 
 
 class Arrow(QtWidgets.QFrame):
