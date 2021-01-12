@@ -16,13 +16,15 @@ def ask(question, parent=None, default_yes = True):
     msgBox.setText(question)
     msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
     msgBox.setIcon(QtWidgets.QMessageBox.Question)
-    msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+    msgBox.setWindowFlags(msgBox.windowFlags() | Qt.WindowStaysOnTopHint)
     if default_yes:
         msgBox.setDefaultButton(QtWidgets.QMessageBox.Yes)
     else:
         msgBox.setDefaultButton(QtWidgets.QMessageBox.No)
     reply = msgBox.exec_()
-    return reply == QtWidgets.QMessageBox.Yes
+    if reply == QtWidgets.QMessageBox.Yes:
+        return True
+    return False
 
 
 

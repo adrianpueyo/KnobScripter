@@ -14,7 +14,7 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-from ..scripteditor.ksscripteditor import KSScriptEditor
+from ..scripteditor import ksscripteditor
 from ..scripteditor import pythonhighlighter
 from ..scripteditor import blinkhighlighter
 from .. import utils
@@ -63,6 +63,53 @@ def clearLayout(layout):
                 child.widget().deleteLater()
             elif child.layout() is not None:
                 clearLayout(child.layout())
+
+class RadioSelector(QtWidgets.QWidget):
+    radio_selected = QtCore.Signal(object)
+    def __init__(self, item_list=None, orientation=0, parent=None):
+        """
+        item_list: list of strings
+        orientation = 0 (h) or 1 (v)
+        """
+        super(RadioSelector, self).__init__(parent)
+        self.item_list = item_list
+        self.button_list = OrderedDict()
+        for item in item_list:
+            self.button_list[item] = QtWidgets.QRadioButton(item)
+
+
+        if orientation == 0:
+            self.layout = QtWidgets.QHBoxLayout()
+        else:
+            self.layout = QtWidgets.QVBoxLayout()
+
+        self.button_group = QtWidgets.QButtonGroup(self)
+        for i, btn in enumerate(self.button_list):
+            self.button_group.addButton(self.button_list[btn], i)
+            self.layout.addWidget(self.button_list[btn])
+        self.button_group.buttonClicked.connect(self.button_clicked)
+
+        self.layout.addStretch(1)
+
+        self.setLayout(self.layout)
+        self.layout.setMargin(0)
+
+    def button_clicked(self, button):
+        self.radio_selected.emit(button.text())
+
+    def set_button(self,text):
+        text = text.lower()
+        item_list_lower = [i.lower() for i in self.item_list]
+        if text in item_list_lower:
+            btn = self.button_group.button(item_list_lower.index(text))
+            btn.setChecked(True)
+            self.radio_selected.emit(btn.text())
+        else:
+            logging.debug("Couldn't set radio button text.")
+
+    def selected_text(self):
+        return str(self.button_group.button(self.button_group.checkedId()).text())
+
 
 class CodeGalleryWidget(QtWidgets.QWidget):
     def __init__(self, knobScripter="", _parent=QtWidgets.QApplication.activeWindow()):
@@ -125,7 +172,6 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.scroll_content.setLayout(self.scroll_layout)
         self.scroll_content.setContentsMargins(0,0,8,0)
 
-        #self.build_gallery()
         self.set_code_language(self.code_language, force_reload=True)
         #self.filter_gallery(lang="python")
 
@@ -193,11 +239,11 @@ class CodeGalleryWidget(QtWidgets.QWidget):
             for lang in code_gallery_dict.keys():
                 tg = ToggableGroup(self)
                 tg.setTitle("<big><b>{}</b></big>".format(lang.capitalize()))
-                self.build_gallery_group(code_gallery_dict[lang], tg.content_layout)
+                self.build_gallery_group(code_gallery_dict[lang], tg.content_layout, lang=lang)
                 self.scroll_layout.insertWidget(-1, tg)
                 self.scroll_layout.addSpacing(10)
         else:
-            self.build_gallery_group(code_gallery_dict[lang], self.scroll_layout)
+            self.build_gallery_group(code_gallery_dict[lang], self.scroll_layout, lang=lang)
         self.scroll_layout.addStretch()
 
     def build_gallery_group(self, code_list, layout, lang="python"):
@@ -237,15 +283,9 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         cgi.btn_save_snippet.clicked.connect(partial(self.save_snippet, cgi))
 
         # 2. Content
-        if lang.lower() == "blink":
-            highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
-            highlighter.setStyle(config.prefs["code_style_blink"])
-            cgi.script_editor.setColorStyle("blink_default")
-        elif lang.lower() == "python":
-            highlighter = pythonhighlighter.KSPythonHighlighter(cgi.script_editor.document())
-            highlighter.setStyle(config.prefs["code_style_python"])
-            cgi.script_editor.setColorStyle("default")
-        cgi.script_editor.setFont(config.script_editor_font)
+        cgi.script_editor.set_code_language(lang.lower())
+        #cgi.script_editor.setFont(config.script_editor_font)
+        cgi.script_editor.setPlainText(code["code"])
 
         if "editor_height" in code:
             cgi.setFixedHeight(cgi.top_layout.sizeHint().height() + 40 + code["editor_height"])
@@ -253,49 +293,6 @@ class CodeGalleryWidget(QtWidgets.QWidget):
             cgi.setFixedHeight(cgi.top_layout.sizeHint().height() + 140)
 
         return cgi
-
-    def build_gallery(self, language = "all"):
-        for lang in code_gallery_dict.keys():
-            tg = ToggableGroup(self)
-            tg.setTitle("<big><b>{}</b></big>".format(lang))
-
-            for code in code_gallery_dict[lang]:
-                if all(i in code for i in ["title","code"]):
-                    cgi = CodeGalleryItem(self)
-                    # 1. Title/description
-                    title = "<b>{0}</b>".format(code["title"])
-                    if "desc" in code:
-                        title += "<br><small style='color:#999'>{}</small>".format(code["desc"])
-                    cgi.setTitle(title)
-
-                    cgi.btn_insert_code.clicked.connect(partial(self.insert_code,cgi))
-                    cgi.btn_save_snippet.clicked.connect(partial(self.save_snippet,cgi))
-
-                    # 2. Content
-                    if lang.lower() == "blink":
-                        highlighter = blinkhighlighter.KSBlinkHighlighter(cgi.script_editor.document())
-                        highlighter.setStyle(config.prefs["code_style_blink"])
-                        cgi.script_editor.setColorStyle("blink_default")
-                    elif lang.lower() == "python":
-                        highlighter = pythonhighlighter.KSPythonHighlighter(cgi.script_editor.document())
-                        highlighter.setStyle(config.prefs["code_style_python"])
-                        cgi.script_editor.setColorStyle("default")
-
-                    cgi.script_editor.setFont(config.script_editor_font)
-
-                    if "editor_height" in code:
-                        cgi.setFixedHeight(cgi.top_layout.sizeHint().height()+40+code["editor_height"])
-                    else:
-                        cgi.setFixedHeight(cgi.top_layout.sizeHint().height()+140)
-
-                    tg.content_layout.addWidget(cgi)
-
-            self.scroll_layout.insertWidget(-1, tg)
-            self.scroll_layout.addSpacing(10)
-
-    def filter_code(self, lang=None):
-        """ Hide and show the widgets inside the scroll area based on selected parameters."""
-        return True
 
     def insert_code(self, code_gallery_item):
         """ Insert the code contained in code_gallery_item in the knobScripter's texteditmain. """
@@ -319,12 +316,24 @@ class CodeGalleryWidget(QtWidgets.QWidget):
     def save_snippet(self, code_gallery_item, shortcode = ""):
         """ Save the current code as a snippet (by introducing a shortcode) """
         # while...
+        code = code_gallery_item.script_editor.toPlainText()
+        lang = code_gallery_item.script_editor.code_language
+        asp = snippets.AppendSnippetPanel(self, code, "test", lang=lang)
+        asp.show()
+        return
         # 1. Ask for the shortcode
+        if shortcode =="":
+            temp_code = "default"
+            while True:
+                #TODO move these lines to the snippets appendSnippet function itself
+                temp_code, ok = QtWidgets.QInputDialog.getText(self,"Set shortcode text","Set your shortcode text:",text=temp_code)
+                if not ok:
+                    break
         return
 
 
         # 2. Try to save it!
-        snippets.appendSnippet()
+        snippets.append_snippet()
 
         # 3. Find the ks and refresh it
         #TODO: Snippets should refresh every time the window shows? Maybe not
@@ -436,28 +445,10 @@ class CodeGalleryItem(ToggableGroup):
         self.top_right_layout.addWidget(self.btn_save_snippet)
 
         # Add content
-        self.script_editor = KSScriptEditor()
+        self.script_editor = ksscripteditor.KSScriptEditor()
         self.script_editor.setMinimumHeight(20)
 
         #self.setSizePolicy(QtWidgets.QSizePolicy.LineEdit,QtWidgets.QSizePolicy.LineEdit)
-        self.script_editor.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
-        #if self.knobScripter:
-        #    script_editor_font = self.knobScripter.script_editor_font
-        #    script_editor.setFont(script_editor_font)
-
-        self.script_editor.setPlainText("function(2)")
-
-        #temp
-        """
-        sewidget = QtWidgets.QWidget()
-
-        selayout = QtWidgets.QGridLayout(sewidget)
-        sewidget.setLayout(selayout)
-
-        cw = QtWidgets.QSizeGrip(self)
-        selayout.addWidget(self.script_editor)
-        selayout.addWidget(cw,1,1,1,1,Qt.AlignBottom|Qt.AlignRight)
-        """
 
         #self.content_layout.addWidget(self.script_editor)
         self.content_layout.addWidget(self.script_editor)

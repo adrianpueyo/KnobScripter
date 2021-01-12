@@ -445,13 +445,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # Script Editor
         self.script_editor = KSScriptEditorMain(self, self.script_output)
         self.script_editor.setMinimumHeight(30)
-        self.script_editor.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
         self.script_editor.textChanged.connect(self.setModified)
-        self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
-        self.highlighter.setStyle(config.prefs["code_style_python"])
+        self.script_editor.set_code_language("python")
         self.script_editor.cursorPositionChanged.connect(self.setTextSelection)
-
-        self.script_editor.setFont(config.script_editor_font)
 
         if config.prefs["se_tab_spaces"] != 0:
             self.script_editor.setTabStopWidth(config.prefs["se_tab_spaces"] * QtGui.QFontMetrics(config.script_editor_font).width(' '))
@@ -943,16 +939,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             return False
 
         # 2. Syntax highlighter
-        if new_code_language != self.code_language:
-            self.highlighter.setDocument(None)
-            if code_language == "blink":
-                self.highlighter = blinkhighlighter.KSBlinkHighlighter(self.script_editor.document())
-                self.highlighter.setStyle(config.prefs["code_style_blink"])
-                self.script_editor.setColorStyle("blink_default")
-            else:
-                self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
-                self.highlighter.setStyle(config.prefs["code_style_python"])
-                self.script_editor.setColorStyle("default")
+        self.script_editor.set_code_language(new_code_language)
 
         self.code_language = new_code_language
 
@@ -1600,7 +1587,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
     # Global stuff
     def setTextSelection(self):
-        self.highlighter.selected_text = self.script_editor.textCursor().selection().toPlainText()
+        self.script_editor.highlighter.selected_text = self.script_editor.textCursor().selection().toPlainText()
         return
 
     def resizeEvent(self, res_event):
@@ -1735,7 +1722,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             SnippetEditPanel.reload()
 
         if SnippetEditPanel.show():
-            self.snippets = self.loadAllSnippets(max_depth=5)
+            self.snippets = snippets.loadAllSnippets(max_depth=5)
             SnippetEditPanel = ""
 
     def openCodeGallery(self):

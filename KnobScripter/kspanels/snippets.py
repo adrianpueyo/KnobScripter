@@ -2,6 +2,7 @@ import nuke
 import json
 import os
 import re
+import logging
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -17,12 +18,14 @@ from ..scripteditor import ksscripteditor
 from ..scripteditor import pythonhighlighter
 from .. import config
 import dialogs
+import codegallery
 
 def loadSnippetsDict(path=None):
     ''' Load the snippets from json path as a dict. Return dict() '''
     if not path:
         path = config.snippets_txt_path
     if not os.path.isfile(path):
+        logging.debug("Path doesn't exist: "+path)
         return {}
     else:
         with open(path, "r") as f:
@@ -61,17 +64,124 @@ def saveSnippets(snippets_dict, path=None):
         json.dump(snippets_dict, f, sort_keys=True, indent=4)
 
 
-def appendSnippet(shortcode, code, path=None, check=True):
+def append_snippet(code, shortcode="", path=None, lang = None):
     ''' Load the snippets file as a dict and append a snippet '''
-    if shortcode == "" or code == "":
+    # TODO Add Language functionality... so snippets should be changed completely...
+    if code == "":
         return False
+    if not path:
+        path = config.snippets_txt_path
     all_snippets = loadSnippetsDict(path)
-    if shortcode in all_snippets and check:
-        if not dialogs.ask("Shortcode {0} already in use. Do you wish to overwrite it?".format(shortcode)):
-            return False
+    if shortcode == "":
+        return False
     all_snippets[shortcode] = code
     saveSnippets(all_snippets, path)
 
+class AppendSnippetPanel(QtWidgets.QDialog):
+    def __init__(self, parent=None, code=None, shortcode=None, path = None, lang="python"):
+        super(AppendSnippetPanel, self).__init__(parent)
+
+        self.lang = lang
+        shortcode = shortcode or ""
+        self.path = path or config.snippets_txt_path
+        self.existing_snippets = loadSnippetsDict(self.path)
+        if not self.existing_snippets:
+            return
+        self.existing_shortcodes = self.existing_snippets.keys()
+
+        # Layout
+        self.layout = QtWidgets.QVBoxLayout()
+
+        # Code language
+        self.lang_selector = codegallery.RadioSelector(["Python","Blink","All"])
+
+        self.lang_selector.radio_selected.connect(self.change_lang)
+
+        # Shortcode
+        self.shortcode_lineedit = QtWidgets.QLineEdit(shortcode)
+        f = self.shortcode_lineedit.font()
+        f.setWeight(QtGui.QFont.Bold)
+        self.shortcode_lineedit.setFont(f)
+
+        # Code
+        self.script_editor = ksscripteditor.KSScriptEditor()
+
+        #self.script_editor.set_code_language(lang)
+        self.script_editor.setPlainText(code)
+        se_policy = self.script_editor.sizePolicy()
+        se_policy.setVerticalStretch(1)
+        self.script_editor.setSizePolicy(se_policy)
+
+        # Warnings
+        self.warnings_label = QtWidgets.QLabel("Please set a code and a shortcode.")
+        self.warnings_label.setStyleSheet("color: #D65; font-style: italic;")
+        self.warnings_label.setWordWrap(True)
+        self.warnings_label.mouseReleaseEvent = lambda x:self.warnings_label.hide()
+
+        # Buttons
+        self.button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.save_pressed)
+        self.button_box.rejected.connect(self.cancel_pressed)
+
+        # Form layout
+        self.form = QtWidgets.QFormLayout()
+        self.form.addRow("Language: ", self.lang_selector)
+        self.form.addRow("Shortcode: ", self.shortcode_lineedit)
+        self.form.addRow("Code: ", self.script_editor)
+        self.form.addRow("", self.warnings_label)
+        self.warnings_label.hide()
+        self.form.setFieldGrowthPolicy(QtWidgets.QFormLayout.ExpandingFieldsGrow)
+
+        self.layout.addLayout(self.form)
+        self.layout.addWidget(self.button_box)
+        self.setLayout(self.layout)
+
+        # Init values
+        self.setWindowTitle("Add Snippet")
+        self.lang_selector.set_button(self.lang)
+        self.script_editor.set_code_language(self.lang)
+        self.shortcode_lineedit.setFocus()
+        self.shortcode_lineedit.selectAll()
+
+    def change_lang(self, lang):
+        self.script_editor.set_code_language(str(lang.lower()))
+
+    def save_pressed(self):
+        shortcode = self.shortcode_lineedit.text()
+        code = self.script_editor.toPlainText()
+        lang = self.lang_selector.selected_text()
+        if code == "" or shortcode == "":
+            self.warnings_label.show()
+            return False
+        if shortcode in self.existing_shortcodes:
+            msg = "A snippet with the given code already exists. Do you wish to overwrite it?"
+            if dialogs.ask(msg, self, default_yes=False) == False:
+                return False
+        logging.debug("Snippet to be saved \nLang:\n{0}\nShortcode:\n{1}\nCode:\n{2}\n------".format(lang, shortcode, code))
+        append_snippet(code,shortcode,lang=lang)
+        all_snippets = loadAllSnippets(max_depth=5)
+        for ks in nuke.AllKnobScripters:
+            try:
+                ks.snippets = all_snippets
+            except Exception as e:
+                pass
+        self.accept()
+
+    def cancel_pressed(self):
+        if self.script_editor.toPlainText() != "":
+            msg = "Do you wish to discard the changes?"
+            if not dialogs.ask(msg, self, default_yes=False):
+                return False
+        self.reject()
+
+    
+class GetShortcode(QtWidgets.QDialog):
+    def __init__(self, shortcode=None, existing_shortcodes = None, parent=None):
+        super(GetShortcode, self).__init__(parent)
+        self.shortcode = shortcode
+        self.existing_shortcodes = existing_shortcodes
+
+#TODO remove stupid buttons and add reload button, sae as code gallery.
 
 class SnippetsPanel(QtWidgets.QDialog):
     def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
@@ -202,8 +312,7 @@ class SnippetsPanel(QtWidgets.QDialog):
 
     def applySnippets(self):
         saveSnippets(self.getSnippetsAsDict())
-        self.knob_scripter.snippets = self.knob_scripter.loadSnippets(maxDepth=5)
-        self.knob_scripter.loadSnippets()
+        self.knob_scripter.snippets = loadAllSnippets(max_depth=5)
 
     def okPressed(self):
         self.applySnippets()
@@ -258,10 +367,7 @@ class SnippetEdit(QtWidgets.QWidget):
         # self.script_editor = QtWidgets.QTextEdit(self)
         self.script_editor = ksscripteditor.KSScriptEditor()
         self.script_editor.setMinimumHeight(100)
-        self.script_editor.setStyleSheet('background:#282828;color:#EEE;')  # Main Colors
-        self.highlighter = pythonhighlighter.KSPythonHighlighter(self.script_editor.document())
-        self.highlighter.setStyle(config.prefs["code_style_python"])
-        self.script_editor.setFont(config.script_editor_font)
+        self.script_editor.set_code_language("python")
         self.script_editor.resize(90, 90)
         self.script_editor.setPlainText(str(val))
         self.layout.addWidget(self.shortcut_editor, stretch=1, alignment=Qt.AlignTop)

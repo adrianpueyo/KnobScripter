@@ -1,5 +1,6 @@
 import nuke
 import re
+import logging
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -12,7 +13,8 @@ except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
 from .. import config
-
+import blinkhighlighter
+import pythonhighlighter
 
 
 class KSScriptEditor(QtWidgets.QPlainTextEdit):
@@ -29,13 +31,18 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         self.knobScripter = knobScripter
         self.selected_text = ""
 
+        self.highlighter = None
+        self.code_language = None
+
         # Setup line numbers
         self.tabSpaces = config.prefs["se_tab_spaces"]
 
-        self.lineColor = QtGui.QColor(62, 62, 62, 255)  # Default bg color for selected line
-        self.lineNumberAreaColor = QtGui.QColor(36, 36, 36)  # Default
-        self.lineNumberColor = QtGui.QColor(110, 110, 110)  # Default
-        self.currentLineNumberColor = QtGui.QColor(255, 170, 0)  # Default
+        self.lineColor = None
+        self.lineNumberAreaColor = None
+        self.lineNumberColor = None
+        self.currentLineNumberColor = None
+        self.setColorStyle()
+        self.setFont(config.script_editor_font)
 
         self.lineNumberArea = KSLineNumberArea(self)
         self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
@@ -552,7 +559,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         styles = config.script_editor_styles
 
         if not style:
-            style = config.script_editor_style
+            style = config.prefs["se_style"]
 
         if style not in styles:
             return False
@@ -565,6 +572,36 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         self.highlightCurrentLine()
         self.scrollToCursor()
         return True
+
+    def set_code_language(self,lang="python"):
+        """ Sets the appropriate highlighter and styles """
+
+        if lang == None and self.highlighter:
+            self.highlighter.setDocument(None)
+            self.highlighter = None
+            self.code_language = None
+
+        if isinstance(lang, str):
+            if lang != self.code_language:
+                lang = lang.lower()
+                if self.highlighter:
+                    self.highlighter.setDocument(None)
+                    self.highlighter = None
+                if lang == "blink":
+                    self.highlighter = blinkhighlighter.KSBlinkHighlighter(self.document())
+                    self.highlighter.setStyle(config.prefs["code_style_blink"])
+                    self.setColorStyle("blink_default")
+                elif lang == "python":
+                    self.highlighter = pythonhighlighter.KSPythonHighlighter(self.document())
+                    self.highlighter.setStyle(config.prefs["code_style_python"])
+                    self.setColorStyle("default")
+                else:
+                    self.setColorStyle("default")
+                    self.code_language = None
+                    return
+            self.code_language = lang
+        else:
+            logging.debug("Lang type not valid: "+str(type(lang)))
 
 class KSLineNumberArea(QtWidgets.QWidget):
     def __init__(self, scriptEditor):
