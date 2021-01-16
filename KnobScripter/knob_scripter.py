@@ -55,16 +55,13 @@ nuke.KnobScripterPrefs = {
 # ks imports
 from info import __version__, __date__
 import config
-from kspanels import snippets
-from kspanels.codegallery import CodeGalleryWidget
-from kspanels.prefs import KnobScripterPrefs
-from kspanels.dialogs import FileNameDialog, ChooseNodeDialog
-from scripteditor.ksscripteditormain import KSScriptEditorMain
-from scripteditor.findreplace import FindReplaceWidget
-from scripteditor import blinkhighlighter
-from scripteditor import pythonhighlighter
-from script_output import ScriptOutputWidget
-from utils import killPaneMargins, findSE, findSEInput, findSEConsole, findSERunBtn, setSEConsoleChanged
+import snippets
+import codegallery
+import prefs
+import dialogs
+import script_output
+import utils
+from scripteditor import ksscripteditormain, findreplace
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -113,13 +110,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
     def __init__(self, node="", knob="", isPane=False, _parent=QtWidgets.QApplication.activeWindow()):
         super(KnobScripterWidget, self).__init__(_parent)
 
-        #TODO remove
-        import kspanels.codegallery
-        reload(kspanels.codegallery)
-
-        global CodeGallery
-        CodeGallery = kspanels.codegallery.CodeGalleryWidget
-
         # Autosave the other knobscripters and add this one
         for ks in nuke.AllKnobScripters:
             try:
@@ -157,10 +147,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.qt_icon_size = QtCore.QSize(self.icon_size, self.icon_size)
         self.qt_btn_size = QtCore.QSize(self.btn_size, self.btn_size)
         self.omit_se_console_text = ""
-        self.nukeSE = findSE()
-        self.nukeSEOutput = findSEConsole(self.nukeSE)
-        self.nukeSEInput = findSEInput(self.nukeSE)
-        self.nukeSERunBtn = findSERunBtn(self.nukeSE)
+        self.nukeSE = utils.findSE()
+        self.nukeSEOutput = utils.findSEConsole(self.nukeSE)
+        self.nukeSEInput = utils.findSEInput(self.nukeSE)
+        self.nukeSERunBtn = utils.findSERunBtn(self.nukeSE)
 
         self.current_folder = "scripts"
         self.folder_index = 0
@@ -186,7 +176,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         # Init UI
         self.initUI()
-        setSEConsoleChanged()
+        utils.setSEConsoleChanged()
         self.omit_se_console_text = self.nukeSEOutput.document().toPlainText()
         self.clearConsole()
 
@@ -433,7 +423,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.splitter = QtWidgets.QSplitter(Qt.Vertical)
 
         # Output widget
-        self.script_output = ScriptOutputWidget(parent=self)
+        self.script_output = script_output.ScriptOutputWidget(parent=self)
         self.script_output.setReadOnly(1)
         self.script_output.setAcceptRichText(0)
         if config.prefs["se_tab_spaces"] != 0:
@@ -443,7 +433,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.script_output.installEventFilter(self)
 
         # Script Editor
-        self.script_editor = KSScriptEditorMain(self, self.script_output)
+        self.script_editor = ksscripteditormain.KSScriptEditorMain(self, self.script_output)
         self.script_editor.setMinimumHeight(30)
         self.script_editor.textChanged.connect(self.setModified)
         self.script_editor.set_code_language("python")
@@ -458,7 +448,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.splitter.setStretchFactor(0, 0)
 
         # FindReplace widget
-        self.frw = FindReplaceWidget(self.script_editor, self)
+        self.frw = findreplace.FindReplaceWidget(self.script_editor, self)
         self.frw.setVisible(self.frw_open)
 
         # ---
@@ -1288,7 +1278,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         fd_index = folders_dropdown.currentIndex()
         fd_data = folders_dropdown.itemData(fd_index)
         if fd_data == "create new":
-            panel = FileNameDialog(self, mode="folder")
+            panel = dialogs.FileNameDialog(self, mode="folder")
             # panel.setWidth(260)
             # panel.addSingleLineInput("Name:","")
             if panel.exec_():
@@ -1376,7 +1366,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         sd_data = scripts_dropdown.itemData(sd_index)
         if sd_data == "create new":
             self.current_script_dropdown.blockSignals(True)
-            panel = FileNameDialog(self, mode="script")
+            panel = dialogs.FileNameDialog(self, mode="script")
             if panel.exec_():
                 # Accepted
                 script_name = panel.text + ".py"
@@ -1619,7 +1609,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if newNode and newNode != "" and nuke.exists(newNode):
             selection = [newNode]
         elif not len(selection):
-            node_dialog = ChooseNodeDialog(self)
+            node_dialog = dialogs.ChooseNodeDialog(self)
             if node_dialog.exec_():
                 # Accepted
                 selection = [nuke.toNode(node_dialog.name)]
@@ -1731,7 +1721,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if CodeGalleryPanel == "":
             CodeGalleryPanel = GalleryAndSnippets(self, self._parent)
         else:
-            CodeGalleryPanel.setKnobScripter(self)
+            CodeGalleryPanel.set_knob_scripter(self)
 
         # if not CodeGalleryPanel.isVisible():
         #    CodeGalleryPanel.reload()
@@ -1754,7 +1744,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         ''' Open the preferences panel '''
         global PrefsPanel
         if PrefsPanel == "":
-            PrefsPanel = KnobScripterPrefs(self, self._parent)
+            PrefsPanel = prefs.PrefsWidget(self, self._parent)
         else:
             try:
                 PrefsPanel.knobScripter = self
@@ -1877,7 +1867,7 @@ class KnobScripterPane(KnobScripterWidget):
 
     def showEvent(self, the_event):
         try:
-            killPaneMargins(self)
+            utils.killPaneMargins(self)
         except:
             pass
         return KnobScripterWidget.showEvent(self, the_event)
@@ -1897,15 +1887,15 @@ def updateContext():
 # --------------------------------------
 # Code Gallery + Snippets super panel
 # --------------------------------------
-class GalleryAndSnippets(QtWidgets.QDialog):  # TODO Rename to multipanel
-    def __init__(self, knobScripter="", _parent=QtWidgets.QApplication.activeWindow()):
+class GalleryAndSnippets(QtWidgets.QDialog):
+    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
         super(GalleryAndSnippets, self).__init__(_parent)
 
         # TODO future (for now current method works, this is only for when this is a Pane) Find a way to connect this to a KnobScripter!!! Or open the panel as part of the KnobScripter itself??????? Showing the tabs+widgets on the right
         # TODO future (really, future): enable drag and drop of snippet and gallery into the knobscripter??
         # TODO add on knobscripter button to Reload Style and Snippets
 
-        self.knobScripter = knobScripter
+        self.knob_scripter = knob_scripter
         self.setWindowTitle("Code Gallery + Snippet Editor")
 
         self.initUI()
@@ -1914,72 +1904,30 @@ class GalleryAndSnippets(QtWidgets.QDialog):  # TODO Rename to multipanel
     def initUI(self):
         master_layout = QtWidgets.QVBoxLayout()
 
-        '''
-
-        # 1. First Area (Mode and language)
-
-        # 1.1. Mode! Code Gallery VS Snippet Editor
-        self.modeCodeGallery_button = QtWidgets.QPushButton("Code Gallery") #TODO set margin 0 or spacing, set pressed etc. and maybe no need for buttongroup
-        self.modeSnippets_button = QtWidgets.QPushButton("Snippet Editor")
-
-        modeLanguage_layout = QtWidgets.QHBoxLayout()
-        #modeLanguage_layout.addWidget(self.modeCodeGallery_button)
-        #modeLanguage_layout.addWidget(self.modeSnippets_button)
-        modeLanguage_layout.addStretch()
-
-        #modeGroupBox.setLayout(modeLanguage_layout)
-
-        # 1.2. Code language
-        codeLanguage_label = QtWidgets.QLabel("Language:")
-        self.languagePython_button = QtWidgets.QRadioButton("Python")
-        self.languageBlink_button = QtWidgets.QRadioButton("Blink")
-        #self.languageTCL_button = QtWidgets.QRadioButton("TCL") #Snippets and code that will work on TCL language
-        #self.languageAll_button = QtWidgets.QRadioButton("All") #Snippets and code that will work on TCL language
-        #TODO Compatible with expressions and TCL knobs too!!
-        
-        langButtonGroup = QtWidgets.QButtonGroup(self)
-        langButtonGroup.addButton(self.languagePython_button)
-        langButtonGroup.addButton(self.languageBlink_button)
-        langButtonGroup.buttonClicked.connect(self.printLangBtnGroup)
-
-        modeLanguage_layout.addWidget(codeLanguage_label)
-        modeLanguage_layout.addWidget(self.languagePython_button)
-        modeLanguage_layout.addWidget(self.languageBlink_button)
-        modeLanguage_layout.addStretch()
-
-        self.reload_button = QtWidgets.QPushButton("Reload")
-        modeLanguage_layout.addWidget(self.reload_button)
-
-        modeLanguage_groupBox = QtWidgets.QGroupBox()
-        modeLanguage_groupBox.setLayout(modeLanguage_layout)
-        '''
-
         # Main TabWidget
-        tabWidget = QtWidgets.QTabWidget()
+        tab_widget = QtWidgets.QTabWidget()
 
-        self.code_gallery = CodeGallery(self.knobScripter, None)
-        self.snippet_editor = snippets.SnippetsPanel(self.knobScripter,
-                                            None)  # TODO The widget (not panel mode) shouldn't have the OK button etc. Only apply... OK doesn't really make sense in this context, right? or it can be below everything? or simply the OK button closes the full panel (parent) too and thats it
-        self.ks_prefs = KnobScripterPrefs(self.knobScripter, None)
-        # TODO ADD PREFERENCES IN A THIRD TAB!!!!!!
+        self.code_gallery = codegallery.CodeGalleryWidget(self.knob_scripter, None)
+        self.snippet_editor = snippets.SnippetsWidget(self.knob_scripter, None)
+        self.ks_prefs = prefs.PrefsWidget(self.knob_scripter, None)
 
-        tabWidget.addTab(self.code_gallery, "Code Gallery")
-        tabWidget.addTab(self.snippet_editor, "Snippet Editor")
-        tabWidget.addTab(self.ks_prefs, "Preferences")
+        tab_widget.addTab(self.code_gallery, "Code Gallery")
+        tab_widget.addTab(self.snippet_editor, "Snippet Editor")
+        tab_widget.addTab(self.ks_prefs, "Preferences")
 
-        tabStyle = '''QTabBar { }
+        tab_style = '''QTabBar { }
                    QTabBar::tab:!selected {font-weight:bold; height: 30px; width:150px;}
                    QTabBar::tab:selected {font-weight:bold; height: 30px; width:150px;}'''
-        tabWidget.setStyleSheet(tabStyle)
+        tab_widget.setStyleSheet(tab_style)
 
-        master_layout.addWidget(tabWidget)
+        master_layout.addWidget(tab_widget)
         self.setLayout(master_layout)
 
-    def setKnobScripter(self, knobScripter = None):
-        self.code_gallery.knobScripter = knobScripter
-        self.snippet_editor.knob_scripter = knobScripter
-        self.ks_prefs.knobScripter = knobScripter
-        self.knobScripter = knobScripter
+    def set_knob_scripter(self, knob_scripter = None):
+        self.code_gallery.knob_scripter = knob_scripter
+        self.snippet_editor.knob_scripter = knob_scripter
+        self.ks_prefs.knobScripter = knob_scripter
+        self.knob_scripter = knob_scripter
 
 
 # --------------------------------

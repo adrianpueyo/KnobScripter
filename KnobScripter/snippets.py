@@ -4,6 +4,8 @@ import os
 import re
 import logging
 
+import widgets
+
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
         from PySide import QtCore, QtGui, QtGui as QtWidgets
@@ -14,11 +16,11 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-from ..scripteditor import ksscripteditor
-from ..scripteditor import pythonhighlighter
-from .. import config
+from scripteditor import ksscripteditor
+import config
 import dialogs
 import codegallery
+import utils
 
 def loadSnippetsDict(path=None):
     ''' Load the snippets from json path as a dict. Return dict() '''
@@ -55,14 +57,12 @@ def loadAllSnippets(path="", max_depth=5, depth=0):
                     loaded_snippets[key] = val
             return loaded_snippets
 
-
 def saveSnippets(snippets_dict, path=None):
     ''' Perform a json dump of the snippets into the path '''
     if not path:
         path = config.snippets_txt_path
     with open(path, "w") as f:
         json.dump(snippets_dict, f, sort_keys=True, indent=4)
-
 
 def append_snippet(code, shortcode="", path=None, lang = None):
     ''' Load the snippets file as a dict and append a snippet '''
@@ -93,7 +93,7 @@ class AppendSnippetPanel(QtWidgets.QDialog):
         self.layout = QtWidgets.QVBoxLayout()
 
         # Code language
-        self.lang_selector = codegallery.RadioSelector(["Python","Blink","All"])
+        self.lang_selector = widgets.RadioSelector(["Python", "Blink", "All"])
 
         self.lang_selector.radio_selected.connect(self.change_lang)
 
@@ -174,14 +174,104 @@ class AppendSnippetPanel(QtWidgets.QDialog):
                 return False
         self.reject()
 
-    
-class GetShortcode(QtWidgets.QDialog):
-    def __init__(self, shortcode=None, existing_shortcodes = None, parent=None):
-        super(GetShortcode, self).__init__(parent)
-        self.shortcode = shortcode
-        self.existing_shortcodes = existing_shortcodes
 
 #TODO remove stupid buttons and add reload button, sae as code gallery.
+
+class SnippetsWidget(QtWidgets.QWidget):
+    """ Widget containing snippet editors, lang selector and other functionality. """
+    # TODO Load default snippets should appear if not already loaded, or everything empty.
+    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
+        super(SnippetsWidget, self).__init__(_parent)
+        self.knob_scripter = knob_scripter
+        self.code_language = "python"
+
+        self.initUI()
+        self.change_lang(self.code_language)
+
+    def initUI(self):
+        self.layout = QtWidgets.QVBoxLayout()
+
+        # 1. Filters (language etc)
+        self.filter_widget = QtWidgets.QFrame()
+        filter_layout = QtWidgets.QHBoxLayout()
+        code_language_label = QtWidgets.QLabel("Language:")
+        filter_layout.addWidget(code_language_label)
+
+        # TODO Compatible with expressions and TCL knobs too
+        self.lang_selector = widgets.RadioSelector(["Python", "Blink", "All"])
+        self.lang_selector.radio_selected.connect(self.change_lang)
+        filter_layout.addWidget(self.lang_selector)
+        filter_layout.addStretch()
+
+        self.reload_button = QtWidgets.QPushButton("Reload")
+        self.reload_button.clicked.connect(self.reload)
+        filter_layout.setMargin(0)
+        filter_layout.addWidget(self.reload_button)
+
+        self.filter_widget.setLayout(filter_layout)
+        self.layout.addWidget(self.filter_widget)
+        self.layout.addWidget(widgets.HLine())
+
+        # 2. Scroll Area
+        # 2.1. Inner scroll content
+        self.scroll_content = QtWidgets.QWidget()
+        self.scroll_layout = QtWidgets.QVBoxLayout()
+        self.scroll_layout.setMargin(0)
+        self.scroll_layout.addStretch()
+        self.scroll_content.setLayout(self.scroll_layout)
+        self.scroll_content.setContentsMargins(0, 0, 8, 0)
+
+        self.change_lang(self.code_language, force_reload=True)
+
+        # 2.2. External Scroll Area
+        self.scroll = QtWidgets.QScrollArea()
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.scroll_content)
+        self.scroll.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
+
+        self.layout.addWidget(self.scroll)
+
+        self.setLayout(self.layout)
+
+    def reload(self):
+        """ Force a rebuild of the widgets in the current filter status. """
+        lang = self.lang_selector.selected_text()
+        self.change_lang(lang, force_reload=True)
+
+    def change_lang(self,lang,force_reload=False):
+        """ Set the code language, clear the scroll layout and rebuild it as needed. """
+        lang = lang.lower()
+
+        if force_reload == False and lang == self.code_language:
+            logging.debug("KS: Doing nothing because the language was already selected.")
+            return False
+
+        self.lang_selector.set_button(lang)
+        self.code_language = lang
+        logging.debug("Setting code language to "+lang)
+
+        # Clear scroll area
+        utils.clear_layout(self.scroll_layout)
+
+        # Build widgets as needed
+        # MAKE THIS AS NEEDED!
+        """
+        if lang == "all":
+            for lang in code_gallery_dict.keys():
+                tg = ToggableGroup(self)
+                tg.setTitle("<big><b>{}</b></big>".format(lang.capitalize()))
+                self.build_gallery_group(code_gallery_dict[lang], tg.content_layout, lang=lang)
+                self.scroll_layout.insertWidget(-1, tg)
+                self.scroll_layout.addSpacing(10)
+        else:
+            self.build_gallery_group(code_gallery_dict[lang], self.scroll_layout, lang=lang)
+        self.scroll_layout.addStretch()
+        """
+
+
+
 
 class SnippetsPanel(QtWidgets.QDialog):
     def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
@@ -340,19 +430,8 @@ class SnippetsPanel(QtWidgets.QDialog):
         help_se.script_editor.resize(160, 160)
 
 
-class AddSingleSnippet(QtWidgets.QDialog):
-    def __init__(self, knob_scripter="", parent=None):
-        super(AddSingleSnippet, self).__init__(parent)
-        layout = QtWidgets.QVBoxLayout()
-
-        snippet_edit = SnippetEdit("","",parent)
-
-        self.setLayout(layout)
-
-
 class SnippetEdit(QtWidgets.QWidget):
     ''' Simple widget containing two fields, for the snippet shortcut and content '''
-
     def __init__(self, key="", val="", parent=None):
         super(SnippetEdit, self).__init__(parent)
 

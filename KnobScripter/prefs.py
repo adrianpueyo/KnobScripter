@@ -1,7 +1,8 @@
 import json
 import nuke
-from ..info import __version__, __author__, __date__
-from .. import config
+
+from info import __version__, __author__, __date__
+import config
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -14,9 +15,9 @@ except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
 
-class KnobScripterPrefs(QtWidgets.QDialog):
+class PrefsWidget(QtWidgets.QDialog):
     def __init__(self, knobScripter="", _parent=QtWidgets.QApplication.activeWindow()):
-        super(KnobScripterPrefs, self).__init__(_parent)
+        super(PrefsWidget, self).__init__(_parent)
 
         # Vars
         self.knobScripter = knobScripter
