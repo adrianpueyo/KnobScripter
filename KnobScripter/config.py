@@ -1,5 +1,8 @@
 import os
 
+KS_DIR = os.path.dirname(__file__)
+ICONS_DIR = os.path.join(KS_DIR, "icons")
+
 scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
 blink_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
 snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Snippets.txt"))
@@ -17,6 +20,8 @@ prefs = {
     "se_font_family": "Monospace",
     "se_font_size": 10,
     "se_tab_spaces": 4,
+    "qt_btn_size": 24,
+    "qt_icon_size": 17,
 }
 
 script_editor_styles = {
@@ -36,4 +41,5 @@ script_editor_styles = {
     }
 }
 
-script_editor_font = None # This will be initialized at runtime
+# Initialized at runtime
+script_editor_font = None

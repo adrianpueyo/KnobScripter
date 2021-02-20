@@ -62,6 +62,7 @@ import dialogs
 import script_output
 import utils
 from scripteditor import ksscripteditormain, findreplace
+import widgets
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -142,10 +143,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.font_size = config.prefs["se_font_size"] #Can potentially be changed at runtime per ks instance
         self.toLoadKnob = True
         self.frw_open = False  # Find replace widget closed by default
-        self.icon_size = 17
-        self.btn_size = 24
-        self.qt_icon_size = QtCore.QSize(self.icon_size, self.icon_size)
-        self.qt_btn_size = QtCore.QSize(self.btn_size, self.btn_size)
         self.omit_se_console_text = ""
         self.nukeSE = utils.findSE()
         self.nukeSEOutput = utils.findSEConsole(self.nukeSE)
@@ -195,20 +192,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # ---------------------
         # ---
         # 2.1. Left buttons
-        self.change_btn = QtWidgets.QToolButton()
-        # self.exit_node_btn.setIcon(QtGui.QIcon(KS_DIR+"/KnobScripter/icons/icons8-delete-26.png"))
-        self.change_btn.setIcon(QtGui.QIcon(icons_path + "icon_pick.png"))
-        self.change_btn.setIconSize(self.qt_icon_size)
-        self.change_btn.setFixedSize(self.qt_btn_size)
+        self.change_btn = widgets.KSToolButton("pick")
         self.change_btn.setToolTip("Change to node if selected. Otherwise, change to Script Mode.")
         self.change_btn.clicked.connect(self.changeClicked)
 
         # ---
         # 2.2.A. Node mode UI
-        self.exit_node_btn = QtWidgets.QToolButton()
-        self.exit_node_btn.setIcon(QtGui.QIcon(icons_path + "icon_exitnode.png"))
-        self.exit_node_btn.setIconSize(self.qt_icon_size)
-        self.exit_node_btn.setFixedSize(self.qt_btn_size)
+        self.exit_node_btn = widgets.KSToolButton("exitnode")
         self.exit_node_btn.setToolTip("Exit the node, and change to Script Mode.")
         self.exit_node_btn.clicked.connect(self.exitNodeMode)
         self.current_node_label_node = QtWidgets.QLabel(" Node:")
@@ -264,32 +254,20 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # ---
         # 2.3. File-system buttons
         # Refresh dropdowns
-        self.refresh_btn = QtWidgets.QToolButton()
-        self.refresh_btn.setIcon(QtGui.QIcon(icons_path + "icon_refresh.png"))
-        self.refresh_btn.setIconSize(QtCore.QSize(50, 50))
-        self.refresh_btn.setIconSize(self.qt_icon_size)
-        self.refresh_btn.setFixedSize(self.qt_btn_size)
+        self.refresh_btn = widgets.KSToolButton("refresh")
         self.refresh_btn.setToolTip("Refresh the dropdowns.\nShortcut: F5")
         self.refresh_btn.setShortcut('F5')
         self.refresh_btn.clicked.connect(self.refreshClicked)
 
         # Reload script
-        self.reload_btn = QtWidgets.QToolButton()
-        self.reload_btn.setIcon(QtGui.QIcon(icons_path + "icon_download.png"))
-        self.reload_btn.setIconSize(QtCore.QSize(50, 50))
-        self.reload_btn.setIconSize(self.qt_icon_size)
-        self.reload_btn.setFixedSize(self.qt_btn_size)
+        self.reload_btn = widgets.KSToolButton("download")
         self.reload_btn.setToolTip(
             "Reload the current script. Will overwrite any changes made to it.\nShortcut: Ctrl+R")
         self.reload_btn.setShortcut('Ctrl+R')
         self.reload_btn.clicked.connect(self.reloadClicked)
 
         # Save script
-        self.save_btn = QtWidgets.QToolButton()
-        self.save_btn.setIcon(QtGui.QIcon(icons_path + "icon_save.png"))
-        self.save_btn.setIconSize(QtCore.QSize(50, 50))
-        self.save_btn.setIconSize(self.qt_icon_size)
-        self.save_btn.setFixedSize(self.qt_btn_size)
+        self.save_btn = widgets.KSToolButton("save")
 
         if not self.isPane:
             self.save_btn.setShortcut('Ctrl+S')
@@ -308,31 +286,20 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # 2.4. Right Side buttons
 
         # Python: Run script
-        self.run_script_button = QtWidgets.QToolButton()
-        self.run_script_button.setIcon(QtGui.QIcon(icons_path + "icon_run.png"))
-        # self.run_script_button.setIcon(QtGui.QIcon(icons_path+"icon_enter.png"))
-        self.run_script_button.setIconSize(self.qt_icon_size)
-        self.run_script_button.setFixedSize(self.qt_btn_size)
+        self.run_script_button = widgets.KSToolButton("run")
         self.run_script_button.setToolTip(
             "Execute the current selection on the KnobScripter, or the whole script if no selection.\nShortcut: Ctrl+Enter")
         self.run_script_button.clicked.connect(self.runScript)
 
         # Python: Clear console
-        self.clear_console_button = QtWidgets.QToolButton()
-        self.clear_console_button.setIcon(QtGui.QIcon(icons_path + "icon_clearConsole.png"))
-        self.clear_console_button.setIconSize(QtCore.QSize(50, 50))
-        self.clear_console_button.setIconSize(self.qt_icon_size)
-        self.clear_console_button.setFixedSize(self.qt_btn_size)
+        self.clear_console_button = widgets.KSToolButton("clear_console")
         self.clear_console_button.setToolTip(
             "Clear the text in the console window.\nShortcut: Ctrl+Backspace, or click+Backspace on the console.")
         self.clear_console_button.setShortcut('Ctrl+Backspace')
         self.clear_console_button.clicked.connect(self.clearConsole)
 
         # Blink: Save & Compile
-        self.save_recompile_button = QtWidgets.QToolButton()
-        self.save_recompile_button.setIcon(QtGui.QIcon(icons_path + "icon_play.png"))
-        self.save_recompile_button.setIconSize(self.qt_icon_size)
-        self.save_recompile_button.setFixedSize(self.qt_btn_size)
+        self.save_recompile_button = widgets.KSToolButton("play")
         self.save_recompile_button.setToolTip(
             "Save the blink code and recompile the Blinkscript node.\nShortcut: Ctrl+Enter")
         self.save_recompile_button.clicked.connect(self.blinkSaveRecompile)
@@ -340,9 +307,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # Blink: Backups
         self.createBlinkBackupsMenu()
         self.backup_button = QtWidgets.QPushButton()
-        self.backup_button.setIcon(QtGui.QIcon(icons_path + "icon_backups.png"))
-        self.backup_button.setIconSize(self.qt_icon_size)
-        self.backup_button.setFixedSize(self.qt_btn_size)
+        self.backup_button.setIcon(QtGui.QIcon(os.path.join(config.ICONS_DIR,"icon_backups.png")))
+        self.backup_button.setIconSize(QtCore.QSize(config.prefs["qt_icon_size"], config.prefs["qt_icon_size"]))
+        self.backup_button.setFixedSize(QtCore.QSize(config.prefs["qt_btn_size"], config.prefs["qt_btn_size"]))
         self.backup_button.setToolTip("Enable and retrieve auto-saves of the code")
         self.backup_button.setMenu(self.blinkBackupMenu)
         # self.backup_button.setFixedSize(QtCore.QSize(self.btn_size+10,self.btn_size))
@@ -350,13 +317,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # self.backup_button.clicked.connect(self.blinkBackup) #TODO: whatever this does
 
         # FindReplace button
-        self.find_button = QtWidgets.QToolButton()
-        self.find_button.setIcon(QtGui.QIcon(icons_path + "icon_search.png"))
-        self.find_button.setIconSize(self.qt_icon_size)
-        self.find_button.setFixedSize(self.qt_btn_size)
+        self.find_button = widgets.KSToolButton("search")
         self.find_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.\nShortcut: Ctrl+F")
         self.find_button.setShortcut('Ctrl+F')
-        # self.find_button.setMaximumWidth(self.find_button.fontMetrics().boundingRect("Find").width() + 20)
         self.find_button.setCheckable(True)
         self.find_button.setFocusPolicy(QtCore.Qt.NoFocus)
         self.find_button.clicked[bool].connect(self.toggleFRW)
@@ -364,29 +327,21 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.find_button.toggle()
 
         # Gallery
-        self.codegallery_button = QtWidgets.QToolButton()
-        self.codegallery_button.setIcon(QtGui.QIcon(icons_path + "icon_enter.png"))
-        self.codegallery_button.setIconSize(QtCore.QSize(50, 50))
-        self.codegallery_button.setIconSize(self.qt_icon_size)
-        self.codegallery_button.setFixedSize(self.qt_btn_size)
+        self.codegallery_button = widgets.KSToolButton("enter")
         self.codegallery_button.setToolTip("Open the code gallery panel.")
         self.codegallery_button.clicked.connect(self.openCodeGallery)
 
         # Snippets
-        self.snippets_button = QtWidgets.QToolButton()
-        self.snippets_button.setIcon(QtGui.QIcon(icons_path + "icon_snippets.png"))
-        self.snippets_button.setIconSize(QtCore.QSize(50, 50))
-        self.snippets_button.setIconSize(self.qt_icon_size)
-        self.snippets_button.setFixedSize(self.qt_btn_size)
+        self.snippets_button = widgets.KSToolButton("snippets")
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.snippets_button.clicked.connect(self.openSnippets)
 
         # Prefs
         self.createPrefsMenu()
         self.prefs_button = QtWidgets.QPushButton()
-        self.prefs_button.setIcon(QtGui.QIcon(icons_path + "icon_prefs.png"))
-        self.prefs_button.setIconSize(self.qt_icon_size)
-        self.prefs_button.setFixedSize(QtCore.QSize(self.btn_size + 10, self.btn_size))
+        self.prefs_button.setIcon(QtGui.QIcon(os.path.join(config.ICONS_DIR, "icon_prefs.png")))
+        self.prefs_button.setIconSize(QtCore.QSize(config.prefs["qt_icon_size"], config.prefs["qt_icon_size"]))
+        self.prefs_button.setFixedSize(QtCore.QSize(config.prefs["qt_btn_size"] + 10, config.prefs["qt_btn_size"]))
         self.prefs_button.setMenu(self.prefsMenu)
         self.prefs_button.setStyleSheet("text-align:left;padding-left:2px;")
 

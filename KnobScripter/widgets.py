@@ -1,6 +1,8 @@
 import logging
 from collections import OrderedDict
 import nuke
+import config
+import os
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -282,3 +284,38 @@ class RadioSelector(QtWidgets.QWidget):
 
     def selected_text(self):
         return str(self.button_group.button(self.button_group.checkedId()).text())
+
+#TODO FIND A WAY NOT TO HAVE THIS FULLY DUPLICATED
+class KSToolButton(QtWidgets.QToolButton):
+    """ Given the png name and sizes, makes a tool button """
+    def __init__(self, icon = None, parent=None):
+        super(KSToolButton, self).__init__(parent=parent)
+
+        self.icon_path = None
+        self.set_icon(icon)
+        icon_size = config.prefs["qt_icon_size"]
+        btn_size = config.prefs["qt_btn_size"]
+        self.setIconSize(QtCore.QSize(icon_size, icon_size))
+        self.setFixedSize(QtCore.QSize(btn_size, btn_size))
+
+    def set_icon(self, icon_filename=None, add_extension = True, full_path = False):
+        """ Set the button's icon (i.e. icon_search.png) """
+        #TODO TURN THIS FUNCTION INTO DECORATOR!
+        if icon_filename == None:
+            self.setIcon(None)
+            return
+        elif add_extension and not icon_filename.endswith(".png"):
+            icon_filename = icon_filename + ".png"
+
+        if full_path:
+            self.icon_path = icon_filename
+        else:
+            self.icon_path = os.path.join(config.ICONS_DIR, icon_filename)
+
+        self.setIcon(QtGui.QIcon(self.icon_path))
+
+
+
+
+
+

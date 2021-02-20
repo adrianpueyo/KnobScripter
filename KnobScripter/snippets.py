@@ -207,7 +207,6 @@ class SnippetsWidget(QtWidgets.QWidget):
         self.reload_button.clicked.connect(self.reload)
         filter_layout.setMargin(0)
         filter_layout.addWidget(self.reload_button)
-
         self.filter_widget.setLayout(filter_layout)
         self.layout.addWidget(self.filter_widget)
         self.layout.addWidget(widgets.HLine())
@@ -257,6 +256,10 @@ class SnippetsWidget(QtWidgets.QWidget):
 
         # Build widgets as needed
         # MAKE THIS AS NEEDED!
+        snippets_item = SnippetsItem("shortcode here", "full code here!!!!")
+        #snippets_item.setTitle("Key:")
+        self.scroll_layout.addWidget(snippets_item)
+        self.scroll_layout.addStretch()
         """
         if lang == "all":
             for lang in code_gallery_dict.keys():
@@ -271,6 +274,33 @@ class SnippetsWidget(QtWidgets.QWidget):
         """
 
 
+class SnippetsItem(widgets.ToggableCodeGroup):
+    """ widgets.ToggableGroup adapted specifically for a code gallery item. """
+
+    def __init__(self, key = "", code = "", parent=None):
+
+        super(SnippetsItem, self).__init__(parent=parent)
+        self.parent = parent
+
+        self.title_label.setParent(None)
+
+        # Add QLineEdit
+        self.key_lineedit = QtWidgets.QLineEdit()
+        self.key_lineedit.setMinimumWidth(20)
+        self.key_lineedit.setStyleSheet("background:#222222;")
+        f = self.key_lineedit.font()
+        f.setWeight(QtGui.QFont.Bold)
+        self.key_lineedit.setFont(f)
+        self.key_lineedit.setText(str(key))
+        self.top_clickable_layout.addWidget(self.key_lineedit)
+
+        # Add buttons
+        self.btn_1 = widgets.KSToolButton("search")
+
+        self.top_right_layout.addWidget(self.btn_1)
+
+        # Set code
+        self.script_editor.setPlainText(str(code))
 
 
 class SnippetsPanel(QtWidgets.QDialog):
