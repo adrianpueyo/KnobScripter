@@ -202,7 +202,7 @@ class SnippetsWidget(QtWidgets.QWidget):
 
         self.initUI()
         self.build_snippets(lang=self.code_language)
-        #self.change_lang(self.code_language)
+        self.change_lang(self.code_language)
 
     def initUI(self):
         self.layout = QtWidgets.QVBoxLayout()
@@ -235,7 +235,6 @@ class SnippetsWidget(QtWidgets.QWidget):
         self.scroll_content.setLayout(self.scroll_layout)
         self.scroll_content.setContentsMargins(0, 0, 8, 0)
 
-        self.change_lang(self.code_language, force_reload=True)
 
         # 2.2. External Scroll Area
         self.scroll = QtWidgets.QScrollArea()
@@ -298,9 +297,9 @@ class SnippetsWidget(QtWidgets.QWidget):
         # Clear scroll area
         utils.clear_layout(self.scroll_layout)
         snippets_dict = load_snippets_dict()
-        print snippets_dict
         # Build widgets as needed
         for language in snippets_dict:
+            print("language: "+language)
             for snippet in snippets_dict[language]:
                 if isinstance(snippet, list):
                     # MAKE THIS AS NEEDED!
@@ -312,6 +311,26 @@ class SnippetsWidget(QtWidgets.QWidget):
         #self.change_lang(self.code_language)
         self.snippets_built = True
 
+    def change_lang(self,lang,force_reload=True):
+        """ Set the code language, clear the scroll layout and rebuild it as needed. """
+        lang = str(lang).lower()
+
+        if force_reload == False and lang == self.code_language:
+            logging.debug("KS: Doing nothing because the language was already selected.")
+            return False
+
+        self.lang_selector.set_button(lang)
+        self.code_language = lang
+        logging.debug("Setting code language to "+lang)
+
+        snippets_items = (self.scroll_layout.itemAt(i).widget() for i in range(self.scroll_layout.count()))
+        for snippets_item in snippets_items:
+            if isinstance(snippets_item,SnippetsItem):
+                snippets_item.setHidden(snippets_item.lang != self.code_language)
+        return
+
+
+    '''
     def change_lang(self,lang,force_reload=False):
         """ Set the code language, clear the scroll layout and rebuild it as needed. """
         lang = lang.lower()
@@ -341,7 +360,7 @@ class SnippetsWidget(QtWidgets.QWidget):
                     self.scroll_layout.insertWidget(-1, snippets_item)
 
         self.scroll_layout.addStretch()
-
+    '''
     def add_snippet(self):
         """ Create a new blank snippet field and focus on it. """
         snippets_item = SnippetsItem("", "", self.code_language)
