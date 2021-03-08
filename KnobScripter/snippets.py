@@ -303,7 +303,7 @@ class SnippetsWidget(QtWidgets.QWidget):
             for snippet in snippets_dict[language]:
                 if isinstance(snippet, list):
                     # MAKE THIS AS NEEDED!
-                    snippets_item = SnippetsItem(snippet[0], snippet[1], language)
+                    snippets_item = SnippetsItem(snippet[0], snippet[1], lang= str(language))
                     #snippets_item.setHidden(language != self.code_language)
                     # snippets_item.setTitle("Key:")
                     self.scroll_layout.insertWidget(-1, snippets_item)
