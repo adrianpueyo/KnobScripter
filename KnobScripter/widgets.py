@@ -288,13 +288,13 @@ class RadioSelector(QtWidgets.QWidget):
 #TODO FIND A WAY NOT TO HAVE THIS FULLY DUPLICATED
 class KSToolButton(QtWidgets.QToolButton):
     """ Given the png name and sizes, makes a tool button """
-    def __init__(self, icon = None, parent=None):
+    def __init__(self, icon = None, icon_size=None, btn_size=None, parent=None):
         super(KSToolButton, self).__init__(parent=parent)
 
         self.icon_path = None
         self.set_icon(icon)
-        icon_size = config.prefs["qt_icon_size"]
-        btn_size = config.prefs["qt_btn_size"]
+        icon_size = icon_size or config.prefs["qt_icon_size"]
+        btn_size = btn_size or config.prefs["qt_btn_size"]
         self.setIconSize(QtCore.QSize(icon_size, icon_size))
         self.setFixedSize(QtCore.QSize(btn_size, btn_size))
 

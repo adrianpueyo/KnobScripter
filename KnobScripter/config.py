@@ -3,11 +3,11 @@ import os
 KS_DIR = os.path.dirname(__file__)
 ICONS_DIR = os.path.join(KS_DIR, "icons")
 
-scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
-blink_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Scripts"))
-snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Snippets.txt"))
-prefs_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_Prefs.txt"))
-state_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KnobScripter_State.txt"))
+scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Scripts"))
+blink_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Scripts"))
+snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Snippets.txt"))
+prefs_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Prefs.txt"))
+state_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/State.txt"))
 
 # TODO Redo the whole preferences loading and saving methods and interfaces
 prefs = {

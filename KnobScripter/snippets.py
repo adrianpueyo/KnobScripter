@@ -22,7 +22,23 @@ import dialogs
 import codegallery
 import utils
 
-def loadSnippetsDict(path=None):
+SNIPPETS_DEFAULT_DICT = {
+    "python" : [
+        ["an", "nuke.allNodes($$)"],
+        ["sn", "nuke.selectedNode()"],
+        ["sns", "nuke.selectedNodes()"],
+        ["try", "try:\n    $$\nexcept:\n    pass"],
+        ["deselect", "[n.setSelected(False) for n in $$nuke.selectedNodes()$$]"],
+       ],
+    "blink": [
+        ["pr", "void process($$int2 pos$$) {\n    dst() = 1.0f;\n  }"],
+    ],
+    "all": [
+        ["b", "[$$]"],
+    ],
+}
+
+def load_snippets_dict(path=None):
     ''' Load the snippets from json path as a dict. Return dict() '''
     if not path:
         path = config.snippets_txt_path
@@ -57,7 +73,7 @@ def loadAllSnippets(path="", max_depth=5, depth=0):
                     loaded_snippets[key] = val
             return loaded_snippets
 
-def saveSnippets(snippets_dict, path=None):
+def save_snippets_dict(snippets_dict, path=None):
     ''' Perform a json dump of the snippets into the path '''
     if not path:
         path = config.snippets_txt_path
@@ -71,11 +87,11 @@ def append_snippet(code, shortcode="", path=None, lang = None):
         return False
     if not path:
         path = config.snippets_txt_path
-    all_snippets = loadSnippetsDict(path)
+    all_snippets = load_snippets_dict(path)
     if shortcode == "":
         return False
     all_snippets[shortcode] = code
-    saveSnippets(all_snippets, path)
+    save_snippets_dict(all_snippets, path)
 
 class AppendSnippetPanel(QtWidgets.QDialog):
     def __init__(self, parent=None, code=None, shortcode=None, path = None, lang="python"):
@@ -84,7 +100,7 @@ class AppendSnippetPanel(QtWidgets.QDialog):
         self.lang = lang
         shortcode = shortcode or ""
         self.path = path or config.snippets_txt_path
-        self.existing_snippets = loadSnippetsDict(self.path)
+        self.existing_snippets = load_snippets_dict(self.path)
         if not self.existing_snippets:
             return
         self.existing_shortcodes = self.existing_snippets.keys()
@@ -175,8 +191,6 @@ class AppendSnippetPanel(QtWidgets.QDialog):
         self.reject()
 
 
-#TODO remove stupid buttons and add reload button, sae as code gallery.
-
 class SnippetsWidget(QtWidgets.QWidget):
     """ Widget containing snippet editors, lang selector and other functionality. """
     # TODO Load default snippets should appear if not already loaded, or everything empty.
@@ -184,9 +198,11 @@ class SnippetsWidget(QtWidgets.QWidget):
         super(SnippetsWidget, self).__init__(_parent)
         self.knob_scripter = knob_scripter
         self.code_language = "python"
+        self.snippets_built = False
 
         self.initUI()
-        self.change_lang(self.code_language)
+        self.build_snippets(lang=self.code_language)
+        #self.change_lang(self.code_language)
 
     def initUI(self):
         self.layout = QtWidgets.QVBoxLayout()
@@ -196,17 +212,16 @@ class SnippetsWidget(QtWidgets.QWidget):
         filter_layout = QtWidgets.QHBoxLayout()
         code_language_label = QtWidgets.QLabel("Language:")
         filter_layout.addWidget(code_language_label)
-
         # TODO Compatible with expressions and TCL knobs too
         self.lang_selector = widgets.RadioSelector(["Python", "Blink", "All"])
         self.lang_selector.radio_selected.connect(self.change_lang)
         filter_layout.addWidget(self.lang_selector)
         filter_layout.addStretch()
-
         self.reload_button = QtWidgets.QPushButton("Reload")
         self.reload_button.clicked.connect(self.reload)
         filter_layout.setMargin(0)
         filter_layout.addWidget(self.reload_button)
+
         self.filter_widget.setLayout(filter_layout)
         self.layout.addWidget(self.filter_widget)
         self.layout.addWidget(widgets.HLine())
@@ -232,12 +247,70 @@ class SnippetsWidget(QtWidgets.QWidget):
 
         self.layout.addWidget(self.scroll)
 
+        # 3. Lower buttons
+        self.lower_layout = QtWidgets.QHBoxLayout()
+
+        self.add_snippet_btn = widgets.KSToolButton("add_filled")
+        self.add_snippet_btn.setToolTip("Add new snippet")
+        self.add_snippet_btn.clicked.connect(self.add_snippet)
+
+        self.sort_az_btn = widgets.KSToolButton("sort_az", icon_size=22)
+        self.sort_az_btn.setToolTip("Sort snippets A-Z")
+        self.sort_za_btn = widgets.KSToolButton("sort_za", icon_size=22)
+        self.sort_za_btn.setToolTip("Sort snippets Z-A")
+        self.v_expand_btn = widgets.KSToolButton("v_expand", icon_size=22)
+        self.v_expand_btn.setToolTip("Expand all snippets")
+        self.v_collapse_btn = widgets.KSToolButton("v_collapse", icon_size=22)
+        self.v_collapse_btn.setToolTip("Collapse all snippets")
+        self.save_snippets_btn = widgets.KSToolButton("save_all")
+        self.save_snippets_btn.setToolTip("Save all snippets")
+        self.snippets_help_btn = widgets.KSToolButton("help_filled")
+        self.snippets_help_btn.setToolTip("Help")
+
+
+
+        self.lower_layout.addWidget(self.add_snippet_btn)
+        self.lower_layout.addSpacing(12)
+        self.lower_layout.addWidget(self.sort_az_btn)
+        self.lower_layout.addWidget(self.sort_za_btn)
+        self.lower_layout.addSpacing(12)
+        self.lower_layout.addWidget(self.v_expand_btn)
+        self.lower_layout.addWidget(self.v_collapse_btn)
+        self.lower_layout.addStretch()
+        self.lower_layout.addWidget(self.save_snippets_btn)
+        self.lower_layout.addWidget(self.snippets_help_btn)
+
+        self.layout.addWidget(widgets.HLine())
+        self.layout.addLayout(self.lower_layout)
+
         self.setLayout(self.layout)
 
     def reload(self):
         """ Force a rebuild of the widgets in the current filter status. """
         lang = self.lang_selector.selected_text()
         self.change_lang(lang, force_reload=True)
+
+    def build_snippets(self,lang=None):
+        lang = lang or self.code_language
+        lang = lang.lower()
+        self.code_language = lang
+
+        # Clear scroll area
+        utils.clear_layout(self.scroll_layout)
+        snippets_dict = load_snippets_dict()
+        print snippets_dict
+        # Build widgets as needed
+        for language in snippets_dict:
+            for snippet in snippets_dict[language]:
+                if isinstance(snippet, list):
+                    # MAKE THIS AS NEEDED!
+                    snippets_item = SnippetsItem(snippet[0], snippet[1], language)
+                    #snippets_item.setHidden(language != self.code_language)
+                    # snippets_item.setTitle("Key:")
+                    self.scroll_layout.insertWidget(-1, snippets_item)
+        self.scroll_layout.addStretch()
+        #self.change_lang(self.code_language)
+        self.snippets_built = True
 
     def change_lang(self,lang,force_reload=False):
         """ Set the code language, clear the scroll layout and rebuild it as needed. """
@@ -253,34 +326,38 @@ class SnippetsWidget(QtWidgets.QWidget):
 
         # Clear scroll area
         utils.clear_layout(self.scroll_layout)
+        
+        #snippets_dict = SNIPPETS_DEFAULT_DICT #TODO Change this for the actual loaded snippets
+        snippets_dict = load_snippets_dict()
 
         # Build widgets as needed
-        # MAKE THIS AS NEEDED!
-        snippets_item = SnippetsItem("shortcode here", "full code here!!!!")
-        #snippets_item.setTitle("Key:")
-        self.scroll_layout.addWidget(snippets_item)
+        for language in snippets_dict:
+            for snippet in snippets_dict[language]:
+                if isinstance(snippet,list):
+                    # MAKE THIS AS NEEDED!
+                    snippets_item = SnippetsItem(snippet[0], snippet[1], lang)
+                    snippets_item.setHidden(language != self.code_language)
+                    #snippets_item.setTitle("Key:")
+                    self.scroll_layout.insertWidget(-1, snippets_item)
+
         self.scroll_layout.addStretch()
-        """
-        if lang == "all":
-            for lang in code_gallery_dict.keys():
-                tg = ToggableGroup(self)
-                tg.setTitle("<big><b>{}</b></big>".format(lang.capitalize()))
-                self.build_gallery_group(code_gallery_dict[lang], tg.content_layout, lang=lang)
-                self.scroll_layout.insertWidget(-1, tg)
-                self.scroll_layout.addSpacing(10)
-        else:
-            self.build_gallery_group(code_gallery_dict[lang], self.scroll_layout, lang=lang)
-        self.scroll_layout.addStretch()
-        """
+
+    def add_snippet(self):
+        """ Create a new blank snippet field and focus on it. """
+        snippets_item = SnippetsItem("", "", self.code_language)
+        # snippets_item.setTitle("Key:")
+        self.scroll_layout.insertWidget(0, snippets_item)
+        snippets_item.key_lineedit.setFocus()
 
 
 class SnippetsItem(widgets.ToggableCodeGroup):
-    """ widgets.ToggableGroup adapted specifically for a code gallery item. """
+    """ widgets.ToggableGroup adapted specifically for a snippet item. """
 
-    def __init__(self, key = "", code = "", parent=None):
+    def __init__(self, key = "", code = "", lang = "python", parent=None):
 
         super(SnippetsItem, self).__init__(parent=parent)
         self.parent = parent
+        self.lang = lang
 
         self.title_label.setParent(None)
 
@@ -295,12 +372,26 @@ class SnippetsItem(widgets.ToggableCodeGroup):
         self.top_clickable_layout.addWidget(self.key_lineedit)
 
         # Add buttons
-        self.btn_1 = widgets.KSToolButton("search")
+        self.btn_insert = widgets.KSToolButton("download")
+        self.btn_insert.setToolTip("Insert code into KnobScripter editor")
+        self.btn_duplicate = widgets.KSToolButton("duplicate")
+        self.btn_duplicate.setToolTip("Duplicate snippet")
+        self.btn_delete = widgets.KSToolButton("delete")
+        self.btn_delete.setToolTip("Delete snippet")
 
-        self.top_right_layout.addWidget(self.btn_1)
+        self.top_right_layout.addWidget(self.btn_insert)
+        self.top_right_layout.addWidget(self.btn_duplicate)
+        self.top_right_layout.addWidget(self.btn_delete)
 
         # Set code
+        self.script_editor.set_code_language(lang.lower())
         self.script_editor.setPlainText(str(code))
+
+        lines = self.script_editor.document().blockCount()
+        lineheight = self.script_editor.fontMetrics().height()
+
+        self.setFixedHeight(80+lineheight*min(lines-1,4))
+        self.grip_line.parent_min_size = (100, 80)
 
 
 class SnippetsPanel(QtWidgets.QDialog):
@@ -313,7 +404,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         # self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Snippet editor")
 
-        self.snippets_dict = loadSnippetsDict(path=config.snippets_txt_path)
+        self.snippets_dict = load_snippets_dict(path=config.snippets_txt_path)
 
         self.initUI()
         self.resize(500, 300)
@@ -399,7 +490,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         for i in reversed(range(self.scroll_layout.count())):
             self.scroll_layout.itemAt(i).widget().deleteLater()
 
-        self.snippets_dict = loadSnippetsDict(path=config.snippets_txt_path)
+        self.snippets_dict = load_snippets_dict(path=config.snippets_txt_path)
 
         self.buildSnippetWidgets()
 
@@ -431,7 +522,7 @@ class SnippetsPanel(QtWidgets.QDialog):
         return dic
 
     def applySnippets(self):
-        saveSnippets(self.getSnippetsAsDict())
+        save_snippets_dict(self.getSnippetsAsDict())
         self.knob_scripter.snippets = loadAllSnippets(max_depth=5)
 
     def okPressed(self):

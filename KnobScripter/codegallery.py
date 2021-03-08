@@ -57,7 +57,6 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.code_language = "python"
 
         self.initUI()
-        # self.resize(500,300)
         self.change_lang(self.code_language)
 
     def initUI(self):
