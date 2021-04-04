@@ -15,7 +15,28 @@ except ImportError:
 
 from ksscripteditor import KSScriptEditor
 import keywordhotbox
+from .. import content
 
+def longest_ending_match(text, match_list):
+    '''
+    If the text ends with a key in the match_list, it returns the key and value.
+    match_list example: [["ban","banana"],["ap","apple"],["or","orange"]]
+    If there are several matches, returns the longest one.
+    False if no matches.
+    '''
+    longest = 0  # len of longest match
+    match_key = None
+    match_snippet = ""
+    for item in match_list:
+        match = re.search(r"[\s.(){}\[\],;=+-]" + item[0] + r"$", text)  # TODO check if worked
+        if match or text == item[0]:
+            if len(item[0]) > longest:
+                longest = len(item[0])
+                match_key = item[0]
+                match_snippet = item[1]
+    if match_key is None:
+        return False
+    return match_key, match_snippet
 
 class KSScriptEditorMain(KSScriptEditor):
     '''
@@ -49,26 +70,6 @@ class KSScriptEditorMain(KSScriptEditor):
         ########
         # FROM NUKE's SCRIPT EDITOR END
         ########
-
-    def findLongestEndingMatch(self, text, dic):
-        '''
-        If the text ends with a key in the dictionary, it returns the key and value.
-        If there are several matches, returns the longest one.
-        False if no matches.
-        '''
-        longest = 0  # len of longest match
-        match_key = None
-        match_snippet = ""
-        for key, val in dic.items():
-            match = re.search(r"[\s.(){}\[\],;=+-]" + key + r"$", text)  # TODO check if worked
-            if match or text == key:
-                if len(key) > longest:
-                    longest = len(key)
-                    match_key = key
-                    match_snippet = val
-        if match_key is None:
-            return False
-        return match_key, match_snippet
 
     def placeholderToEnd(self, text, placeholder):
         '''Returns distance (int) from the first ocurrence of the placeholder, to the end of the string with placeholders removed'''
@@ -273,14 +274,17 @@ class KSScriptEditorMain(KSScriptEditor):
 
                 # 3. Check coincidences in snippets dicts
                 try:  # Meaning snippet found
-                    match_key, match_snippet = self.findLongestEndingMatch(line_before_cursor,
-                                                                           self.knobScripter.snippets)
+                    snippets_list = content.all_snippets[self.knobScripter.code_language]
+                    if "all" in content.all_snippets:
+                        for i in content.all_snippets["all"]:
+                            snippets_list.append(i)
+                    match_key, match_snippet = longest_ending_match(line_before_cursor, snippets_list)
                     for i in range(len(match_key)):
                         self.cursor.deletePreviousChar()
                     self.addSnippetText(
                         match_snippet)  # This function takes care of adding the appropriate snippet and moving the cursor...
                 except:  # Meaning snippet not found...
-                    # 3.1. If python mode, go with nuke/python completer
+                    # 3.1. Go with nuke/python completer
                     if self.knobScripter.code_language in ["python","blink"]:
                         # ADAPTED FROM NUKE's SCRIPT EDITOR:
                         tc = self.textCursor()
@@ -454,30 +458,11 @@ class KSScriptEditorMain(KSScriptEditor):
         return matchedModules
 
     def blinkCompletions(self, completionPart):
-        blink_keywords = ["eComponentWise","ePixelWise","ImageComputationKernel",
-                          "eRead","eWrite","eReadWrite","kernel",
-                          "eAccessPoint","eAccessRanged1D","eAccessRanged2D","eAccessRandom",
-                          "setAxis","setRange","defineParam",
-                          "kMin","kMax","kWhitePoint","kComps","kClamps","bounds","ValueType","SampleType",
-                          "float","float2","float3","float4","float3x3","float4x4","float[]",
-                          "int","int2","int3","int4","int3x3",
-                          "process","init","param","local",
-                          "bilinear","dot","cross","length","normalize",
-                          "sin","cos","tan","asin","acos","atan","atan2",
-                          "exp","log","log2","log10",
-                          "floor","ceil","round","pow","sqrt","rsqrt",
-                          "fabs","abs","fmod","modf","sign","min","max","clamp","rcp",
-                          "atomicAdd","atomicInc","median",
-                          "rect","grow","inside","width","height",
-                          ]
-        print(completionPart)
+        blink_keywords = content.blink_keywords
         matchedModules = []
         for i in blink_keywords:
             if i.startswith(completionPart):
                 matchedModules.append(i)
-
-        #TODO Add $$ functionality (so it opens parentheses and already has sth inside as a clue)
-
         return matchedModules
 
     def completeNukePartUnderCursor(self, completionPart):
@@ -508,7 +493,9 @@ class KSScriptEditorMain(KSScriptEditor):
         return
 
     def insertNukeCompletion(self, completion):
+        """ Insert the appropriate text into the script editor. """
         if completion:
+            # If python, insert text... If blink, insert as snippet?
             completionPart = self.nukeCompleter.completionPrefix()
             if len(completionPart.split('.')) == 0:
                 completionPartFragment = completionPart
@@ -517,7 +504,10 @@ class KSScriptEditorMain(KSScriptEditor):
 
             textToInsert = completion[len(completionPartFragment):]
             tc = self.textCursor()
-            tc.insertText(textToInsert)
+            if self.code_language == "python":
+                tc.insertText(textToInsert)
+            elif self.code_language == "blink":
+                self.addSnippetText(textToInsert)
         return
 
     def completerHighlightChanged(self, highlighted):

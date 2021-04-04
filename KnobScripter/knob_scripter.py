@@ -56,6 +56,7 @@ import script_output
 import utils
 from scripteditor import ksscripteditormain, findreplace
 import widgets
+import content
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -68,8 +69,8 @@ logging.debug('Initializing KnobScripter')
 # Init config.script_editor_font (will be overwritten once reading the prefs)
 prefs.load_prefs()
 
-# TODO ctrl + +/- for live-changing the font size just for the current script editor????? nice
-# TODO Different snippets for python and blink etc. With the lang selector.
+# TODO ctrl + +/- for live-changing the font size just for the current script editor????? nice -> should have a self.instance_font_size
+# TODO Exit node mode should warn if there's unsaved changes!!!!! Both in python and blink
 
 def is_blink_knob(knob):
     ''' Return True if knob is Blink type '''
@@ -145,7 +146,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # Load snippets
         #self.snippets = snippets.loadAllSnippets(max_depth=5)
         #self.snippets = snippets.load_snippets_dict("C:/Users/Apueyo/.nuke/KnobScripter_Snippets.txt")
-        self.snippets = snippets.load_snippets_dict()
+        content.all_snippets = snippets.load_snippets_dict(default_snippets=True)
 
         # Init UI
         self.initUI()
@@ -1643,7 +1644,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             SnippetEditPanel.reload()
 
         if SnippetEditPanel.show():
-            self.snippets = snippets.loadAllSnippets(max_depth=5)
+            content.all_snippets = snippets.load_snippets_dict()
             SnippetEditPanel = ""
 
     def openCodeGallery(self):

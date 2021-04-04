@@ -21,18 +21,26 @@ import dialogs
 import codegallery
 import utils
 import widgets
+import content
 
-def load_snippets_dict(path=None):
-    ''' Load the snippets from json path as a dict. Return dict() '''
+def load_snippets_dict(path=None,default_snippets=True):
+    '''
+    Load the snippets from json path as a dict. Return dict()
+    if default_snippets == True and no snippets file found, loads default library of snippets.
+    '''
     if not path:
         path = config.snippets_txt_path
     if not os.path.isfile(path):
         logging.debug("Path doesn't exist: "+path)
-        return {}
+        return content.default_snippets
     else:
-        with open(path, "r") as f:
-            snippets = json.load(f)
-            return snippets
+        try:
+            with open(path, "r") as f:
+                snippets = json.load(f)
+                return snippets
+        except:
+            logging.debug("Couldn't open file: {}.\nLoading default snippets instead.".format(path))
+            return content.default_snippets
 
 def loadAllSnippets(path="", max_depth=5, depth=0):
     '''
@@ -63,10 +71,10 @@ def save_snippets_dict(snippets_dict, path=None):
         path = config.snippets_txt_path
     with open(path, "w") as f:
         json.dump(snippets_dict, f, sort_keys=True, indent=4)
+        content.all_snippets = snippets_dict
 
 def append_snippet(code, shortcode="", path=None, lang = None):
     ''' Load the snippets file as a dict and append a snippet '''
-    # TODO Add Language functionality... so snippets should be changed completely...
     if code == "":
         return False
     if not path:
@@ -164,12 +172,11 @@ class AppendSnippetPanel(QtWidgets.QDialog):
                 return False
         logging.debug("Snippet to be saved \nLang:\n{0}\nShortcode:\n{1}\nCode:\n{2}\n------".format(lang, shortcode, code))
         append_snippet(code,shortcode,lang=lang)
-        all_snippets = loadAllSnippets(max_depth=5)
-        for ks in nuke.AllKnobScripters:
-            try:
-                ks.snippets = all_snippets
-            except Exception as e:
-                logging.debug(e)
+        all_snippets = load_snippets_dict()
+        try:
+            content.all_snippets = all_snippets
+        except Exception as e:
+            logging.debug(e)
         self.accept()
 
     def cancel_pressed(self):
@@ -182,7 +189,6 @@ class AppendSnippetPanel(QtWidgets.QDialog):
 
 class SnippetsWidget(QtWidgets.QWidget):
     """ Widget containing snippet editors, lang selector and other functionality. """
-    # TODO Load default snippets should appear if not already loaded, or everything empty.
     def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
         super(SnippetsWidget, self).__init__(_parent)
         self.knob_scripter = knob_scripter
@@ -274,8 +280,6 @@ class SnippetsWidget(QtWidgets.QWidget):
         self.layout.addLayout(self.lower_layout)
 
         self.setLayout(self.layout)
-
-        #TODO add load defaults button
 
     def reload(self):
         """ Force a rebuild of the widgets in the current filter status. """
@@ -438,7 +442,6 @@ class SnippetsItem(widgets.ToggableCodeGroup):
 class SnippetsPanel(QtWidgets.QDialog):
     def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
         super(SnippetsPanel, self).__init__(_parent)
-        # TODO delete buttons on the snippets! and categories per code languages (meaning dynamically show/hide widgets on request)
 
         self.knob_scripter = knob_scripter
 
@@ -616,8 +619,6 @@ class SnippetEdit(QtWidgets.QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.setLayout(self.layout)
-
-        # TODO: Base gallery of snippets that can be imported or something. Or button to Import Defaults, when empty...
 
 
 class SnippetFilePath(QtWidgets.QWidget):
