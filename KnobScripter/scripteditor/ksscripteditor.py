@@ -35,7 +35,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         self.code_language = None
 
         # Setup line numbers
-        self.tabSpaces = config.prefs["se_tab_spaces"]
+        self.tab_spaces = config.prefs["se_tab_spaces"]
 
         self.lineColor = None
         self.lineNumberAreaColor = None
@@ -99,7 +99,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
         painterFont = config.script_editor_font
         if self.knobScripter != "":
-            painterFont.setPointSize(self.knobScripter.font_size)
+            painterFont.setPointSize(config.prefs["se_font_size"])
         painter.setFont(painterFont)
 
         while (block.isValid() and top <= event.rect().bottom()):
@@ -389,7 +389,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
         # snap to previous indent level
         spaces = len(textInFront)
-        for space in range(spaces - ((spaces - 1) / self.tabSpaces) * self.tabSpaces - 1):
+        for space in range(spaces - ((spaces - 1) / self.tab_spaces) * self.tab_spaces - 1):
             self.cursor.deletePreviousChar()
 
     def indentNewLine(self):
@@ -415,7 +415,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             else:
                 break
 
-        indentLevel /= self.tabSpaces
+        indentLevel /= self.tab_spaces
 
         # find out whether textInFront's last character was a ':'
         # if that's the case add another indent.
@@ -431,7 +431,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         # new line
         self.insertPlainText('\n')
         # match indent
-        self.insertPlainText(' ' * int(self.tabSpaces * indentLevel))
+        self.insertPlainText(' ' * int(self.tab_spaces * indentLevel))
 
     def indentation(self, mode):
 
@@ -441,7 +441,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         # if nothing is selected and mode is set to indent, simply insert as many
         # space as needed to reach the next indentation level.
         if self.noSelection and mode == 'indent':
-            remainingSpaces = self.tabSpaces - (self.cursorBlockPos % self.tabSpaces)
+            remainingSpaces = self.tab_spaces - (self.cursorBlockPos % self.tab_spaces)
             self.insertPlainText(' ' * remainingSpaces)
             return
 
@@ -502,16 +502,16 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         for block in blocks:
             blockText = block.text()
             if mode == 'unindent':
-                if blockText.startswith(' ' * self.tabSpaces):
-                    blockText = blockText[self.tabSpaces:]
-                    self.lastChar -= self.tabSpaces
+                if blockText.startswith(' ' * self.tab_spaces):
+                    blockText = blockText[self.tab_spaces:]
+                    self.lastChar -= self.tab_spaces
                 elif blockText.startswith(' '):
                     blockText = blockText[1:]
                     self.lastChar -= 1
 
             elif mode == 'indent':
-                blockText = ' ' * self.tabSpaces + blockText
-                self.lastChar += self.tabSpaces
+                blockText = ' ' * self.tab_spaces + blockText
+                self.lastChar += self.tab_spaces
 
             text.append(blockText)
 

@@ -281,7 +281,7 @@ class KSScriptEditorMain(KSScriptEditor):
                         match_snippet)  # This function takes care of adding the appropriate snippet and moving the cursor...
                 except:  # Meaning snippet not found...
                     # 3.1. If python mode, go with nuke/python completer
-                    if self.knobScripter.code_language == "python":
+                    if self.knobScripter.code_language in ["python","blink"]:
                         # ADAPTED FROM NUKE's SCRIPT EDITOR:
                         tc = self.textCursor()
                         allCode = self.toPlainText()
@@ -325,9 +325,6 @@ class KSScriptEditorMain(KSScriptEditor):
 
                         KSScriptEditor.keyPressEvent(self, event)
                     else:
-                        # 3.2. If blink mode, tab should do other stuff
-                        # TODO make a blink completer?
-                        # TODO add my words to the auto completer list: eComponentWise, ImageComputationKernel etc....
                         KSScriptEditor.keyPressEvent(self, event)
             elif event.key() in [Qt.Key_Enter, Qt.Key_Return]:
                 modifiers = QtWidgets.QApplication.keyboardModifiers()
@@ -392,6 +389,12 @@ class KSScriptEditorMain(KSScriptEditor):
 
     # Nuke script editor's modules completer
     def completionsForcompletionPart(self, completionPart):
+        if self.knobScripter.code_language == "python":
+            return self.pythonCompletions(completionPart)
+        elif self.knobScripter.code_language == "blink":
+            return self.blinkCompletions(completionPart)
+
+    def pythonCompletions(self,completionPart):
         def findModules(searchString):
             sysModules = sys.modules
             globalModules = globals()
@@ -447,6 +450,33 @@ class KSScriptEditorMain(KSScriptEditor):
         for i in selfObjects:
             if i.startswith(completionPart):
                 matchedModules.append(i)
+
+        return matchedModules
+
+    def blinkCompletions(self, completionPart):
+        blink_keywords = ["eComponentWise","ePixelWise","ImageComputationKernel",
+                          "eRead","eWrite","eReadWrite","kernel",
+                          "eAccessPoint","eAccessRanged1D","eAccessRanged2D","eAccessRandom",
+                          "setAxis","setRange","defineParam",
+                          "kMin","kMax","kWhitePoint","kComps","kClamps","bounds","ValueType","SampleType",
+                          "float","float2","float3","float4","float3x3","float4x4","float[]",
+                          "int","int2","int3","int4","int3x3",
+                          "process","init","param","local",
+                          "bilinear","dot","cross","length","normalize",
+                          "sin","cos","tan","asin","acos","atan","atan2",
+                          "exp","log","log2","log10",
+                          "floor","ceil","round","pow","sqrt","rsqrt",
+                          "fabs","abs","fmod","modf","sign","min","max","clamp","rcp",
+                          "atomicAdd","atomicInc","median",
+                          "rect","grow","inside","width","height",
+                          ]
+        print(completionPart)
+        matchedModules = []
+        for i in blink_keywords:
+            if i.startswith(completionPart):
+                matchedModules.append(i)
+
+        #TODO Add $$ functionality (so it opens parentheses and already has sth inside as a clue)
 
         return matchedModules
 

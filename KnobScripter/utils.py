@@ -140,6 +140,29 @@ def relistAllKnobScripterPanes():
                 nuke.AllKnobScripters.remove(ks)
 
 
+def getKnobScripter(knob_scripter=None, alternative=True):
+    """
+    Return the given knobscripter if it exists.
+    Otherwise if alternative == True, find+return another one.
+    If no knobscripters found, returns None.
+    """
+    relistAllKnobScripterPanes()
+    ks = None
+    if knob_scripter in nuke.AllKnobScripters:
+        ks = knob_scripter
+        return ks
+    elif len(nuke.AllKnobScripters) and alternative:
+        for widget in nuke.AllKnobScripters:
+            if widget.metaObject().className() == 'KnobScripterPane' and widget.isVisible():
+                ks = widget
+        if not ks:
+            ks = nuke.AllKnobScripters[-1]
+            return ks
+    else:
+        nuke.message("No KnobScripters found!")
+        return None
+
+
 def clear_layout(layout):
     if layout is not None:
         while layout.count():

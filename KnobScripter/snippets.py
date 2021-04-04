@@ -22,22 +22,6 @@ import codegallery
 import utils
 import widgets
 
-SNIPPETS_DEFAULT_DICT = {
-    "python" : [
-        ["an", "nuke.allNodes($$)"],
-        ["sn", "nuke.selectedNode()"],
-        ["sns", "nuke.selectedNodes()"],
-        ["try", "try:\n    $$\nexcept:\n    pass"],
-        ["deselect", "[n.setSelected(False) for n in $$nuke.selectedNodes()$$]"],
-       ],
-    "blink": [
-        ["pr", "void process($$int2 pos$$) {\n    dst() = 1.0f;\n  }"],
-    ],
-    "all": [
-        ["b", "[$$]"],
-    ],
-}
-
 def load_snippets_dict(path=None):
     ''' Load the snippets from json path as a dict. Return dict() '''
     if not path:
@@ -87,10 +71,15 @@ def append_snippet(code, shortcode="", path=None, lang = None):
         return False
     if not path:
         path = config.snippets_txt_path
+    if not lang:
+        lang = "python"
+    lang = lang.lower()
     all_snippets = load_snippets_dict(path)
     if shortcode == "":
         return False
-    all_snippets[shortcode] = code
+    if lang not in all_snippets:
+        all_snippets[lang] = []
+    all_snippets[lang].append([shortcode,code])
     save_snippets_dict(all_snippets, path)
 
 class AppendSnippetPanel(QtWidgets.QDialog):
@@ -180,7 +169,7 @@ class AppendSnippetPanel(QtWidgets.QDialog):
             try:
                 ks.snippets = all_snippets
             except Exception as e:
-                pass
+                logging.debug(e)
         self.accept()
 
     def cancel_pressed(self):
@@ -286,6 +275,8 @@ class SnippetsWidget(QtWidgets.QWidget):
 
         self.setLayout(self.layout)
 
+        #TODO add load defaults button
+
     def reload(self):
         """ Force a rebuild of the widgets in the current filter status. """
         self.build_snippets()
@@ -300,7 +291,7 @@ class SnippetsWidget(QtWidgets.QWidget):
         snippets_dict = load_snippets_dict()
         # Build widgets as needed
         for language in snippets_dict:
-            print("language: "+language)
+            #print("language: "+language)
             for snippet in snippets_dict[language]:
                 if isinstance(snippet, list):
                     self.add_snippet(snippet[0], snippet[1], lang= str(language))
@@ -348,22 +339,10 @@ class SnippetsWidget(QtWidgets.QWidget):
 
     def insert_code(self, snippet_item):
         """ Insert the code contained in snippet_item in the knobScripter's texteditmain. """
-        ks = None
-        utils.relistAllKnobScripterPanes()
-        if self.knob_scripter in nuke.AllKnobScripters:
-            ks = self.knob_scripter
-        elif len(nuke.AllKnobScripters):
-            for widget in nuke.AllKnobScripters:
-                if widget.metaObject().className() == 'KnobScripterPane' and widget.isVisible():
-                    ks = widget
-            if not ks:
-                ks = nuke.AllKnobScripters[-1]
-        else:
-            nuke.message("No KnobScripters found!")
-            return False
-
-        code = snippet_item.script_editor.toPlainText()
-        ks.script_editor.addSnippetText(code)
+        self.knob_scripter = utils.getKnobScripter(self.knob_scripter)
+        if self.knob_scripter:
+            code = snippet_item.script_editor.toPlainText()
+            self.knob_scripter.script_editor.addSnippetText(code)
 
     def duplicate_snippet(self, snippet_item):
         self.add_snippet(snippet_item.key_lineedit.text(), snippet_item.script_editor.toPlainText(), self.code_language)
@@ -390,21 +369,6 @@ class SnippetsWidget(QtWidgets.QWidget):
 
     def save_all_snippets(self):
         #1. Build snippet dict
-        SNIPPETS_DEFAULT_DICT = {
-            "python": [
-                ["an", "nuke.allNodes($$)"],
-                ["sn", "nuke.selectedNode()"],
-                ["sns", "nuke.selectedNodes()"],
-                ["try", "try:\n    $$\nexcept:\n    pass"],
-                ["deselect", "[n.setSelected(False) for n in $$nuke.selectedNodes()$$]"],
-            ],
-            "blink": [
-                ["pr", "void process($$int2 pos$$) {\n    dst() = 1.0f;\n  }"],
-            ],
-            "all": [
-                ["b", "[$$]"],
-            ],
-        }
         snippet_dict = {}
         for snippets_item in self.all_snippets_items():
             lang = snippets_item.lang
@@ -467,6 +431,8 @@ class SnippetsItem(widgets.ToggableCodeGroup):
 
         self.setFixedHeight(80+lineheight*min(lines-1,4))
         self.grip_line.parent_min_size = (100, 80)
+
+        self.setTabOrder(self.key_lineedit,self.script_editor)
 
 
 class SnippetsPanel(QtWidgets.QDialog):

@@ -186,22 +186,10 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
     def insert_code(self, code_gallery_item):
         """ Insert the code contained in code_gallery_item in the knobScripter's texteditmain. """
-        ks = None
-        utils.relistAllKnobScripterPanes()
-        if self.knob_scripter in nuke.AllKnobScripters:
-            ks = self.knob_scripter
-        elif len(nuke.AllKnobScripters):
-            for widget in nuke.AllKnobScripters:
-                if widget.metaObject().className() == 'KnobScripterPane' and widget.isVisible():
-                    ks = widget
-            if not ks:
-                ks = nuke.AllKnobScripters[-1]
-        else:
-            nuke.message("No KnobScripters found!")
-            return False
-
-        code = code_gallery_item.script_editor.toPlainText()
-        ks.script_editor.addSnippetText(code)
+        self.knob_scripter = utils.getKnobScripter(self.knob_scripter)
+        if self.knob_scripter:
+            code = code_gallery_item.script_editor.toPlainText()
+            self.knob_scripter.script_editor.addSnippetText(code)
 
     def save_snippet(self, code_gallery_item, shortcode = ""):
         """ Save the current code as a snippet (by introducing a shortcode) """

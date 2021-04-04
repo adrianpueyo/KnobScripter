@@ -45,13 +45,6 @@ PrefsPanel = ""
 SnippetEditPanel = ""
 CodeGalleryPanel = ""
 
-"""
-nuke.KnobScripterPrefs = {
-    "python_color_style" : "sublime",
-    "blink_color_style" : "default",
-}
-"""
-
 # ks imports
 from info import __version__, __date__
 import config
@@ -73,25 +66,7 @@ nuke.tprint(
 logging.debug('Initializing KnobScripter')
 
 # Init config.script_editor_font (will be overwritten once reading the prefs)
-config.script_editor_font = QtGui.QFont()
-config.script_editor_font.setFamily(config.prefs["se_font_family"])
-config.script_editor_font.setStyleHint(QtGui.QFont.Monospace)
-config.script_editor_font.setFixedPitch(True)
-config.script_editor_font.setPointSize(config.prefs["se_font_size"])
-
-def loadPrefs():
-    ''' Load prefs json file '''
-    path = config.prefs_txt_path
-    if not os.path.isfile(path):
-        return []
-    else:
-        with open(path, "r") as f:
-            prefs = json.load(f)
-            return prefs
-
-loaded_prefs = loadPrefs()
-for pref in loaded_prefs:
-    config.prefs[pref] = loaded_prefs[pref]
+prefs.load_prefs()
 
 # TODO ctrl + +/- for live-changing the font size just for the current script editor????? nice
 # TODO Different snippets for python and blink etc. With the lang selector.
@@ -140,7 +115,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.modifiedKnobs = set()
         self.scrollPos = {}
         self.cursorPos = {}
-        self.font_size = config.prefs["se_font_size"] #Can potentially be changed at runtime per ks instance
         self.toLoadKnob = True
         self.frw_open = False  # Find replace widget closed by default
         self.omit_se_console_text = ""
@@ -170,7 +144,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         # Load snippets
         #self.snippets = snippets.loadAllSnippets(max_depth=5)
-        self.snippets = snippets.load_snippets_dict("C:/Users/Apueyo/.nuke/KnobScripter_Snippets.txt")
+        #self.snippets = snippets.load_snippets_dict("C:/Users/Apueyo/.nuke/KnobScripter_Snippets.txt")
+        self.snippets = snippets.load_snippets_dict()
 
         # Init UI
         self.initUI()
@@ -1675,7 +1650,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         ''' Open the floating code gallery panel (although it'll also be able to be opened as pane) '''
         global CodeGalleryPanel
         if CodeGalleryPanel == "":
-            CodeGalleryPanel = GalleryAndSnippets(self, self._parent)
+            CodeGalleryPanel = MultiPanel(self, self._parent)
         else:
             CodeGalleryPanel.set_knob_scripter(self)
 
@@ -1700,7 +1675,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         ''' Open the preferences panel '''
         global PrefsPanel
         if PrefsPanel == "":
-            PrefsPanel = prefs.PrefsWidget(self, self._parent)
+            PrefsPanel = prefs.PrefsWidgetOld(self, self._parent) #TODO Change for multipanel...
         else:
             try:
                 PrefsPanel.knobScripter = self
@@ -1767,14 +1742,14 @@ class KnobScripterWidget(QtWidgets.QDialog):
     def refreshClicked(self):
         ''' Function to refresh the dropdowns '''
         if self.nodeMode:
-            knob = self.current_knob_dropdown.itemData(str(self.current_knob_dropdown.currentIndex()).encode('UTF8'))
+            knob = str(self.current_knob_dropdown.currentData())
             self.current_knob_dropdown.blockSignals(True)
             self.current_knob_dropdown.clear()  # First remove all items
             self.updateKnobDropdown()
             availableKnobs = []
             for i in range(self.current_knob_dropdown.count()):
                 if self.current_knob_dropdown.itemData(i) is not None:
-                    availableKnobs.append(str(self.current_knob_dropdown.itemData(i).encode('UTF8')))
+                    availableKnobs.append(str(self.current_knob_dropdown.itemData(i)))
             if knob in availableKnobs:
                 self.setCurrentKnob(knob)
             self.current_knob_dropdown.blockSignals(False)
@@ -1843,16 +1818,16 @@ def updateContext():
 # --------------------------------------
 # Code Gallery + Snippets super panel
 # --------------------------------------
-class GalleryAndSnippets(QtWidgets.QDialog):
+class MultiPanel(QtWidgets.QDialog):
     def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
-        super(GalleryAndSnippets, self).__init__(_parent)
+        super(MultiPanel, self).__init__(_parent)
 
         # TODO future (for now current method works, this is only for when this is a Pane) Find a way to connect this to a KnobScripter!!! Or open the panel as part of the KnobScripter itself??????? Showing the tabs+widgets on the right
         # TODO future (really, future): enable drag and drop of snippet and gallery into the knobscripter??
         # TODO add on knobscripter button to Reload Style and Snippets
 
         self.knob_scripter = knob_scripter
-        self.setWindowTitle("Code Gallery + Snippet Editor")
+        self.setWindowTitle("KnobScripter Multi-Panel")
 
         self.initUI()
         # self.resize(500,300)
@@ -1872,8 +1847,8 @@ class GalleryAndSnippets(QtWidgets.QDialog):
         tab_widget.addTab(self.ks_prefs, "Preferences")
 
         tab_style = '''QTabBar { }
-                   QTabBar::tab:!selected {font-weight:bold; height: 30px; width:150px;}
-                   QTabBar::tab:selected {font-weight:bold; height: 30px; width:150px;}'''
+                   QTabBar::tab:!selected {font-weight:bold; height: 30px; width:125px;}
+                   QTabBar::tab:selected {font-weight:bold; height: 30px; width:125px;}'''
         tab_widget.setStyleSheet(tab_style)
 
         master_layout.addWidget(tab_widget)

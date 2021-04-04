@@ -19,7 +19,7 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
     modifications to make it fit my needs.
     '''
 
-    def __init__(self, document, style="sublime"):
+    def __init__(self, document, style="monokai"):
 
         self.selected_text = ""
         self.selected_text_prev = ""
@@ -53,7 +53,7 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
                 "keywords": {},
             },
             {
-                "title": "sublime",
+                "title": "monokai",
                 "styles": {
                     'base': self.format([255, 255, 255]),
                     'keyword': self.format([237, 36, 110]),

@@ -14,7 +14,7 @@ prefs = {
     "ks_default_size": [800,500],
     "ks_run_in_context": True,
     "ks_show_knob_labels": True,
-    "code_style_python": "sublime",
+    "code_style_python": "monokai",
     "code_style_blink": "default",
     "se_style": "default",
     "se_font_family": "Monospace",
