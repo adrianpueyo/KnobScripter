@@ -127,62 +127,7 @@ class KSScriptEditorMain(KSScriptEditor):
         # 1. Doubleclick on blink!
         if self.knobScripter.code_language == "blink":
             # 1.1. Define all blink keywords
-            blink_keyword_dict = {
-                "Access Pattern": {
-                    "keywords": ["eAccessPoint", "eAccessRanged1D", "eAccessRanged2D", "eAccessRandom"],
-                    "help": '''This describes how the kernel will access pixels in the image. The options are:
-                                <ul>
-                                    <li><b>eAccessPoint</b>: Access only the current position in the iteration space.</li>
-                                    <li><b>eAccessRanged1D</b>: Access a one-dimensional range of positions relative to the current position in the iteration space.</li>
-                                    <li><b>eAccessRanged2D</b>: Access a two-dimensional range of positions relative to the current position in the iteration space.</li>
-                                    <li><b>eAccessRandom</b>: Access any pixel in the iteration space.</li>
-                                </ul>
-                                The default value is <b>eAccessPoint</b>.
-                            '''
-                },
-                "Edge Method": {
-                    "keywords": ["eEdgeClamped", "eEdgeConstant", "eEdgeNone"],
-                    "help": '''The edge method for an image defines the behaviour if a kernel function tries to access data outside the image bounds. The options are:
-                                <ul>
-                                    <li><b>eEdgeClamped</b>: The edge values will be repeated outside the image bounds.</li>
-                                    <li><b>eEdgeConstant</b>: Zero values will be returned outside the image bounds.</li>
-                                    <li><b>eEdgeNone</b>: Values are undefined outside the image bounds and no within-bounds checks will be done when you access the image. This is the most efficient access method to use when you do not require access outside the bounds, because of the lack of bounds checks.</li>
-                                </ul>
-                                The default value is <b>eEdgeNone</b>.
-                            '''
-                },
-                "Kernel Granularity": {
-                    "keywords": ["eComponentWise", "ePixelWise"],
-                    "help": '''A kernel can be iterated in either a componentwise or pixelwise manner. Componentwise iteration means that the kernel will be executed once for each component at every point in the iteration space. Pixelwise means it will be called once only for every point in the iteration space. The options for the kernel granularity are:
-                                <ul>
-                                    <li><b>eComponentWise</b>: The kernel processes the image one component at a time. Only the current component's value can be accessed in any of the input images, or written to in the output image.</li>
-                                    <li><b>ePixelWise</b>: The kernel processes the image one pixel at a time. All component values can be read from and written to.</li>
-                                </ul>
-                            '''
-                },
-                "Read Spec": {
-                    "keywords": ["eRead", "eWrite", "eReadWrite"],
-                    "help": '''This describes how the data in the image can be accessed. The options are:
-                                <ul>
-                                    <li><b>eRead</b>: Read-only access to the image data. <i>Common for the input image/s.</i></li>
-                                    <li><b>eWrite</b>: Write-only access to the image data. <i>Common for the output image.</i></li>
-                                    <li><b>eReadWrite</b>: Both read and write access to the image data. <i>Useful when you need to write and read again from the output image.</i></li>
-                                </ul>
-                            '''
-                },
-                "Variable Types": {
-                    "keywords": ["int", "int2", "int3", "int4", "float", "float2", "float3", "float4", "float3x3",
-                                 "float4x4", "bool"],
-                    "help": '''This describes how the data in the image can be accessed. The options are:
-                                <ul>
-                                    <li><b>eRead</b>: Read-only access to the image data. <i>Common for the input image/s.</i></li>
-                                    <li><b>eWrite</b>: Write-only access to the image data. <i>Common for the output image.</i></li>
-                                    <li><b>eReadWrite</b>: Both read and write access to the image data. <i>Useful when you need to write and read again from the output image.</i></li>
-                                </ul>
-                            '''
-                    # TODO finish variable types documentation and do the kernel type (imagecomputation etc...)
-                },
-            }
+            blink_keyword_dict = content.blink_keyword_dict
             # 1.2. If there's a match, show the hotbox!
             category = self.findCategory(selected_text, blink_keyword_dict)  # Returns something like "Access Method"
             if category:
