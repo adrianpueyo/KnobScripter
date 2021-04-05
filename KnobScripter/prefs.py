@@ -19,7 +19,13 @@ except ImportError:
 
 def load_prefs():
     ''' Load prefs json file and overwrite config.prefs '''
-    path = config.prefs_txt_path
+    # Setup paths
+    config.ks_directory = os.path.join(os.path.expanduser("~"),".nuke",config.prefs["ks_directory"])
+    config.py_scripts_dir = os.path.join(config.ks_directory, config.prefs["ks_py_scripts_directory"])
+    config.blink_dir = os.path.join(config.ks_directory, config.prefs["ks_blink_directory"])
+    config.snippets_txt_path = os.path.join(config.ks_directory, config.prefs["ks_snippets_file"])
+    config.prefs_txt_path = os.path.join(config.ks_directory, config.prefs["ks_prefs_file"])
+    config.state_txt_path = os.path.join(config.ks_directory, config.prefs["ks_state_file"])
 
     # Setup config font
     config.script_editor_font = QtGui.QFont()
@@ -28,10 +34,10 @@ def load_prefs():
     config.script_editor_font.setFamily("Monospace")
     config.script_editor_font.setPointSize(10)
 
-    if not os.path.isfile(path):
+    if not os.path.isfile(config.prefs_txt_path):
         return None
     else:
-        with open(path, "r") as f:
+        with open(config.prefs_txt_path, "r") as f:
             prefs = json.load(f)
             for pref in prefs:
                 config.prefs[pref] = prefs[pref]
@@ -295,14 +301,14 @@ class PrefsWidget(QtWidgets.QWidget):
         """ Apply the current knob values to the KnobScripters """
         self.save_config()
         for ks in nuke.AllKnobScripters:
-                ks.script_editor.setFont(config.script_editor_font)
-                ks.script_editor.tab_spaces = config.prefs["se_tab_spaces"]
-                ks.script_editor.highlighter.rehighlight()
-                ks.runInContext = config.prefs["ks_run_in_context"]
-                ks.runInContextAct.setChecked(config.prefs["ks_run_in_context"])
-                ks.show_labels = config.prefs["ks_show_knob_labels"]
-                if ks.nodeMode:
-                    ks.refreshClicked()
+            ks.script_editor.setFont(config.script_editor_font)
+            ks.script_editor.tab_spaces = config.prefs["se_tab_spaces"]
+            ks.script_editor.highlighter.rehighlight()
+            ks.runInContext = config.prefs["ks_run_in_context"]
+            ks.runInContextAct.setChecked(config.prefs["ks_run_in_context"])
+            ks.show_labels = config.prefs["ks_show_knob_labels"]
+            if ks.nodeMode:
+                ks.refreshClicked()
 
 
     def cancel_prefs(self):

@@ -346,6 +346,18 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             # if enter or return, match indent level
             elif key in [16777220, 16777221]:
                 self.indentNewLine()
+
+            # If ctrl + +, increase font size
+            elif ctrl and key == Qt.Key_Plus:
+                font = self.font()
+                font.setPointSize(-(-font.pointSize()//0.9))
+                self.setFont(font)
+            # If ctrl + -, decrease font size
+            elif ctrl and key == Qt.Key_Minus:
+                font = self.font()
+                font.setPointSize(font.pointSize()//1.1)
+                self.setFont(font)
+
             else:
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
 

@@ -60,7 +60,6 @@ import content
 
 logging.basicConfig(level=logging.DEBUG)
 
-
 # TODO: Move the next things (all the initializations) into a different script! leave this one just for the knob_scripter widget etc. All global vars etc go elsewhere. In a way that a KS widget is not needed in order to have the font setup etc, like in the preferences panel and snippets etc
 nuke.tprint(
     'KnobScripter v{}, built {}.\nCopyright (c) 2016-2020 Adrian Pueyo. All Rights Reserved.'.format(__version__, __date__))
@@ -71,6 +70,7 @@ prefs.load_prefs()
 
 # TODO ctrl + +/- for live-changing the font size just for the current script editor????? nice -> should have a self.instance_font_size
 # TODO Exit node mode should warn if there's unsaved changes!!!!! Both in python and blink
+# TODO Save which knob is open with each node, for the current nuke session (inside nuke.KnobScripter dict or something)
 
 def is_blink_knob(knob):
     ''' Return True if knob is Blink type '''
@@ -130,7 +130,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.current_script_modified = False
         self.script_index = 0
         self.toAutosave = False
-        self.runInContext = False  # Experimental, python only
+        self.runInContext = config.prefs["ks_run_in_context"]  # Experimental, python only
         self.code_language = None
         self.current_knob_modified = False  # Convenience variable holding if the current script_editor is modified
 
@@ -287,8 +287,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.backup_button.setIcon(QtGui.QIcon(os.path.join(config.ICONS_DIR,"icon_backups.png")))
         self.backup_button.setIconSize(QtCore.QSize(config.prefs["qt_icon_size"], config.prefs["qt_icon_size"]))
         self.backup_button.setFixedSize(QtCore.QSize(config.prefs["qt_btn_size"], config.prefs["qt_btn_size"]))
-        self.backup_button.setToolTip("Enable and retrieve auto-saves of the code")
-        self.backup_button.setMenu(self.blinkBackupMenu)
+        self.backup_button.setToolTip("Blink: Enable and retrieve auto-saves of the code.")
+        self.backup_button.setMenu(self.blink_menu)
         # self.backup_button.setFixedSize(QtCore.QSize(self.btn_size+10,self.btn_size))
         self.backup_button.setStyleSheet("text-align:left;padding-left:2px;")
         # self.backup_button.clicked.connect(self.blinkBackup) #TODO: whatever this does
@@ -503,21 +503,27 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # Version-up blink
 
         # Actions
-        self.blinkBackups_autoSave_act = QtWidgets.QAction("Auto-save to disk on compile", self, checkable=True,
+        # TODO On opening the blink menu, straightaway show the .blink file name (../name.blink) in grey inside the menu and update the checkboxes as needed
+        self.blink_autoSave_act = QtWidgets.QAction("Auto-save to disk on compile", self, checkable=True,
                                                            statusTip="Auto-save code backup on disk every time you save it",
-                                                           triggered=self.toggleBlinkBackupsAutosave)
-        self.blinkBackups_createFile_act = QtWidgets.QAction("Create .blink scratch file", self,
-                                                             statusTip="Auto-save code backup on disk every time you save it",
-                                                             triggered=self.blinkCreateFile)
-        self.blinkBackups_load_act = QtWidgets.QAction("Load .blink", self, statusTip="Load the .blink code.",
-                                                       triggered=self.toggleBlinkBackupsAutosave)
-        self.blinkBackups_save_act = QtWidgets.QAction("Save .blink", self, statusTip="Save the .blink code.",
-                                                       triggered=self.toggleBlinkBackupsAutosave)
+                                                           triggered=self.blink_toggle_autosave_action)
+        #self.blinkBackups_createFile_act = QtWidgets.QAction("Create .blink scratch file", self,statusTip="Auto-save code backup on disk every time you save it",triggered=self.blinkCreateFile)
+        self.blink_load_act = QtWidgets.QAction("Load .blink", self, statusTip="Load the .blink code.",
+                                                       triggered=self.blink_toggle_autosave_action)
+        self.blink_save_act = QtWidgets.QAction("Save .blink", self, statusTip="Save the .blink code.",
+                                                       triggered=self.blink_toggle_autosave_action)
+        self.blink_versionUp_act = QtWidgets.QAction("Version Up", self, statusTip="Version up the .blink file.",
+                                                     triggered=self.blink_toggle_autosave_action)
+        self.blink_browse_act = QtWidgets.QAction("Browse...", self, statusTip="Browse to the blink file's directory.",
+                                                     triggered=self.blink_browse_action)
 
-        font = self.blinkBackups_createFile_act.font()
-        font.setBold(True)
-        self.blinkBackups_createFile_act.setFont(font)
-        self.blinkBackups_createFile_act.setEnabled(False)
+        self.blink_filename_info_act = QtWidgets.QAction("No file specified.", self, statusTip="Displays the filename specified in the kernelSourceFile knob.")
+        self.blink_filename_info_act.setEnabled(False)
+
+        #font = self.blink_createFile_act.font()
+        #font.setBold(True)
+        #self.blink_createFile_act.setFont(font)
+        #self.blink_createFile_act.setEnabled(False)
 
         # if nuke.toNode("preferences").knob("echoAllCommands").value():
         #    self.echoAct.toggle()
@@ -532,14 +538,15 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # self.prefsAct.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
 
         # Menus
-        self.blinkBackupMenu = QtWidgets.QMenu("Blink Backups")
-        self.blinkBackupMenu.addAction(self.blinkBackups_autoSave_act)
-        self.blinkBackupMenu.addSeparator()
-        self.blinkBackupMenu.addAction(
-            self.blinkBackups_createFile_act)  # This should be visible when no blink file only
-        # TODO Show the blink name here when found
-        self.blinkBackupMenu.addAction(self.blinkBackups_load_act)
-        self.blinkBackupMenu.addAction(self.blinkBackups_save_act)
+        self.blink_menu = QtWidgets.QMenu("Blink")
+        self.blink_menu.addAction(self.blink_autoSave_act)
+        self.blink_menu.addSeparator()
+        self.blink_menu.addAction(self.blink_filename_info_act)
+        self.blink_menu.addAction(self.blink_load_act)
+        self.blink_menu.addAction(self.blink_save_act)
+        self.blink_menu.addAction(self.blink_browse_act)
+
+        self.blink_menu.aboutToShow.connect(self.blink_menu_refresh)
         # TODO: Checkbox autosave should be enabled or disabled by default based on preferences...
         # TODO: the actions should do something! inc. regex
 
@@ -880,15 +887,114 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         # TODO perform backup first!! backupBlink function or something...
         self.saveKnobValue(check=False)
+        if self.blink_autoSave_act.isChecked():
+            if self.blink_check_file():
+                self.blink_save_file()
         try:
             self.node.knob("recompile").execute()
         except:
-            print("Error recompiling the Blinkscript node.")
+            logging.debug("Error recompiling the Blinkscript node.")
 
-    def toggleBlinkBackupsAutosave(self):
+    def blink_toggle_autosave_action(self):
         ''' TODO Figure out the best behavior for this '''
-        autosave_selection = self.blinkBackups_autoSave_act.isChecked()  # TODO Finish this and put it on the prefs too...
+        if self.blink_autoSave_act.isChecked():
+            blink_check_file(create=True)
         return
+
+    def blink_save_file(self,native=False):
+        '''
+        Save blink contents into file
+        @param native: whether to execute the node's Save button (asks for confirmation) or do it manually.
+        @return: None
+        '''
+        try:
+            if self.blink_check_file():
+                if native:
+                    self.node.knob("saveKernelFile").execute() # This one asks for confirmation...
+                else:
+                    file = open(self.node.knob("kernelSourceFile").value(), 'w')
+                    file.write(self.script_editor.toPlainText())
+                    file.close()
+        except:
+            logging.debug("Error saving the Blinkscript file.")
+
+    def blink_check_file(self,node=None,create=True,check=True):
+        '''
+        Check if the node's kernelSourceFile is populated.
+        Otherwise, if create == True, create it otherwise.
+        @param node: the selected node where to perform the check
+        @param create: whether to create the file otherwise
+        @param check: whether to check with the user for the ideal name
+        @return: True if populated in the end
+        '''
+        if not node:
+            node = self.node
+        if "kernelSourceFile" not in node.knobs():
+            logging.debug("kernelSourceFile knob not found in node {}".format(str(node.name())))
+            return False
+        filepath = node.knob("kernelSourceFile").value()
+        if not len(filepath.strip()):
+            if create:
+                # Make the path!
+                kernel_name_re = r"kernel ([\w]+)[ ]*:[ ]*Image[a-zA-Z]+Kernel[ ]*<"
+                kernel_name_search = re.search(kernel_name_re, self.script_editor.toPlainText())
+                if not kernel_name_search:
+                    name = "Kernel"
+                else:
+                    name = kernel_name_search.groups()[0]
+
+                version = 1
+                while True:
+                    new_path = os.path.join(config.blink_dir,"{0}{1}_v001.blink".format(name,str(version).zfill(2)))
+                    if not os.path.exists(new_path):
+                        fn = nuke.getFilename("Please name the blink file.", default=new_path.replace("\\","/"))
+                        if fn:
+                            node.knob("kernelSourceFile").setValue(fn)
+                            return True
+                        break
+                    version += 1
+        else:
+            return True
+        return False
+
+    def blink_menu_refresh(self):
+        '''
+        Update/populate the information on the blink menu, on demand. Showing kernel file name etc...
+        @return: None
+        '''
+        #self.blink_menu
+        node = self.node
+
+        # 1. Display file name
+        if "kernelSourceFile" not in node.knobs():
+            logging.debug("kernelSourceFile knob not found in node {}".format(str(node.name())))
+        else:
+            filepath = node.knob("kernelSourceFile").value()
+            if self.blink_check_file(create=False):
+                self.blink_filename_info_act.setText(filepath.rsplit("/",1)[-1])
+            else:
+                self.blink_filename_info_act.setText("No file specified.")
+
+        # 2. Enable/disable load-save buttons
+        if "reloadKernelSourceFile" not in node.knobs():
+            logging.debug("reloadKernelSourceFile knob not found in node {}".format(str(node.name())))
+        else:
+            self.blink_load_act.setEnabled(node.knob("reloadKernelSourceFile").enabled())
+            self.blink_save_act.setEnabled(node.knob("saveKernelFile").enabled())
+
+        return
+
+    def blink_browse_action(self):
+        '''
+        Browse to the blink file's directory.
+        @return: None
+        '''
+        if "kernelSourceFile" not in self.node.knobs():
+            logging.debug("kernelSourceFile knob not found in node {}".format(str(node.name())))
+        else:
+            filepath = self.node.knob("kernelSourceFile").value()
+            self.openInFileBrowser(filepath)
+
 
     def blinkCreateFile(self):
         '''
@@ -915,8 +1021,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
             counter += 1
 
         try:
-            scriptFolders = sorted([f for f in os.listdir(config.scripts_dir) if
-                                    os.path.isdir(os.path.join(config.scripts_dir, f))])  # Accepts symlinks!!!
+            scriptFolders = sorted([f for f in os.listdir(config.py_scripts_dir) if
+                                    os.path.isdir(os.path.join(config.py_scripts_dir, f))])  # Accepts symlinks!!!
         except:
             logging.debug("Couldn't read any script folders.")
 
@@ -947,11 +1053,11 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.current_script_dropdown.clear()  # First remove all items
         QtWidgets.QApplication.processEvents()
         logging.debug("# Updating scripts dropdown...")
-        logging.debug("scripts dir:" + config.scripts_dir)
+        logging.debug("scripts dir:" + config.py_scripts_dir)
         logging.debug("current folder:" + self.current_folder)
         logging.debug("previous current script:" + self.current_script)
         # current_folder = self.current_folder_dropdown.itemData(self.current_folder_dropdown.currentIndex())
-        current_folder_path = os.path.join(config.scripts_dir, self.current_folder)
+        current_folder_path = os.path.join(config.py_scripts_dir, self.current_folder)
         defaultScripts = ["Untitled.py"]
         found_scripts = []
         found_temp_scripts = []
@@ -1003,7 +1109,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         return
 
     def makeScriptFolder(self, name="scripts"):
-        folder_path = os.path.join(config.scripts_dir, name)
+        folder_path = os.path.join(config.py_scripts_dir, name)
         if not os.path.exists(folder_path):
             try:
                 os.makedirs(folder_path)
@@ -1013,7 +1119,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 return False
 
     def makeScriptFile(self, name="Untitled.py", folder="scripts", empty=True):
-        script_path = os.path.join(config.scripts_dir, self.current_folder, name)
+        script_path = os.path.join(config.py_scripts_dir, self.current_folder, name)
         if not os.path.isfile(script_path):
             try:
                 self.current_script_file = open(script_path, 'w')
@@ -1051,7 +1157,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         obtained_cursorPosValue = [0, 0]  # Position, anchor
         if folder == "":
             folder = self.current_folder
-        script_path = os.path.join(config.scripts_dir, folder, self.current_script)
+        script_path = os.path.join(config.py_scripts_dir, folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         if (self.current_folder + "/" + self.current_script) in self.scrollPos:
             obtained_scrollValue = self.scrollPos[self.current_folder + "/" + self.current_script]
@@ -1138,7 +1244,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         logging.debug("Temp mode is: " + str(temp))
         logging.debug("self.current_folder: " + self.current_folder)
         logging.debug("self.current_script: " + self.current_script)
-        script_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
+        script_path = os.path.join(config.py_scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         orig_content = ""
         content = self.script_editor.toPlainText()
@@ -1177,7 +1283,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         logging.debug("# About to delete the .py and/or autosave script now.")
         if folder == "":
             folder = self.current_folder
-        script_path = os.path.join(config.scripts_dir, folder, self.current_script)
+        script_path = os.path.join(config.py_scripts_dir, folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         if check:
             msgBox = QtWidgets.QMessageBox()
@@ -1216,7 +1322,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             if panel.exec_():
                 # Accepted
                 folder_name = panel.text
-                if os.path.isdir(os.path.join(config.scripts_dir, folder_name)):
+                if os.path.isdir(os.path.join(config.py_scripts_dir, folder_name)):
                     self.messageBox("Folder already exists.")
                     self.setCurrentFolder(self.current_folder)
                 if self.makeScriptFolder(name=folder_name):
@@ -1240,7 +1346,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 return
 
         elif fd_data == "open in browser":
-            current_folder_path = os.path.join(config.scripts_dir, self.current_folder)
+            current_folder_path = os.path.join(config.py_scripts_dir, self.current_folder)
             self.openInFileBrowser(current_folder_path)
             self.current_folder_dropdown.blockSignals(True)
             self.current_folder_dropdown.setCurrentIndex(self.folder_index)
@@ -1260,7 +1366,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                     self.messageBox("Folder with the same name already exists. Please delete or rename it first.")
                 else:
                     # All good
-                    os.symlink(folder_path, os.path.join(config.scripts_dir, aliasName))
+                    os.symlink(folder_path, os.path.join(config.py_scripts_dir, aliasName))
                     self.saveScriptContents(temp=True)
                     self.current_folder = aliasName
                     self.updateFoldersDropdown()
@@ -1302,7 +1408,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             if panel.exec_():
                 # Accepted
                 script_name = panel.text + ".py"
-                script_path = os.path.join(config.scripts_dir, self.current_folder, script_name)
+                script_path = os.path.join(config.py_scripts_dir, self.current_folder, script_name)
                 logging.debug(script_name)
                 logging.debug(script_path)
                 if os.path.isfile(script_path):
@@ -1329,8 +1435,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         elif sd_data == "create duplicate":
             self.current_script_dropdown.blockSignals(True)
-            current_folder_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
-            current_script_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
+            current_folder_path = os.path.join(config.py_scripts_dir, self.current_folder, self.current_script)
+            current_script_path = os.path.join(config.py_scripts_dir, self.current_folder, self.current_script)
 
             current_name = self.current_script
             if self.current_script.endswith(".py"):
@@ -1339,7 +1445,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             test_name = current_name
             while True:
                 test_name += "_copy"
-                new_script_path = os.path.join(config.scripts_dir, self.current_folder, test_name + ".py")
+                new_script_path = os.path.join(config.py_scripts_dir, self.current_folder, test_name + ".py")
                 if not os.path.isfile(new_script_path):
                     break
 
@@ -1360,7 +1466,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.current_script_dropdown.blockSignals(False)
 
         elif sd_data == "open in browser":
-            current_script_path = os.path.join(config.scripts_dir, self.current_folder, self.current_script)
+            current_script_path = os.path.join(config.py_scripts_dir, self.current_folder, self.current_script)
             self.openInFileBrowser(current_script_path)
             self.current_script_dropdown.blockSignals(True)
             self.current_script_dropdown.setCurrentIndex(self.script_index)
@@ -1411,7 +1517,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if not os.path.exists(path):
             path = KS_DIR
         if OS == "Windows":
-            os.startfile(path)
+            #os.startfile(path)
+            FILEBROWSER_PATH = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
+            path = os.path.normpath(path)
+            if os.path.isdir(path):
+                subprocess.Popen([FILEBROWSER_PATH, path])
+            elif os.path.isfile(path):
+                subprocess.Popen([FILEBROWSER_PATH, '/select,', path])
         elif OS == "Darwin":
             subprocess.Popen(["open", path])
         else:

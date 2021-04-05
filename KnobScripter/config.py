@@ -3,14 +3,14 @@ import os
 KS_DIR = os.path.dirname(__file__)
 ICONS_DIR = os.path.join(KS_DIR, "icons")
 
-scripts_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Scripts"))
-blink_dir = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Scripts"))
-snippets_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Snippets.txt"))
-prefs_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/Prefs.txt"))
-state_txt_path = os.path.expandvars(os.path.expanduser("~/.nuke/KS3/State.txt"))
-
 # TODO Redo the whole preferences loading and saving methods and interfaces
 prefs = {
+    "ks_directory" : "KS3",
+    "ks_py_scripts_directory": "Scripts",
+    "ks_blink_directory": "Scripts",
+    "ks_snippets_file": "Snippets.txt",
+    "ks_prefs_file": "Prefs.txt",
+    "ks_state_file": "State.txt",
     "ks_default_size": [800,500],
     "ks_run_in_context": True,
     "ks_show_knob_labels": True,
@@ -42,4 +42,10 @@ script_editor_styles = {
 }
 
 # Initialized at runtime
+py_scripts_dir = None
+blink_dir = None
+snippets_txt_path = None
+prefs_txt_path = None
+state_txt_path = None
+
 script_editor_font = None
