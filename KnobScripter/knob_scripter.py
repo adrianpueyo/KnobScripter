@@ -509,9 +509,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
                                                            triggered=self.blink_toggle_autosave_action)
         #self.blinkBackups_createFile_act = QtWidgets.QAction("Create .blink scratch file", self,statusTip="Auto-save code backup on disk every time you save it",triggered=self.blinkCreateFile)
         self.blink_load_act = QtWidgets.QAction("Load .blink", self, statusTip="Load the .blink code.",
-                                                       triggered=self.blink_toggle_autosave_action)
+                                                       triggered=self.blink_load_triggered)
         self.blink_save_act = QtWidgets.QAction("Save .blink", self, statusTip="Save the .blink code.",
-                                                       triggered=self.blink_toggle_autosave_action)
+                                                       triggered=self.blink_save_triggered)
         self.blink_versionUp_act = QtWidgets.QAction("Version Up", self, statusTip="Version up the .blink file.",
                                                      triggered=self.blink_toggle_autosave_action)
         self.blink_browse_act = QtWidgets.QAction("Browse...", self, statusTip="Browse to the blink file's directory.",
@@ -898,7 +898,20 @@ class KnobScripterWidget(QtWidgets.QDialog):
     def blink_toggle_autosave_action(self):
         ''' TODO Figure out the best behavior for this '''
         if self.blink_autoSave_act.isChecked():
-            blink_check_file(create=True)
+            self.blink_check_file(create=True)
+        return
+
+    def blink_load_triggered(self):
+        if "reloadKernelSourceFile" not in self.node.knobs():
+            logging.debug("reloadKernelSourceFile knob not found in node {}".format(str(node.name())))
+        else:
+            self.node.knob("reloadKernelSourceFile").execute()
+            self.loadKnobValue()
+        return
+
+    def blink_save_triggered(self):
+        self.saveKnobValue(check=False)
+        self.blink_save_file(native=True)
         return
 
     def blink_save_file(self,native=False):
