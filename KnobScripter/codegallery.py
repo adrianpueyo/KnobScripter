@@ -12,7 +12,6 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-from scripteditor import ksscripteditor
 import utils
 import snippets
 import widgets

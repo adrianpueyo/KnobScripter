@@ -14,7 +14,8 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-from scripteditor import ksscripteditor
+import ksscripteditor
+
 
 class GripWidget(QtWidgets.QFrame):
     def __init__(self, parent=None, inner_widget = None, resize_x=False, resize_y=True):

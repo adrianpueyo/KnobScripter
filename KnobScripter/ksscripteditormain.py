@@ -15,7 +15,7 @@ except ImportError:
 
 from ksscripteditor import KSScriptEditor
 import keywordhotbox
-from .. import content
+import content
 
 def longest_ending_match(text, match_list):
     '''

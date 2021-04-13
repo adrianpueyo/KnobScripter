@@ -54,7 +54,8 @@ import prefs
 import dialogs
 import script_output
 import utils
-from scripteditor import ksscripteditormain, findreplace
+import findreplace
+import ksscripteditormain
 import widgets
 import content
 

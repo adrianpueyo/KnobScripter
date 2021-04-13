@@ -15,10 +15,9 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-from scripteditor import ksscripteditor
+import ksscripteditor
 import config
 import dialogs
-import codegallery
 import utils
 import widgets
 import content
