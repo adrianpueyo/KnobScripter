@@ -242,10 +242,11 @@ class KSScriptEditorMain(KSScriptEditor):
                             # There is text in the editor
                             currentLine = tc.block().text()
 
-                            # If you're not at the end of the line just add a tab
+                            # If you're not at the end of the line just add a tab (maybe not???)
                             if colNum < len(currentLine):
-                                # If there isn't a ')' directly to the right of the cursor add a tab
-                                if currentLine[colNum:colNum + 1] != ')':
+                                # If there's text right after the cursor, don't autocomplete
+                                #if currentLine[colNum] not in [',', '<', ' ' ,')','.','[']:
+                                if re.match(r'[\w]',currentLine[colNum:]):
                                     KSScriptEditor.keyPressEvent(self, event)
                                     return
                                 # Else show the completer

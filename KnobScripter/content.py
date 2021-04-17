@@ -90,7 +90,6 @@ default_snippets = {
                         "blink": [
                             ["img","Image<eRead, eAccessPoint, eEdgeClamped> $$src$$;"],
                             ["kernel","kernel $$SaturationKernel$$ : ImageComputationKernel <ePixelWise>\n{\n\n}"],
-                            ["Image","Image<eRead, eAccessPoint, eEdgeClamped> $$src$$;"],
                         ],
                         "python": [
                             ["try","try:\n    $$\nexcept:\n    pass"],

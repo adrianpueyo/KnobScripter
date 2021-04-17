@@ -709,7 +709,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # Save the value if it's Blinkscript code
         if dropdown_value == "kernelSource" and self.node.Class() == "BlinkScript":
             nuke.tcl('''knob {}.kernelSource "{}"'''.format(self.node.fullName(),
-                                                            edited_knobValue.replace('"', '\\"').replace('[', '\[').encode("utf8")))
+                                                            edited_knobValue.replace('"', '\\"').replace('[', '\[')))
         else:
             self.node[dropdown_value].setValue(edited_knobValue.encode("utf8"))
         self.setKnobModified(modified=False, knob=dropdown_value, changeTitle=True)
