@@ -15,6 +15,7 @@ except ImportError:
 import config
 import blinkhighlighter
 import pythonhighlighter
+#import utils
 
 
 class KSScriptEditor(QtWidgets.QPlainTextEdit):
@@ -80,6 +81,9 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
         cr = self.contentsRect()
         self.lineNumberArea.setGeometry(QtCore.QRect(cr.left(), cr.top(), self.lineNumberAreaWidth(), cr.height()))
+
+    #def toPlainText(self):
+    #    return utils.string(QtWidgets.QPlainTextEdit.toPlainText(self))
 
     def lineNumberAreaPaintEvent(self, event):
 

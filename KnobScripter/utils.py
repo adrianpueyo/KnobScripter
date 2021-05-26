@@ -63,6 +63,11 @@ def findSE():
         if widget.metaObject().className() == 'Nuke::NukeScriptEditor':
             return widget
 
+def string(text):
+    # Quick workaround for python 2 vs 3 unicode str headache
+    if type(text) != str:
+        text = text.encode("utf8")
+    return text
 
 def findSEInput(se):
     children = se.children()
