@@ -317,5 +317,6 @@ class PrefsWidget(QtWidgets.QWidget):
         self.refresh_prefs()
         # 2. Apply values to KnobScripters
         self.apply_prefs()
+        # 3. If this is a floating panel, close it??
 
 #TODO prefs button should open multi-panel (or show it if pane or already open) with prefs tab open as well. Same w snippets...

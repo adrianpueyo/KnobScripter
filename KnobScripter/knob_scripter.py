@@ -1771,7 +1771,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         ''' Whenever the 'snippets' button is pressed... open the panel '''
         global SnippetEditPanel
         if SnippetEditPanel == "":
-            SnippetEditPanel = snippets.SnippetsPanel(self, self._parent)
+            #SnippetEditPanel = snippets.SnippetsPanel(self, self._parent)
+            SnippetEditPanel = MultiPanel(self, self._parent,initial_tab="snippet_editor")
 
         if not SnippetEditPanel.isVisible():
             SnippetEditPanel.reload()
@@ -1809,7 +1810,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         ''' Open the preferences panel '''
         global PrefsPanel
         if PrefsPanel == "":
-            PrefsPanel = prefs.PrefsWidgetOld(self, self._parent) #TODO Change for multipanel...
+            #PrefsPanel = prefs.PrefsWidgetOld(self, self._parent) #TODO Change for multipanel...
+            PrefsPanel = MultiPanel(self, self._parent,initial_tab="ks_prefs")
         else:
             try:
                 PrefsPanel.knobScripter = self
@@ -1953,7 +1955,7 @@ def updateContext():
 # Code Gallery + Snippets super panel
 # --------------------------------------
 class MultiPanel(QtWidgets.QDialog):
-    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
+    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow(), initial_tab="code_gallery"):
         super(MultiPanel, self).__init__(_parent)
 
         # TODO future (for now current method works, this is only for when this is a Pane) Find a way to connect this to a KnobScripter!!! Or open the panel as part of the KnobScripter itself??????? Showing the tabs+widgets on the right
@@ -1965,27 +1967,28 @@ class MultiPanel(QtWidgets.QDialog):
 
         self.initUI()
         # self.resize(500,300)
+        self.set_initial_tab(initial_tab)
 
     def initUI(self):
         master_layout = QtWidgets.QVBoxLayout()
 
         # Main TabWidget
-        tab_widget = QtWidgets.QTabWidget()
+        self.tab_widget = QtWidgets.QTabWidget()
 
         self.code_gallery = codegallery.CodeGalleryWidget(self.knob_scripter, None)
         self.snippet_editor = snippets.SnippetsWidget(self.knob_scripter, None)
         self.ks_prefs = prefs.PrefsWidget(self.knob_scripter, None)
 
-        tab_widget.addTab(self.code_gallery, "Code Gallery")
-        tab_widget.addTab(self.snippet_editor, "Snippet Editor")
-        tab_widget.addTab(self.ks_prefs, "Preferences")
+        self.tab_widget.addTab(self.code_gallery, "Code Gallery")
+        self.tab_widget.addTab(self.snippet_editor, "Snippet Editor")
+        self.tab_widget.addTab(self.ks_prefs, "Preferences")
 
         tab_style = '''QTabBar { }
                    QTabBar::tab:!selected {font-weight:bold; height: 30px; width:125px;}
                    QTabBar::tab:selected {font-weight:bold; height: 30px; width:125px;}'''
-        tab_widget.setStyleSheet(tab_style)
+        self.tab_widget.setStyleSheet(tab_style)
 
-        master_layout.addWidget(tab_widget)
+        master_layout.addWidget(self.tab_widget)
         self.setLayout(master_layout)
 
     def set_knob_scripter(self, knob_scripter = None):
@@ -1993,6 +1996,14 @@ class MultiPanel(QtWidgets.QDialog):
         self.snippet_editor.knob_scripter = knob_scripter
         self.ks_prefs.knobScripter = knob_scripter
         self.knob_scripter = knob_scripter
+
+    def set_initial_tab(self,tab):
+        if tab ==  "code_gallery":
+            self.tab_widget.setCurrentWidget(self.code_gallery)
+        elif tab == "snippet_editor":
+            self.tab_widget.setCurrentWidget(self.snippet_editor)
+        elif tab == "ks_prefs":
+            self.tab_widget.setCurrentWidget(self.ks_prefs)
 
 
 # --------------------------------
