@@ -80,6 +80,27 @@ def findSEInput(se):
             return widget
     return None
 
+def filepath_version_up(filepath,find_next_available=True):
+    '''
+    Return versioned up version of filepath.
+    @param find_next_available: whether to find the next version that doesn't exist, or simply return the version +1
+    @return: versioned up filepath or False
+    '''
+    import re
+    import os
+    filepath_re = r"([_.]v)([\d]+)([._]+)"
+    version_search = re.search(filepath_re, filepath)
+    if not version_search:
+        return False
+    else:
+        version_str = version_search.groups()[1]
+        padding = len(version_str)
+        version = int(version_str)
+        while True:
+            new_path = re.sub(filepath_re, "\g<1>"+str(version+1).zfill(padding)+"\g<3>", filepath)
+            if not find_next_available or not os.path.exists(new_path):
+                return new_path
+            version += 1
 
 def findSEConsole(se=None):
     if not se:

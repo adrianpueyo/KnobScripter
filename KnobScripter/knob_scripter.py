@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-KnobScripterWidget 3 by Adrian Pueyo - Complete python script editor for Nuke
+KnobScripter 3 by Adrian Pueyo - Complete python script editor for Nuke
 adrianpueyo.com, 2016-2020
 '''
 
@@ -70,8 +70,6 @@ logging.debug('Initializing KnobScripter')
 # Init config.script_editor_font (will be overwritten once reading the prefs)
 prefs.load_prefs()
 
-# TODO ctrl + +/- for live-changing the font size just for the current script editor????? nice -> should have a self.instance_font_size
-# TODO Exit node mode should warn if there's unsaved changes!!!!! Both in python and blink
 # TODO Save which knob is open with each node, for the current nuke session (inside nuke.KnobScripter dict or something)
 
 def is_blink_knob(knob):
@@ -519,8 +517,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
                                                        triggered=self.blink_load_triggered)
         self.blink_save_act = QtWidgets.QAction("Save .blink", self, statusTip="Save the .blink code.",
                                                        triggered=self.blink_save_triggered)
-        self.blink_versionUp_act = QtWidgets.QAction("Version Up", self, statusTip="Version up the .blink file.",
-                                                     triggered=self.blink_toggle_autosave_action)
+        self.blink_versionup_act = QtWidgets.QAction("Version Up", self, statusTip="Version up the .blink file.",
+                                                     triggered=self.blink_versionup_triggered)
         self.blink_browse_act = QtWidgets.QAction("Browse...", self, statusTip="Browse to the blink file's directory.",
                                                      triggered=self.blink_browse_action)
 
@@ -551,11 +549,11 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.blink_menu.addAction(self.blink_filename_info_act)
         self.blink_menu.addAction(self.blink_load_act)
         self.blink_menu.addAction(self.blink_save_act)
+        self.blink_menu.addAction(self.blink_versionup_act)
         self.blink_menu.addAction(self.blink_browse_act)
 
         self.blink_menu.aboutToShow.connect(self.blink_menu_refresh)
         # TODO: Checkbox autosave should be enabled or disabled by default based on preferences...
-        # TODO: the actions should do something! inc. regex
 
     # Node Mode
     def updateKnobDropdown(self):
@@ -922,6 +920,17 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.blink_save_file(native=True)
         return
 
+    def blink_versionup_triggered(self):
+        node = self.node
+        if "kernelSourceFile" not in node.knobs():
+            logging.debug("kernelSourceFile knob not found in node {}".format(str(node.name())))
+            return False
+        current_path = node.knob("kernelSourceFile").value()
+        versioned_up_path = utils.filepath_version_up(current_path)
+        node.knob("kernelSourceFile").setValue(versioned_up_path)
+        self.blink_save_file()
+
+
     def blink_save_file(self,native=False):
         '''
         Save blink contents into file
@@ -1015,7 +1024,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         else:
             filepath = self.node.knob("kernelSourceFile").value()
             self.openInFileBrowser(filepath)
-
 
     def blinkCreateFile(self):
         '''
