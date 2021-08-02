@@ -1766,9 +1766,12 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
     def open_multipanel(self, tab = "code_gallery", lang = None):
         """ Open the floating multipanel (although it can also be opened as pane) """
-        logging.debug(self.script_editor.code_language)
+        if self.isPane:
+            multipanel_parent = QtWidgets.QApplication.activeWindow()
+        else:
+            multipanel_parent = self._parent
         if nuke.ks_multipanel == "":
-            nuke.ks_multipanel = MultiPanel(self, self._parent, initial_tab = tab, lang = lang or self.script_editor.code_language)
+            nuke.ks_multipanel = MultiPanel(self, multipanel_parent, initial_tab = tab, lang = lang or self.script_editor.code_language)
         else:
             try:
                 if lang:
@@ -1781,6 +1784,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if not nuke.ks_multipanel.isVisible():
             nuke.ks_multipanel.reload()
             nuke.ks_multipanel.set_lang(lang or self.script_editor.code_language)
+
+        nuke.ks_multipanel.activateWindow()
 
         if nuke.ks_multipanel.show():
             # Something else to do when clicking OK?
@@ -1933,7 +1938,8 @@ def updateContext():
 # Code Gallery + Snippets super panel
 # --------------------------------------
 class MultiPanel(QtWidgets.QDialog):
-    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow(), initial_tab="code_gallery", lang="python", is_pane=False):
+    def __init__(self, knob_scripter="", _parent=None, initial_tab="code_gallery", lang="python"):
+        _parent = _parent or QtWidgets.QApplication.activeWindow()
         super(MultiPanel, self).__init__(_parent)
 
         # TODO future (really, future): enable drag and drop of snippet and gallery into the knobscripter??
@@ -1994,7 +2000,6 @@ class MultiPanel(QtWidgets.QDialog):
         self.code_gallery.reload()
         self.ks_prefs.refresh_prefs()
 
-
 # --------------------------------
 # Implementation
 # --------------------------------
@@ -2016,6 +2021,7 @@ def addKnobScripterPane():
     except:
         nuke.knobScripterPane = panels.registerWidgetAsPanel('nuke.KnobScripterPane', 'Knob Scripter',
                                                          'com.adrianpueyo.KnobScripterPane')
+
 
 nuke.KnobScripterPane = KnobScripterPane
 logging.debug("KS LOADED")
