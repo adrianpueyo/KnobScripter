@@ -405,19 +405,17 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
         # snap to previous indent level
         spaces = len(textInFront)
-        for space in range(spaces - ((spaces - 1) / self.tab_spaces) * self.tab_spaces - 1):
+
+        for space in range(int(spaces - int(float(spaces - 1) / self.tab_spaces) * self.tab_spaces - 1)):
             self.cursor.deletePreviousChar()
 
     def indentNewLine(self):
-
-        # in case selection covers multiple line, make it one line first
+        # In case selection covers multiple line, make it one line first
         self.insertPlainText('')
-
         self.getCursorInfo()
 
-        # check how many spaces after cursor
+        # Check how many spaces after cursor
         text = self.document().findBlock(self.firstChar).text()
-
         textInFront = text[:self.cursorBlockPos]
 
         if len(textInFront) == 0:
