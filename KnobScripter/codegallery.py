@@ -49,11 +49,11 @@ code_gallery_dict = {
 }
 
 class CodeGalleryWidget(QtWidgets.QWidget):
-    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
+    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow(),lang="python"):
         super(CodeGalleryWidget, self).__init__(_parent)
 
         self.knob_scripter = knob_scripter
-        self.code_language = "python"
+        self.code_language = lang
 
         self.initUI()
         self.change_lang(self.code_language)

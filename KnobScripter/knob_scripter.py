@@ -42,6 +42,7 @@ except ImportError:
 KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR + "/icons/"
 nuke.AllKnobScripters = []  # All open instances at a given time
+nuke.ks_multipanel = ""
 PrefsPanel = ""
 SnippetEditPanel = ""
 CodeGalleryPanel = ""
@@ -311,12 +312,12 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # Gallery
         self.codegallery_button = widgets.KSToolButton("enter")
         self.codegallery_button.setToolTip("Open the code gallery panel.")
-        self.codegallery_button.clicked.connect(self.openCodeGallery)
+        self.codegallery_button.clicked.connect(lambda:self.open_multipanel(tab="code_gallery"))
 
         # Snippets
         self.snippets_button = widgets.KSToolButton("snippets")
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
-        self.snippets_button.clicked.connect(self.openSnippets)
+        self.snippets_button.clicked.connect(lambda:self.open_multipanel(tab="snippet_editor"))
 
         # Prefs
         self.createPrefsMenu()
@@ -450,10 +451,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.",
                                            triggered=self.showInGithub)
         self.snippetsAct = QtWidgets.QAction("Snippets", self, statusTip="Open the Snippets editor.",
-                                             triggered=self.openSnippets)
+                                             triggered=lambda:self.open_multipanel(tab="snippet_editor"))
         self.snippetsAct.setIcon(QtGui.QIcon(icons_path + "icon_snippets.png"))
         self.prefsAct = QtWidgets.QAction("Preferences", self, statusTip="Open the Preferences panel.",
-                                          triggered=self.openPrefs)
+                                          triggered=lambda:self.open_multipanel(tab="ks_prefs"))
         self.prefsAct.setIcon(QtGui.QIcon(icons_path + "icon_prefs.png"))
 
         # Menus
@@ -529,18 +530,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         #font.setBold(True)
         #self.blink_createFile_act.setFont(font)
         #self.blink_createFile_act.setEnabled(False)
-
-        # if nuke.toNode("preferences").knob("echoAllCommands").value():
-        #    self.echoAct.toggle()
-        # self.runInContextAct = QtWidgets.QAction("Run in context (beta)", self, checkable=True, statusTip="When inside a node, run the code replacing nuke.thisNode() to the node's name, etc.", triggered=self.toggleRunInContext)
-        # self.runInContextAct.setChecked(self.runInContext)
-        # self.helpAct = QtWidgets.QAction("&Help", self, statusTip="Open the KnobScripter help in your browser.", shortcut="F1", triggered=self.showHelp)
-        # self.nukepediaAct = QtWidgets.QAction("Show in Nukepedia", self, statusTip="Open the KnobScripter download page on Nukepedia.", triggered=self.showInNukepedia)
-        # self.githubAct = QtWidgets.QAction("Show in GitHub", self, statusTip="Open the KnobScripter repo on GitHub.", triggered=self.showInGithub)
-        # self.snippetsAct = QtWidgets.QAction("Snippets", self, statusTip="Open the Snippets editor.", triggered=self.openSnippets)
-        # self.snippetsAct.setIcon(QtGui.QIcon(icons_path+"icon_snippets.png"))
-        # self.prefsAct = QtWidgets.QAction("Preferences", self, statusTip="Open the Preferences panel.", triggered=self.openPrefs)
-        # self.prefsAct.setIcon(QtGui.QIcon(icons_path+"icon_prefs.png"))
 
         # Menus
         self.blink_menu = QtWidgets.QMenu("Blink")
@@ -1775,34 +1764,30 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.script_editor.setFocus()
         return
 
-    def openSnippets(self):
-        ''' Whenever the 'snippets' button is pressed... open the panel '''
-        global SnippetEditPanel
-        if SnippetEditPanel == "":
-            #SnippetEditPanel = snippets.SnippetsPanel(self, self._parent)
-            SnippetEditPanel = MultiPanel(self, self._parent,initial_tab="snippet_editor")
-
-        if not SnippetEditPanel.isVisible():
-            SnippetEditPanel.reload()
-
-        if SnippetEditPanel.show():
-            content.all_snippets = snippets.load_snippets_dict()
-            SnippetEditPanel = ""
-
-    def openCodeGallery(self):
-        ''' Open the floating code gallery panel (although it'll also be able to be opened as pane) '''
-        global CodeGalleryPanel
-        if CodeGalleryPanel == "":
-            CodeGalleryPanel = MultiPanel(self, self._parent)
+    def open_multipanel(self, tab = "code_gallery", lang = None):
+        """ Open the floating multipanel (although it can also be opened as pane) """
+        logging.debug(self.script_editor.code_language)
+        if nuke.ks_multipanel == "":
+            nuke.ks_multipanel = MultiPanel(self, self._parent, initial_tab = tab, lang = lang or self.script_editor.code_language)
         else:
-            CodeGalleryPanel.set_knob_scripter(self)
+            try:
+                if lang:
+                    nuke.ks_multipanel.set_lang(lang)
+                nuke.ks_multipanel.set_tab(tab)
+                nuke.ks_multipanel.set_knob_scripter(self)
+            except:
+                pass
 
-        # if not CodeGalleryPanel.isVisible():
-        #    CodeGalleryPanel.reload()
+        if not nuke.ks_multipanel.isVisible():
+            nuke.ks_multipanel.reload()
+            nuke.ks_multipanel.set_lang(lang or self.script_editor.code_language)
 
-        if CodeGalleryPanel.show():
+        if nuke.ks_multipanel.show():
             # Something else to do when clicking OK?
-            CodeGalleryPanel = ""
+            content.all_snippets = snippets.load_snippets_dict()
+
+            nuke.ks_multipanel = ""
+
 
     def messageBox(self, the_text=""):
         ''' Just a simple message box '''
@@ -1813,21 +1798,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         msgBox.setText(the_text)
         msgBox.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         msgBox.exec_()
-
-    def openPrefs(self):
-        ''' Open the preferences panel '''
-        global PrefsPanel
-        if PrefsPanel == "":
-            #PrefsPanel = prefs.PrefsWidgetOld(self, self._parent) #TODO Change for multipanel...
-            PrefsPanel = MultiPanel(self, self._parent,initial_tab="ks_prefs")
-        else:
-            try:
-                PrefsPanel.knobScripter = self
-            except:
-                pass
-
-        if PrefsPanel.show():
-            PrefsPanel = ""
 
     def loadPrefs(self):
         ''' Load prefs '''
@@ -1963,19 +1933,19 @@ def updateContext():
 # Code Gallery + Snippets super panel
 # --------------------------------------
 class MultiPanel(QtWidgets.QDialog):
-    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow(), initial_tab="code_gallery"):
+    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow(), initial_tab="code_gallery", lang="python", is_pane=False):
         super(MultiPanel, self).__init__(_parent)
 
-        # TODO future (for now current method works, this is only for when this is a Pane) Find a way to connect this to a KnobScripter!!! Or open the panel as part of the KnobScripter itself??????? Showing the tabs+widgets on the right
         # TODO future (really, future): enable drag and drop of snippet and gallery into the knobscripter??
         # TODO add on knobscripter button to Reload Style and Snippets
 
         self.knob_scripter = knob_scripter
         self.setWindowTitle("KnobScripter Multi-Panel")
+        self.lang = lang
 
         self.initUI()
-        # self.resize(500,300)
-        self.set_initial_tab(initial_tab)
+        self.set_tab(initial_tab)
+        self.set_lang(self.lang)
 
     def initUI(self):
         master_layout = QtWidgets.QVBoxLayout()
@@ -2005,13 +1975,24 @@ class MultiPanel(QtWidgets.QDialog):
         self.ks_prefs.knobScripter = knob_scripter
         self.knob_scripter = knob_scripter
 
-    def set_initial_tab(self,tab):
+    def set_tab(self,tab):
         if tab ==  "code_gallery":
             self.tab_widget.setCurrentWidget(self.code_gallery)
         elif tab == "snippet_editor":
             self.tab_widget.setCurrentWidget(self.snippet_editor)
         elif tab == "ks_prefs":
             self.tab_widget.setCurrentWidget(self.ks_prefs)
+
+    def set_lang(self, lang="python"):
+        self.lang = lang
+        self.code_gallery.change_lang(lang)
+        self.snippet_editor.change_lang(lang)
+        #TODO Add prefs when they have some sort of customization per language
+
+    def reload(self):
+        self.snippet_editor.reload()
+        self.code_gallery.reload()
+        self.ks_prefs.refresh_prefs()
 
 
 # --------------------------------
