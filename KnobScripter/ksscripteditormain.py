@@ -349,7 +349,7 @@ class KSScriptEditorMain(KSScriptEditor):
             sysModules = sys.modules
             globalModules = globals()
             allModules = dict(sysModules, **globalModules)
-            allKeys = list(set(globals().keys() + sys.modules.keys()))
+            allKeys = list(set(list(globals().keys()) + list(sys.modules.keys())))
             allKeysSorted = [x for x in sorted(set(allKeys))]
 
             if searchString == '':
