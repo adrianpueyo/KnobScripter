@@ -101,23 +101,6 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             base_format = styles["base"]
         else:
             base_format = self.format([255, 255, 255])
-        """
-        for key in styles:
-            '''
-            try:
-                styles[key] = self.format(styles[key][0], styles[key][1])
-            except:
-                styles[key] = self.format(styles[key])
-            '''
-            try:
-                if isinstance(styles[key],list):
-                    styles[key] = self.format(styles[key])
-                else:
-                    styles[key] = self.format(*styles[key])
-            except:
-                print type(styles[key])
-        """
-
 
         mainKeywords = [
             'and', 'assert', 'break', 'continue',
@@ -189,10 +172,6 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             # Single-quoted string, possibly containing escape sequences
             rules += [(r"'[^'\\]*(\\.[^'\\]*)*'", 0, styles['string'])]
 
-        # Comments from '#' until a newline
-        if "comment" in styles:
-            rules += [(r'#[^\n]*', 0, styles['comment'])]
-
         # Function definitions
         if "function" in styles:
             rules += [(r"def[\s]+([\w\.]+)", 1, styles['function'])]
@@ -213,6 +192,10 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             for k in keywords.keys():
                 if k in styles:
                     rules += [(r'\b%s\b' % i, 0, styles[k]) for i in keywords[k]]
+
+        # Comments from '#' until a newline
+        if "comment" in styles:
+            rules += [(r'#[^\n]*', 0, styles['comment'])]
 
         # 3. Resulting dictionary
         result = {

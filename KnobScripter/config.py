@@ -14,6 +14,7 @@ prefs = {
     "ks_default_size": [800,500],
     "ks_run_in_context": True,
     "ks_show_knob_labels": True,
+    "ks_blink_autosave_on_compile": False,
     "code_style_python": "monokai",
     "code_style_blink": "default",
     "se_style": "default",

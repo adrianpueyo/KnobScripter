@@ -63,7 +63,7 @@ class PrefsWidget(QtWidgets.QWidget):
         line1 = widgets.HLine()
 
         signature = QtWidgets.QLabel(
-            '<a href="http://www.adrianpueyo.com/" style="color:#888;text-decoration:none"><b>adrianpueyo.com</b></a>, 2016-2020')
+            '<a href="http://www.adrianpueyo.com/" style="color:#888;text-decoration:none"><b>adrianpueyo.com</b></a>, 2016-{}'.format(__date__.split(" ")[-1]))
         signature.setOpenExternalLinks(True)
         signature.setStyleSheet('''color:#555;font-size:9px;''')
         signature.setAlignment(QtCore.Qt.AlignLeft)
@@ -164,20 +164,23 @@ class PrefsWidget(QtWidgets.QWidget):
         # Show labels
         self.show_knob_labels_checkbox = QtWidgets.QCheckBox("Show knob labels")
         self.show_knob_labels_checkbox.setToolTip("Display knob labels on the knob dropdown\n"
-                                             "Otherwise, show the internal name only.")
+                                                  "Otherwise, show the internal name only.")
         self.form_layout.addRow("", self.show_knob_labels_checkbox)
 
-        """
+
         # 3.3. Blink
-        self.form_layout.addRow(" ")
-        self.form_layout.addRow("<b>Blink</b>")
+        self.form_layout.addRow(" ", None)
+        self.form_layout.addRow("<b>Blink</b>", QtWidgets.QWidget())
 
         # Color scheme
-        self.blink_color_scheme_combobox = QtWidgets.QComboBox()
-        self.blink_color_scheme_combobox.addItem("nuke default")
-        self.blink_color_scheme_combobox.addItem("adrians flavour")
-        self.form_layout.addRow("Tab spaces:", self.blink_color_scheme_combobox)
-        """
+        #self.blink_color_scheme_combobox = QtWidgets.QComboBox()
+        #self.blink_color_scheme_combobox.addItem("nuke default")
+        #self.blink_color_scheme_combobox.addItem("adrians flavour")
+        #self.form_layout.addRow("Tab spaces:", self.blink_color_scheme_combobox)
+        self.autosave_on_compile_checkbox = QtWidgets.QCheckBox("Auto-save to disk on compile")
+        self.autosave_on_compile_checkbox.setToolTip("Set the default value for <b>Auto-save to disk on compile</b>.")
+        self.form_layout.addRow("", self.autosave_on_compile_checkbox)
+
 
         # 4. Lower buttons?
         self.lower_buttons_layout = QtWidgets.QHBoxLayout()
@@ -259,21 +262,24 @@ class PrefsWidget(QtWidgets.QWidget):
         if i != -1:
             self.tab_spaces_combobox.setCurrentIndex(i)
 
+        self.autosave_on_compile_checkbox.setChecked(config.prefs["ks_blink_autosave_on_compile"])
+
     def get_prefs_dict(self):
         """ Return a dictionary with the prefs from the current knob state """
         ks_prefs = {
-            'ks_default_size': [self.window_size_w_box.value(), self.window_size_h_box.value()],
-            'ks_run_in_context': self.run_in_context_checkbox.isChecked(),
-            'ks_show_knob_labels': self.show_knob_labels_checkbox.isChecked(),
-            'code_style_python': self.python_color_scheme_combobox.currentData(),
-            'se_font_family': self.font_box.currentFont().family(),
-            'se_font_size': self.font_size_box.value(),
-            'se_tab_spaces': self.tab_spaces_combobox.currentData(),
+            "ks_default_size": [self.window_size_w_box.value(), self.window_size_h_box.value()],
+            "ks_run_in_context": self.run_in_context_checkbox.isChecked(),
+            "ks_show_knob_labels": self.show_knob_labels_checkbox.isChecked(),
+            "ks_blink_autosave_on_compile": self.autosave_on_compile_checkbox.isChecked(),
+            "code_style_python": self.python_color_scheme_combobox.currentData(),
+            "se_font_family": self.font_box.currentFont().family(),
+            "se_font_size": self.font_size_box.value(),
+            "se_tab_spaces": self.tab_spaces_combobox.currentData(),
         }
         return ks_prefs
 
     def save_config(self,prefs=None):
-        """ Saves the given prefs dict in config.prefs """
+        """ Save the given prefs dict in config.prefs """
         if not prefs:
             prefs = self.get_prefs_dict()
         for pref in prefs:
@@ -307,6 +313,7 @@ class PrefsWidget(QtWidgets.QWidget):
             ks.runInContext = config.prefs["ks_run_in_context"]
             ks.runInContextAct.setChecked(config.prefs["ks_run_in_context"])
             ks.show_labels = config.prefs["ks_show_knob_labels"]
+            ks.blink_autoSave_act.setChecked(config.prefs["ks_blink_autosave_on_compile"])
             if ks.nodeMode:
                 ks.refreshClicked()
 

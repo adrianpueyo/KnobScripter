@@ -319,7 +319,7 @@ class SnippetsWidget(QtWidgets.QWidget):
         return
 
     def all_snippets_items(self):
-        """ Return a list of all SnippetItems"""
+        """ Return a list of all SnippetItems. """
         all_widgets = (self.scroll_layout.itemAt(i).widget() for i in range(self.scroll_layout.count()))
         snippets_items = []
         for w in all_widgets:
@@ -389,7 +389,10 @@ class SnippetsWidget(QtWidgets.QWidget):
 
     def snippets_help(self):
         #TODO make proper help... link to pdf or video?
-        nuke.message("Snippets are a convenient way to save pieces of code you need to use over and over.")
+        nuke.message("Snippets are a convenient way to save pieces of code you need to use over and over. "
+                     "By setting a code and shortcode, every time you write the shortcode on the script editor and "
+                     "press tab, the full code will be added. it also includes other convenient features. "
+                     "Please refer to the docs for more information.")
 
 
 class SnippetsItem(widgets.ToggableCodeGroup):

@@ -513,6 +513,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.blink_autoSave_act = QtWidgets.QAction("Auto-save to disk on compile", self, checkable=True,
                                                            statusTip="Auto-save code backup on disk every time you save it",
                                                            triggered=self.blink_toggle_autosave_action)
+        self.blink_autoSave_act.setChecked(config.prefs["ks_blink_autosave_on_compile"])
         #self.blinkBackups_createFile_act = QtWidgets.QAction("Create .blink scratch file", self,statusTip="Auto-save code backup on disk every time you save it",triggered=self.blinkCreateFile)
         self.blink_load_act = QtWidgets.QAction("Load .blink", self, statusTip="Load the .blink code.",
                                                        triggered=self.blink_load_triggered)
@@ -998,8 +999,11 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if "reloadKernelSourceFile" not in node.knobs():
             logging.debug("reloadKernelSourceFile knob not found in node {}".format(str(node.name())))
         else:
-            self.blink_load_act.setEnabled(node.knob("reloadKernelSourceFile").enabled())
-            self.blink_save_act.setEnabled(node.knob("saveKernelFile").enabled())
+            # The next thing doesn't work before the properties panel of the node is opened for the first time,
+            # as the buttons are disabled even when they shouldn't.
+            #self.blink_load_act.setEnabled(node.knob("reloadKernelSourceFile").enabled())
+            #self.blink_save_act.setEnabled(node.knob("saveKernelFile").enabled())
+            pass
 
         return
 
@@ -1947,6 +1951,7 @@ class MultiPanel(QtWidgets.QDialog):
 
         self.knob_scripter = knob_scripter
         self.setWindowTitle("KnobScripter Multi-Panel")
+        self.resize(600,400)
         self.lang = lang
 
         self.initUI()

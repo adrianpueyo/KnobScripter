@@ -101,6 +101,27 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
         self.layout.addWidget(self.scroll)
 
+        # 3. Lower buttons
+        self.lower_layout = QtWidgets.QHBoxLayout()
+
+        self.help_btn = widgets.KSToolButton("help_filled")
+        self.help_btn.setToolTip("Help")
+        self.help_btn.clicked.connect(self.show_help)
+        self.v_expand_btn = widgets.KSToolButton("v_expand", icon_size=22)
+        self.v_expand_btn.setToolTip("Expand all codes")
+        self.v_expand_btn.clicked.connect(self.expand_codes)
+        self.v_collapse_btn = widgets.KSToolButton("v_collapse", icon_size=22)
+        self.v_collapse_btn.setToolTip("Collapse all codes")
+        self.v_collapse_btn.clicked.connect(self.collapse_codes)
+
+        self.lower_layout.addWidget(self.v_expand_btn)
+        self.lower_layout.addWidget(self.v_collapse_btn)
+        self.lower_layout.addStretch()
+        self.lower_layout.addWidget(self.help_btn)
+
+        self.layout.addWidget(widgets.HLine())
+        self.layout.addLayout(self.lower_layout)
+
         self.setLayout(self.layout)
 
     def reload(self):
@@ -195,16 +216,47 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         # while...
         code = code_gallery_item.script_editor.toPlainText()
         lang = code_gallery_item.script_editor.code_language
-        asp = snippets.AppendSnippetPanel(self, code, "test", lang=lang)
+        asp = snippets.AppendSnippetPanel(self, code, shortcode, lang=lang)
         asp.show()
 
+    def all_code_groups(self):
+        """ Return a list of all Code Gallery Groups. """
+        all_scroll_widgets = (self.scroll_layout.itemAt(i).widget() for i in range(self.scroll_layout.count()))
+        gallery_groups = []
+        for g in all_scroll_widgets:
+            if isinstance(g, widgets.ToggableGroup):
+                gallery_groups.append(g)
+        return gallery_groups
 
-# class CodeGalleryPane(CodeGallery)
-# def __init__(self, node = "", knob="knobChanged"):
-#        super(KnobScripterPane, self).__init__(isPane=True, _parent=QtWidgets.QApplication.activeWindow())
-# TODO Pane instead, its own thing
-# TODO: Snippets: button to delete snippet, add snippet to script
-# TODO: Snippet editor and preferences apply changes (via "Reload Snippets and Settings button or whatever...") on all knobscripters? (by having a set of the active knobscripters and removing them on close)
+    def all_codegallery_items(self, code_groups=None):
+        """ Return a list of all CodeGalleryItems. """
+        if not code_groups:
+            code_groups = self.all_code_groups()
+
+        codegallery_items = []
+        for g in code_groups:
+            all_subwidgets = (g.content_layout.itemAt(i).widget() for i in range(g.content_layout.count()))
+            for w in all_subwidgets:
+                if isinstance(w, CodeGalleryItem):
+                    codegallery_items.append(w)
+        return codegallery_items
+
+    def expand_codes(self):
+        code_groups = self.all_code_groups()
+        for w in code_groups + self.all_codegallery_items(code_groups):
+            w.setCollapsed(False)
+
+    def collapse_codes(self):
+        code_groups = self.all_code_groups()
+        for w in code_groups + self.all_codegallery_items(code_groups):
+            w.setCollapsed(True)
+
+    def show_help(self):
+        #TODO make proper help... link to pdf or video?
+        nuke.message("The Code Gallery is a convenient place for code reference. It allows yourself or your studio "
+                     "to have a gallery of useful pieces of code, categorized and accompanied by a title and short "
+                     "description. \n\n"
+                     "Please refer to the docs for more information.")
 
 
 class CodeGalleryItem(widgets.ToggableCodeGroup):
