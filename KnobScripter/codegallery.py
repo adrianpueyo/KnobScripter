@@ -69,10 +69,17 @@ def get_categories(code_dict=None):
 def load_all_code_gallery_dicts():
     """ Return a dictionary that contains the code gallery dicts from all different paths. """
     # TODO This function!!!! to also include the other paths, not only the user specified...
-    full_dict = load_code_gallery_dict()
-    for lang in ["python","blink"]:
-        if lang not in full_dict.keys():
-            full_dict[lang] = []
+    user_dict = config.code_gallery_files
+    full_dict = dict()
+    for file in config.code_gallery_files+[config.codegallery_user_txt_path]:
+        file_dict = load_code_gallery_dict(file)
+        print(file)
+        for key in file_dict.keys():
+            if key not in full_dict.keys():
+                full_dict[key] = []
+            for single_code_dict in file_dict[key]:
+                full_dict[key].append(single_code_dict)
+    print(full_dict)
     return full_dict
 
 def load_code_gallery_dict(path=None):
@@ -210,8 +217,9 @@ class AppendCodePanel(QtWidgets.QDialog):
     def save_pressed(self):
         title = self.title_lineedit.text()
         description = self.description_lineedit.text()
-        categories = self.category_combobox.lineEdit().text()
-        # TODO separate category by commas, and only allow characters and spaces...
+        categories_str = self.category_combobox.lineEdit().text()
+        categories = [c.strip() for c in categories_str.split(",")]
+        categories = [c for c in categories if len(c)]
         code = self.script_editor.toPlainText()
         lang = self.lang_selector.selected_text()
         if "" in [code,title]:
@@ -219,7 +227,7 @@ class AppendCodePanel(QtWidgets.QDialog):
             return False
         logging.debug(
             "Code to be saved \nLang:\n{0}\nTitle:\n{1}\nDescription:\n{2}\nCategory:\n{3}\nCode:\n{4}\n------".format(lang, title, description, categories, code))
-        append_code(code, title, description, [categories], lang=lang) # TODO make the categories list properly.
+        append_code(code, title, description, categories, lang=lang)
         code_gallery_dict = load_code_gallery_dict()
         try:
             content.code_gallery_dict = code_gallery_dict

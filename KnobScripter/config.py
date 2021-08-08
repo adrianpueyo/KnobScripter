@@ -43,7 +43,7 @@ script_editor_styles = {
     }
 }
 
-code_gallery_files = [CODE_GALLERY_DEFAULT_FILE,] # json files. TODO Make this available as a function when importing or something.
+code_gallery_files = [CODE_GALLERY_DEFAULT_FILE,] # json files. TODO Make the extension of this list available as a function right after importing KS3
 
 # Initialized at runtime
 py_scripts_dir = None
