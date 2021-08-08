@@ -2,13 +2,14 @@ import os
 
 KS_DIR = os.path.dirname(__file__)
 ICONS_DIR = os.path.join(KS_DIR, "icons")
+CODE_GALLERY_DEFAULT_FILE = os.path.join(KS_DIR, "code_gallery_dict.json")
 
-# TODO Redo the whole preferences loading and saving methods and interfaces
 prefs = {
     "ks_directory" : "KS3",
     "ks_py_scripts_directory": "Scripts",
     "ks_blink_directory": "Scripts",
     "ks_snippets_file": "Snippets.txt",
+    "ks_codegallery_file": "code_gallery_dict.json",
     "ks_prefs_file": "Prefs.txt",
     "ks_state_file": "State.txt",
     "ks_default_size": [800,500],
@@ -42,10 +43,13 @@ script_editor_styles = {
     }
 }
 
+code_gallery_files = [CODE_GALLERY_DEFAULT_FILE,] # json files. TODO Make this available as a function when importing or something.
+
 # Initialized at runtime
 py_scripts_dir = None
 blink_dir = None
 snippets_txt_path = None
+codegallery_user_txt_path = None
 prefs_txt_path = None
 state_txt_path = None
 

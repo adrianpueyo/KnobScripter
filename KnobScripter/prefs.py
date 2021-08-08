@@ -23,6 +23,7 @@ def load_prefs():
     config.ks_directory = os.path.join(os.path.expanduser("~"),".nuke",config.prefs["ks_directory"])
     config.py_scripts_dir = os.path.join(config.ks_directory, config.prefs["ks_py_scripts_directory"])
     config.blink_dir = os.path.join(config.ks_directory, config.prefs["ks_blink_directory"])
+    config.codegallery_user_txt_path = os.path.join(config.ks_directory, config.prefs["ks_codegallery_file"])
     config.snippets_txt_path = os.path.join(config.ks_directory, config.prefs["ks_snippets_file"])
     config.prefs_txt_path = os.path.join(config.ks_directory, config.prefs["ks_prefs_file"])
     config.state_txt_path = os.path.join(config.ks_directory, config.prefs["ks_state_file"])

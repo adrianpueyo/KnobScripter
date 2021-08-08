@@ -1,5 +1,7 @@
 import nuke
+import os
 import logging
+import json
 from functools import partial
 
 try:
@@ -15,26 +17,29 @@ except ImportError:
 import utils
 import snippets
 import widgets
+import config
+import content
+import ksscripteditor
 
 code_gallery_dict = {
-    "blink" : [
+    "blink": [
         {
             "title": "Kernel skeleton",
             "desc": "Basic code structure for starting a Blink kernel.",
             "cat": ["Base codes"],
             "code": """\nkernel KernelName : ImageComputationKernel<ePixelWise>\n{\n  Image<eRead, eAccessPoint, eEdgeClamped> src;\n  Image<eWrite> dst;\n\n  param:\n\n\n  local:\n\n\n  void init() {\n\n  }\n\n  void process(int2 pos) {\n    dst() = src();\n  }\n};\n""",
-            "editor_height" : 40,
+            "editor_height": 40,
         },
         {
             "title": "Process function",
             "desc": "Example template for the main processing function in Blink.",
-            "cat":["Base codes"],
+            "cat": ["Base codes"],
             "code": """void process() {\n    // Read the input image\n    SampleType(src) input = src();\n\n    // Isolate the RGB components\n    float3 srcPixel(input.x, input.y, input.z);\n\n    // Calculate luma\n    float luma = srcPixel.x * coefficients.x\n               + srcPixel.y * coefficients.y\n               + srcPixel.z * coefficients.z;\n    // Apply saturation\n    float3 saturatedPixel = (srcPixel - luma) * saturation + luma;\n\n    // Write the result to the output image\n    dst() = float4(saturatedPixel.x, saturatedPixel.y, saturatedPixel.z, input.w);\n  }"""
         },
         {
             "title": "Longer text? what would happen exactly? lets try it like right now yes yes yes yes yes ",
             "desc": "Example template for the main processing function in Blink. this is the same but with a way longer description to see what happens... lets see!!!!.",
-            "cat":["Base codes", "Example"],
+            "cat": ["Base codes", "Example"],
             "code": """void process() {\n    // Read the input image\n    SampleType(src) input = src();\n\n    // Isolate the RGB components\n    float3 srcPixel(input.x, input.y, input.z);\n\n    // Calculate luma\n    float luma = srcPixel.x * coefficients.x\n               + srcPixel.y * coefficients.y\n               + srcPixel.z * coefficients.z;\n    // Apply saturation\n    float3 saturatedPixel = (srcPixel - luma) * saturation + luma;\n\n    // Write the result to the output image\n    dst() = float4(saturatedPixel.x, saturatedPixel.y, saturatedPixel.z, input.w);\n  }"""
         },
     ],
@@ -48,8 +53,190 @@ code_gallery_dict = {
     ],
 }
 
+
+def get_categories(code_dict=None):
+    """ Return a list of available categories for the specified code_dict (or the default one if not specified). """
+    code_dict = code_dict or load_code_gallery_dict(config.codegallery_user_txt_path)
+    categories = []
+    for lang in code_dict:
+        for code_item in code_dict[lang]:
+            if "cat" in code_item.keys():
+                cat = code_item["cat"]
+                if isinstance(cat, list):
+                    categories.extend(cat)
+    return list(set(categories))
+
+def load_all_code_gallery_dicts():
+    """ Return a dictionary that contains the code gallery dicts from all different paths. """
+    # TODO This function!!!! to also include the other paths, not only the user specified...
+    full_dict = load_code_gallery_dict()
+    for lang in ["python","blink"]:
+        if lang not in full_dict.keys():
+            full_dict[lang] = []
+    return full_dict
+
+def load_code_gallery_dict(path=None):
+    '''
+    Load the codes from the user json path as a dict. Return dict()
+    '''
+    #return code_gallery_dict #TEMPORARY
+
+    if not path:
+        path = config.codegallery_user_txt_path
+    if not os.path.isfile(path):
+        logging.debug("Path doesn't exist: "+path)
+        return dict()
+    else:
+        try:
+            with open(path, "r") as f:
+                code_dict = json.load(f)
+                return code_dict
+        except:
+            logging.debug("Couldn't open file: {}.\nLoading empty dict instead.".format(path))
+            return dict()
+
+def save_code_gallery_dict(code_dict, path=None):
+    ''' Perform a json dump of the code gallery into the path. '''
+    if not path:
+        path = config.codegallery_user_txt_path
+    with open(path, "w") as f:
+        json.dump(code_dict, f, sort_keys=True, indent=4)
+        content.code_gallery_dict = code_dict
+
+def append_code(code, title=None, desc=None, categories = None, path=None, lang="python"):
+    """ Load the codegallery file as a dict and append a code. """
+    if code == "":
+        return False
+    path = path or config.codegallery_user_txt_path
+    title = title or ""
+    desc = desc or ""
+    categories = categories or get_categories()
+    lang = lang.lower()
+    all_codes = load_code_gallery_dict(path)
+    if code == "":
+        return False
+    if lang not in all_codes:
+        all_codes[lang] = []
+    single_code_dict = dict()
+    single_code_dict["title"] = title
+    single_code_dict["desc"] = desc
+    single_code_dict["cat"] = categories
+    single_code_dict["code"] = code
+    all_codes[lang].append(single_code_dict)
+    save_code_gallery_dict(all_codes, path)
+
+
+class AppendCodePanel(QtWidgets.QDialog):
+    def __init__(self, parent=None, code=None, title=None, desc=None, cat=None, lang="python", path=None):
+        super(AppendCodePanel, self).__init__(parent)
+
+        self.lang = lang
+        title = title or ""
+        desc = desc or ""
+        cat = cat or []
+        self.path = path or config.codegallery_user_txt_path
+        self.existing_code_dict = load_code_gallery_dict(self.path)
+        self.existing_categories = get_categories(self.existing_code_dict)
+
+        # Layout
+        self.layout = QtWidgets.QVBoxLayout()
+
+        # Code language
+        self.lang_selector = widgets.RadioSelector(["Python", "Blink", "All"])
+        self.lang_selector.radio_selected.connect(self.change_lang)
+
+        # Title
+        self.title_lineedit = QtWidgets.QLineEdit(title)
+        f = self.title_lineedit.font()
+        f.setWeight(QtGui.QFont.Bold)
+        self.title_lineedit.setFont(f)
+
+        # Description
+        self.description_lineedit = QtWidgets.QLineEdit(title)
+
+        # Category
+        self.category_combobox = QtWidgets.QComboBox()
+        self.category_combobox.setEditable(True)
+        self.category_combobox.setSizePolicy(QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
+        #self.category_combobox.lineEdit().setText("")
+        self.category_combobox.addItem("","")
+        for cat in self.existing_categories:
+            self.category_combobox.addItem(str(cat), str(cat))
+
+        # Code
+        self.script_editor = ksscripteditor.KSScriptEditor()
+        self.script_editor.setPlainText(code)
+        se_policy = self.script_editor.sizePolicy()
+        se_policy.setVerticalStretch(1)
+        self.script_editor.setSizePolicy(se_policy)
+
+        # Warnings
+        self.warnings_label = QtWidgets.QLabel("Please set a code and title.")
+        self.warnings_label.setStyleSheet("color: #D65; font-style: italic;")
+        self.warnings_label.setWordWrap(True)
+        self.warnings_label.mouseReleaseEvent = lambda x: self.warnings_label.hide()
+
+        # Buttons
+        self.button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.save_pressed)
+        self.button_box.rejected.connect(self.cancel_pressed)
+
+        # Form layout
+        self.form = QtWidgets.QFormLayout()
+        self.form.addRow("Language: ", self.lang_selector)
+        self.form.addRow("Title: ", self.title_lineedit)
+        self.form.addRow("Description: ", self.description_lineedit)
+        self.form.addRow("Category: ", self.category_combobox)
+        self.form.addRow("Code: ", self.script_editor)
+        self.form.addRow("", self.warnings_label)
+        self.warnings_label.hide()
+        self.form.setFieldGrowthPolicy(QtWidgets.QFormLayout.ExpandingFieldsGrow)
+
+        self.layout.addLayout(self.form)
+        self.layout.addWidget(self.button_box)
+        self.setLayout(self.layout)
+
+        # Init values
+        self.setWindowTitle("Add Code to Code Gallery")
+        self.lang_selector.set_button(self.lang)
+        self.script_editor.set_code_language(self.lang)
+        self.title_lineedit.setFocus()
+        self.title_lineedit.selectAll()
+
+    def change_lang(self, lang):
+        self.script_editor.set_code_language(str(lang.lower()))
+
+    def save_pressed(self):
+        title = self.title_lineedit.text()
+        description = self.description_lineedit.text()
+        categories = self.category_combobox.lineEdit().text()
+        # TODO separate category by commas, and only allow characters and spaces...
+        code = self.script_editor.toPlainText()
+        lang = self.lang_selector.selected_text()
+        if "" in [code,title]:
+            self.warnings_label.show()
+            return False
+        logging.debug(
+            "Code to be saved \nLang:\n{0}\nTitle:\n{1}\nDescription:\n{2}\nCategory:\n{3}\nCode:\n{4}\n------".format(lang, title, description, categories, code))
+        append_code(code, title, description, [categories], lang=lang) # TODO make the categories list properly.
+        code_gallery_dict = load_code_gallery_dict()
+        try:
+            content.code_gallery_dict = code_gallery_dict
+        except Exception as e:
+            logging.debug(e)
+        self.accept()
+
+    def cancel_pressed(self):
+        if self.script_editor.toPlainText() != "":
+            msg = "Do you wish to discard the changes?"
+            if not dialogs.ask(msg, self, default_yes=False):
+                return False
+        self.reject()
+
+
 class CodeGalleryWidget(QtWidgets.QWidget):
-    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow(),lang="python"):
+    def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow(), lang="python"):
         super(CodeGalleryWidget, self).__init__(_parent)
 
         self.knob_scripter = knob_scripter
@@ -87,7 +274,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.scroll_layout.setMargin(0)
         self.scroll_layout.addStretch()
         self.scroll_content.setLayout(self.scroll_layout)
-        self.scroll_content.setContentsMargins(0,0,8,0)
+        self.scroll_content.setContentsMargins(0, 0, 8, 0)
 
         self.change_lang(self.code_language, force_reload=True)
 
@@ -104,9 +291,10 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         # 3. Lower buttons
         self.lower_layout = QtWidgets.QHBoxLayout()
 
-        self.help_btn = widgets.KSToolButton("help_filled")
-        self.help_btn.setToolTip("Help")
-        self.help_btn.clicked.connect(self.show_help)
+        self.add_code_btn = widgets.KSToolButton("add_filled")
+        self.add_code_btn.setToolTip("Add new code")
+        self.add_code_btn.clicked.connect(self.add_code)
+
         self.v_expand_btn = widgets.KSToolButton("v_expand", icon_size=22)
         self.v_expand_btn.setToolTip("Expand all codes")
         self.v_expand_btn.clicked.connect(self.expand_codes)
@@ -114,6 +302,12 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         self.v_collapse_btn.setToolTip("Collapse all codes")
         self.v_collapse_btn.clicked.connect(self.collapse_codes)
 
+        self.help_btn = widgets.KSToolButton("help_filled")
+        self.help_btn.setToolTip("Help")
+        self.help_btn.clicked.connect(self.show_help)
+
+        self.lower_layout.addWidget(self.add_code_btn)
+        self.lower_layout.addSpacing(12)
         self.lower_layout.addWidget(self.v_expand_btn)
         self.lower_layout.addWidget(self.v_collapse_btn)
         self.lower_layout.addStretch()
@@ -129,20 +323,25 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         lang = self.lang_selector.selected_text()
         self.change_lang(lang, force_reload=True)
 
-    def change_lang(self,lang,force_reload=False):
+    def change_lang(self, lang, force_reload=False):
         """ Set the code language, clear the scroll layout and rebuild it as needed. """
         lang = lang.lower()
 
         if force_reload == False and lang == self.code_language:
             logging.debug("KS: Doing nothing because the language was already selected.")
             return False
+        elif force_reload:
+            pass
+
 
         self.lang_selector.set_button(lang)
         self.code_language = lang
-        logging.debug("Setting code language to "+lang)
+        logging.debug("Setting code language to " + lang)
 
         # Clear scroll area
         utils.clear_layout(self.scroll_layout)
+
+        code_gallery_dict = load_all_code_gallery_dicts()
 
         # Build widgets as needed
         if lang == "all":
@@ -171,7 +370,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
             tg.setTitle("<big><b>{}</b></big>".format(cat))
             for code in code_list:
                 if cat in code["cat"]:
-                    cgi = self.code_gallery_item(code, lang = lang)
+                    cgi = self.code_gallery_item(code, lang=lang)
                     tg.content_layout.addWidget(cgi)
 
             layout.insertWidget(-1, tg)
@@ -194,7 +393,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
         # 2. Content
         cgi.script_editor.set_code_language(lang.lower())
-        #cgi.script_editor.setFont(config.script_editor_font)
+        # cgi.script_editor.setFont(config.script_editor_font)
         cgi.script_editor.setPlainText(code["code"])
 
         if "editor_height" in code:
@@ -204,6 +403,11 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
         return cgi
 
+    def add_code(self):
+        """ Bring up a panel to add a new code to the Code Gallery. """
+        codepanel = AppendCodePanel(self, lang=self.code_language)
+        codepanel.show()
+
     def insert_code(self, code_gallery_item):
         """ Insert the code contained in code_gallery_item in the knobScripter's texteditmain. """
         self.knob_scripter = utils.getKnobScripter(self.knob_scripter)
@@ -211,7 +415,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
             code = code_gallery_item.script_editor.toPlainText()
             self.knob_scripter.script_editor.addSnippetText(code)
 
-    def save_snippet(self, code_gallery_item, shortcode = ""):
+    def save_snippet(self, code_gallery_item, shortcode=""):
         """ Save the current code as a snippet (by introducing a shortcode) """
         # while...
         code = code_gallery_item.script_editor.toPlainText()
@@ -252,7 +456,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
             w.setCollapsed(True)
 
     def show_help(self):
-        #TODO make proper help... link to pdf or video?
+        # TODO make proper help... link to pdf or video?
         nuke.message("The Code Gallery is a convenient place for code reference. It allows yourself or your studio "
                      "to have a gallery of useful pieces of code, categorized and accompanied by a title and short "
                      "description. \n\n"
@@ -263,7 +467,6 @@ class CodeGalleryItem(widgets.ToggableCodeGroup):
     """ widgets.ToggableGroup adapted specifically for a code gallery item. """
 
     def __init__(self, parent=None):
-
         super(CodeGalleryItem, self).__init__(parent=parent)
         self.parent = parent
 

@@ -106,3 +106,4 @@ default_snippets = {
 
 # Initialized at runtime
 all_snippets = []
+code_gallery_dict = {}
