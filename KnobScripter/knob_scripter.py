@@ -1,3 +1,5 @@
+# coding: utf-8
+from __future__ import print_function
 #-------------------------------------------------
 # KnobScripter by Adrian Pueyo
 # Complete python sript editor for Nuke
@@ -747,7 +749,7 @@ class KnobScripter(QtWidgets.QDialog):
             self.current_folder_dropdown.addItem(fname+"/", fname)
             counter += 1
 
-        #print scriptFolders
+        #print(scriptFolders)
         if counter > 0:
             self.current_folder_dropdown.insertSeparator(counter)
             counter += 1
@@ -828,7 +830,7 @@ class KnobScripter(QtWidgets.QDialog):
                 os.makedirs(folder_path)
                 return True
             except:
-                print "Couldn't create the scripting folders.\nPlease check your OS write permissions."
+                print("Couldn't create the scripting folders.\nPlease check your OS write permissions.")
                 return False
 
     def makeScriptFile(self, name = "Untitled.py", folder = "scripts", empty = True):
@@ -838,7 +840,7 @@ class KnobScripter(QtWidgets.QDialog):
                 self.current_script_file = open(script_path, 'w')
                 return True
             except:
-                print "Couldn't create the scripting folders.\nPlease check your OS write permissions."
+                print("Couldn't create the scripting folders.\nPlease check your OS write permissions.")
                 return False
 
     def setCurrentFolder(self, folderName):
@@ -1347,7 +1349,7 @@ class KnobScripter(QtWidgets.QDialog):
     def changeClicked(self, newNode=""):
         ''' Change node '''
         try:
-            print "Changing from " + self.node.name()
+            print("Changing from " + self.node.name())
         except:
             self.node = None
             if not len(nuke.selectedNodes()):
@@ -2765,7 +2767,7 @@ class ScriptOutputWidget(QtWidgets.QTextEdit) :
         shift = ((event.modifiers() and (Qt.ShiftModifier)) != 0)
         key = event.key()
         if type(event) == QtGui.QKeyEvent:
-            #print event.key()
+            #print(event.key())
             if key in [32]: # Space
                 return KnobScripter.keyPressEvent(self.knobScripter, event)
             elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
@@ -2904,7 +2906,7 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
                 if not self.currentNukeCompletion:
                     self.nukeCompleter.setCurrentRow(0)
                     self.currentNukeCompletion = self.nukeCompleter.currentCompletion()
-                #print str(self.nukeCompleter.completionModel[0])
+                #print(str(self.nukeCompleter.completionModel[0]))
                 self.insertNukeCompletion(self.currentNukeCompletion)
                 self.nukeCompleter.popup().hide()
                 self.nukeCompleterShowing = False
