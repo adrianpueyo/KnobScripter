@@ -2312,7 +2312,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
 
         #snap to previous indent level
         spaces = len(textInFront)
-        for space in range(spaces - ((spaces -1) /self.tabSpaces) * self.tabSpaces -1):
+        for space in range(spaces - ((spaces -1) // self.tabSpaces) * self.tabSpaces -1):
             self.cursor.deletePreviousChar()
 
     def indentNewLine(self):
@@ -2338,7 +2338,7 @@ class KnobScripterTextEdit(QtWidgets.QPlainTextEdit):
             else:
                 break
 
-        indentLevel /= self.tabSpaces
+        indentLevel //= self.tabSpaces
 
         #find out whether textInFront's last character was a ':'
         #if that's the case add another indent.
