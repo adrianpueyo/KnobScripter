@@ -3467,7 +3467,7 @@ class KnobScripterPrefs(QtWidgets.QDialog):
         if self.tabSpace2.isChecked():
             return 2
         elif self.tabSpace4.isChecked():
-            return 2
+            return 4
         else:
             return 0
 
