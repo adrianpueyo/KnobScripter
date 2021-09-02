@@ -1662,7 +1662,17 @@ class KnobScripterPane(KnobScripter):
     def __init__(self, node = "", knob="knobChanged"):
         super(KnobScripterPane, self).__init__(isPane=True, _parent=QtWidgets.QApplication.activeWindow())
         ctrlS_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+S"), self)
-        ctrlS_shortcut.activatedAmbiguously.connect(self.saveClicked)
+        self.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        """Intercept shortcut override behavior."""
+        if (event.type() == QtCore.QEvent.ShortcutOverride) and (isinstance(event, QtGui.QKeyEvent)):
+            if event.modifiers() == Qt.CTRL and event.key() == Qt.Key_S:
+                self.saveClicked()
+                event.accept()
+                return True
+
+        return super(KnobScripterPane, self).eventFilter(obj, event)
 
     def showEvent(self, the_event):
         try:
