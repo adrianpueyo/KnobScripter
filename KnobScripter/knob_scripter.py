@@ -1686,7 +1686,7 @@ def consoleChanged(self, ks):
                 ksText = ksText[len(origConsoleText):]
             else:
                 ks.origConsoleText = ""
-            ksOutput.setPlainText(ksText)
+            ksOutput.setPlainText(ksText.decode('utf-8'))
             ksOutput.verticalScrollBar().setValue(ksOutput.verticalScrollBar().maximum())
     except:
         pass
