@@ -963,17 +963,17 @@ class KnobScripter(QtWidgets.QDialog):
         script_path = os.path.join(self.scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         orig_content = ""
-        content = self.script_editor.toPlainText().encode('utf8')
+        content = self.script_editor.toPlainText()
 
         if temp == True:
             if os.path.isfile(script_path):
-                with open(script_path, 'r') as script:
+                with io.open(script_path, 'r', encoding='utf-8') as script:
                     orig_content = script.read()
             elif content == "" and os.path.isfile(script_path_temp): #If script path doesn't exist and autosave does but the script is empty...
                 os.remove(script_path_temp)
                 return
             if content != orig_content:
-                with open(script_path_temp, 'w') as script:
+                with io.open(script_path_temp, 'w', encoding='utf-8') as script:
                     script.write(content)
             else:
                 if os.path.isfile(script_path_temp):
@@ -981,8 +981,8 @@ class KnobScripter(QtWidgets.QDialog):
                 log("Nothing to save")
                 return
         else:
-            with open(script_path, 'w') as script:
-                script.write(self.script_editor.toPlainText().encode('utf8'))
+            with io.open(script_path, 'w', encoding='utf-8') as script:
+                script.write(content)
             # Clear trash
             if os.path.isfile(script_path_temp):
                 os.remove(script_path_temp)
