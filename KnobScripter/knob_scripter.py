@@ -21,6 +21,7 @@ import subprocess
 import platform
 from threading import Event, Thread
 from webbrowser import open as openUrl
+import io
 
 #Symlinks on windows...
 if os.name == "nt":
@@ -882,7 +883,7 @@ class KnobScripter(QtWidgets.QDialog):
         # 1: If autosave exists and pyOnly is false, load it
         if os.path.isfile(script_path_temp) and not pyOnly:
             log("Loading .py.autosave file\n---")
-            with open(script_path_temp, 'r') as script:
+            with io.open(script_path_temp, 'r', encoding='utf-8') as script:
                 content = script.read()
             self.script_editor.setPlainText(content)
             self.setScriptModified(True)
@@ -891,9 +892,9 @@ class KnobScripter(QtWidgets.QDialog):
         # 2: Try to load the .py as first priority, if it exists
         elif os.path.isfile(script_path):
             log("Loading .py file\n---")
-            with open(script_path, 'r') as script:
+            with io.open(script_path, 'r', encoding='utf-8') as script:
                 content = script.read()
-            current_text = self.script_editor.toPlainText().encode("utf8")
+            current_text = self.script_editor.toPlainText()
             if check and current_text != content and current_text.strip() != "":
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setText("The script has been modified.")
