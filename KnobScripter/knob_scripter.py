@@ -1443,7 +1443,7 @@ class KnobScripter(QtWidgets.QDialog):
         self.setScriptState()
 
     def clearConsole(self):
-        self.origConsoleText = self.nukeSEOutput.document().toPlainText().encode("utf8")
+        self.origConsoleText = self.nukeSEOutput.document().toPlainText()
         self.script_output.setPlainText("")
 
     def toggleFRW(self, frw_pressed):
@@ -1655,7 +1655,7 @@ class KnobScripter(QtWidgets.QDialog):
     def setSEOutputEvent(self):
         se = self.findSE()
         se_output = self.findSEOutput(se)
-        self.origConsoleText = se_output.document().toPlainText().encode('utf8')
+        self.origConsoleText = se_output.document().toPlainText()
         se_output.textChanged.connect(partial(consoleChanged, se_output, self))
         consoleChanged(se_output, self)
 
@@ -1691,7 +1691,7 @@ def consoleChanged(self, ks):
     try:
         if ks: # KS exists
             ksOutput = ks.script_output # The console TextEdit widget
-            ksText = self.document().toPlainText().encode("utf8")
+            ksText = self.document().toPlainText()
             origConsoleText = ks.origConsoleText # The text from the console that will be omitted
             if ksText.startswith(origConsoleText):
                 ksText = ksText[len(origConsoleText):]
