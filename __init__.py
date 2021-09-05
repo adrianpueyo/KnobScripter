@@ -1,1 +1,1 @@
-from KnobScripter import *
+from .KnobScripter import *
