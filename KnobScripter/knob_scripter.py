@@ -1570,14 +1570,14 @@ class KnobScripter(QtWidgets.QDialog):
     def refreshClicked(self):
         ''' Function to refresh the dropdowns '''
         if self.nodeMode:
-            knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()).encode('UTF8')
+            knob = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex())
             self.current_knob_dropdown.blockSignals(True)
             self.current_knob_dropdown.clear() # First remove all items
             self.updateKnobDropdown()
             availableKnobs = []
             for i in range(self.current_knob_dropdown.count()):
                 if self.current_knob_dropdown.itemData(i) is not None:
-                    availableKnobs.append(self.current_knob_dropdown.itemData(i).encode('UTF8'))
+                    availableKnobs.append(self.current_knob_dropdown.itemData(i))
             if knob in availableKnobs:
                 self.setCurrentKnob(knob)
             self.current_knob_dropdown.blockSignals(False)
