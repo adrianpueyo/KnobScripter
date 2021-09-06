@@ -79,6 +79,14 @@ def ksToUnicode(text):
         return text.decode('utf-8')
     return text
 
+def py2Encoder(text):
+    if sys.version_info > (3, 0):
+        return text
+
+    if isinstance(text, unicode):
+        return text.encode('utf-8')
+    return text
+
 class KnobScripter(QtWidgets.QDialog):
 
     def __init__(self, node="", knob="knobChanged", isPane=False, _parent=QtWidgets.QApplication.activeWindow()):
@@ -640,7 +648,7 @@ class KnobScripter(QtWidgets.QDialog):
             reply = msgBox.exec_()
             if reply == QtWidgets.QMessageBox.No:
                 return
-        self.node[dropdown_value].setValue(edited_knobValue.encode("utf8"))
+        self.node[dropdown_value].setValue(py2Encoder(edited_knobValue))
         self.setKnobModified(modified = False, knob = dropdown_value, changeTitle = True)
         nuke.tcl("modified 1")
         if self.knob in self.unsavedKnobs:
