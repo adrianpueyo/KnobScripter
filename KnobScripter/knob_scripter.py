@@ -58,6 +58,27 @@ SnippetEditPanel = ""
 
 nuke.tprint('KnobScripter v{}, built {}.\nCopyright (c) 2016-2020 Adrian Pueyo. All Rights Reserved.'.format(version,date))
 
+def ksToUnicode(text):
+    '''Python 2/3 `utf-8` decoder.
+
+    The return will depend on which version of python is being used. With py2
+    will return a `unicode` and py3 a `str`. If wrong type is passed will do nothing.
+
+    Args:
+        (str) text: text to be decoded.
+
+    Returns:
+        (str|unicode): decoded utf-8 unicode text
+    '''
+    if sys.version_info > (3, 0):
+        if isinstance(text, bytes):
+            return text.decode('utf-8')
+        return text
+
+    if isinstance(text, str):
+        return text.decode('utf-8')
+    return text
+
 class KnobScripter(QtWidgets.QDialog):
 
     def __init__(self, node="", knob="knobChanged", isPane=False, _parent=QtWidgets.QApplication.activeWindow()):
@@ -524,7 +545,7 @@ class KnobScripter(QtWidgets.QDialog):
             return
         dropdown_value = self.current_knob_dropdown.itemData(self.current_knob_dropdown.currentIndex()) # knobChanged...
         try:
-            obtained_knobValue = str(self.node[dropdown_value].value())
+            obtained_knobValue = self.node[dropdown_value].value()
             obtained_scrollValue = 0
             edited_knobValue = self.script_editor.toPlainText()
         except:
@@ -559,7 +580,8 @@ class KnobScripter(QtWidgets.QDialog):
         self.setWindowTitle("KnobScripter - %s %s" % (self.node.name(), self.knob))
         if updateDict:
             if self.knob in self.unsavedKnobs:
-                if self.unsavedKnobs[self.knob] == obtained_knobValue:
+                # because `obtained_knobValue` will always be a `str`, py2 (unicode == str) will fail.
+                if self.unsavedKnobs[self.knob] == ksToUnicode(obtained_knobValue):
                     self.script_editor.setPlainText(obtained_knobValue)
                     self.setKnobModified(False)
                 else:
