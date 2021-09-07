@@ -3955,7 +3955,7 @@ class SnippetEdit(QtWidgets.QWidget):
         self.script_editor_font = self.knobScripter.script_editor_font
         self.script_editor.setFont(self.script_editor_font)
         self.script_editor.resize(90,90)
-        self.script_editor.setPlainText(str(val))
+        self.script_editor.setPlainText(py2Encoder(val))
         self.layout.addWidget(self.shortcut_editor, stretch=1, alignment = Qt.AlignTop)
         self.layout.addWidget(self.script_editor, stretch=2)
         self.layout.setContentsMargins(0,0,0,0)
