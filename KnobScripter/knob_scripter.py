@@ -1718,6 +1718,8 @@ class KnobScripterPane(KnobScripter):
 
 def consoleChanged(self, ks):
     ''' This will be called every time the ScriptEditor Output text is changed '''
+    # REVIEW: problematic function that receives unnecessary multiple calls
+    # and could lead to app crash if print statement is present.
     try:
         if ks: # KS exists
             ksOutput = ks.script_output # The console TextEdit widget
