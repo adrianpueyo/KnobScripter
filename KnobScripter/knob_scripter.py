@@ -3106,8 +3106,11 @@ class KnobScripterTextEditMain(KnobScripterTextEdit):
             sysModules =  sys.modules
             globalModules = globals()
             allModules = dict(sysModules, **globalModules)
-            allKeys = list(set(globals().keys() + sys.modules.keys()))
-            allKeysSorted = [x for x in sorted(set(allKeys))]
+            allKeys = sorted(set(
+                list(globals().keys()) + list(sys.modules.keys())
+            ))
+
+            allKeysSorted = [x for x in allKeys]
 
             if searchString == '' : 
                 matching = []
