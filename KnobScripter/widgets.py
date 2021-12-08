@@ -1,7 +1,6 @@
 import logging
 from collections import OrderedDict
 import nuke
-import config
 import os
 
 try:
@@ -14,7 +13,7 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-import ksscripteditor
+from . import ksscripteditor, config
 
 
 class GripWidget(QtWidgets.QFrame):

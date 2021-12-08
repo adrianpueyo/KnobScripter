@@ -15,12 +15,7 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-import ksscripteditor
-import config
-import dialogs
-import utils
-import widgets
-import content
+from . import ksscripteditor, config, dialogs, utils, widgets, content
 
 def load_snippets_dict(path=None,default_snippets=True):
     '''

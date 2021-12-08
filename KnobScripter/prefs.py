@@ -2,10 +2,8 @@ import json
 import os
 import nuke
 
-from info import __version__, __author__, __date__
-import config
-import widgets
-import utils
+from .info import __version__, __author__, __date__
+from . import config, widgets, utils
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:

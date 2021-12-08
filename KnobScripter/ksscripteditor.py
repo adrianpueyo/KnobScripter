@@ -12,9 +12,7 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-import config
-import blinkhighlighter
-import pythonhighlighter
+from . import config, blinkhighlighter, pythonhighlighter
 #import utils
 
 

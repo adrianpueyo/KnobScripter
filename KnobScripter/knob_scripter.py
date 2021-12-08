@@ -48,18 +48,9 @@ SnippetEditPanel = ""
 CodeGalleryPanel = ""
 
 # ks imports
-from info import __version__, __date__
-import config
-import snippets
-import codegallery
-import prefs
-import dialogs
-import script_output
-import utils
-import findreplace
-import ksscripteditormain
-import widgets
-import content
+from .info import __version__, __date__
+from . import config, prefs, utils, dialogs, widgets, ksscripteditormain
+from . import snippets, codegallery,  script_output,  findreplace, content
 
 logging.basicConfig(level=logging.DEBUG)
 
