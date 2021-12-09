@@ -14,7 +14,7 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-from . import utils, snippets, widgets, config, content, ksscripteditor
+from KnobScripter import utils, snippets, widgets, config, content, ksscripteditor
 
 code_gallery_dict = {
     "blink": [

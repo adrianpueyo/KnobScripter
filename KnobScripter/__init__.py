@@ -1,1 +1,1 @@
-from .knob_scripter import *
+from KnobScripter.knob_scripter import *

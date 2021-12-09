@@ -13,8 +13,8 @@ except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
 
-from .ksscripteditor import KSScriptEditor
-from . import keywordhotbox, content
+from KnobScripter.ksscripteditor import KSScriptEditor
+from KnobScripter import keywordhotbox, content
 
 def longest_ending_match(text, match_list):
     '''

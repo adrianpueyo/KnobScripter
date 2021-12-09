@@ -13,7 +13,7 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-from . import ksscripteditor, config
+from KnobScripter import ksscripteditor, config
 
 
 class GripWidget(QtWidgets.QFrame):

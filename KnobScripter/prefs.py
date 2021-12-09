@@ -2,8 +2,8 @@ import json
 import os
 import nuke
 
-from .info import __version__, __author__, __date__
-from . import config, widgets, utils
+from KnobScripter.info import __version__, __author__, __date__
+from KnobScripter import config, widgets, utils
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
