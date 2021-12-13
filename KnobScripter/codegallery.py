@@ -68,13 +68,13 @@ def load_all_code_gallery_dicts():
     full_dict = dict()
     for file in config.code_gallery_files+[config.codegallery_user_txt_path]:
         file_dict = load_code_gallery_dict(file)
-        print(file)
+        logging.debug(file)
         for key in file_dict.keys():
             if key not in full_dict.keys():
                 full_dict[key] = []
             for single_code_dict in file_dict[key]:
                 full_dict[key].append(single_code_dict)
-    print(full_dict)
+    logging.debug(full_dict)
     return full_dict
 
 def load_code_gallery_dict(path=None):
@@ -354,7 +354,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
                 self.build_gallery_group(code_gallery_dict[lang], tg.content_layout, lang=lang)
                 self.scroll_layout.insertWidget(-1, tg)
                 self.scroll_layout.addSpacing(10)
-        else:
+        elif lang in code_gallery_dict:
             self.build_gallery_group(code_gallery_dict[lang], self.scroll_layout, lang=lang)
         self.scroll_layout.addStretch()
 
