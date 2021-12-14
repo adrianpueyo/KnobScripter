@@ -42,9 +42,9 @@ class KSScriptEditorMain(KSScriptEditor):
     Modified KSScriptEditor to include snippets, tab menu, etc.
     '''
 
-    def __init__(self, knobScripter, output=None, parent=None):
-        super(KSScriptEditorMain, self).__init__(knobScripter)
-        self.knobScripter = knobScripter
+    def __init__(self, knob_scripter, output=None, parent=None):
+        super(KSScriptEditorMain, self).__init__(knob_scripter)
+        self.knobScripter = knob_scripter
         self.script_output = output
         self.nukeCompleter = None
         self.currentNukeCompletion = None
@@ -482,7 +482,7 @@ class KSScriptEditorMain(KSScriptEditor):
                 # 2. If group, wrap all with: with nuke.toNode(fullNameOfGroup) and then indent every single line!! at least by one space. replace "\n" with "\n "
                 if self.knobScripter.node.Class() in ["Group", "LiveGroup", "Root"]:
                     code = code.replace("\n", "\n  ")
-                    code = "with nuke.toNode('{}'):\n{}".format(nodeName, code)
+                    code = "with nuke.toNode('{}'):\n {}".format(nodeName, code)
 
         # Store original ScriptEditor status
         nukeSECursor = nukeSEInput.textCursor()

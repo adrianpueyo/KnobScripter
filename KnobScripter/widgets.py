@@ -17,7 +17,7 @@ from KnobScripter import ksscripteditor, config
 
 
 class GripWidget(QtWidgets.QFrame):
-    def __init__(self, parent=None, inner_widget = None, resize_x=False, resize_y=True):
+    def __init__(self, parent=None, inner_widget=None, resize_x=False, resize_y=True):
         super(GripWidget, self).__init__(parent)
 
         layout = QtWidgets.QVBoxLayout()
@@ -64,6 +64,7 @@ class GripWidget(QtWidgets.QFrame):
             if self.resize_y:
                 self.parent.setFixedHeight(max(self.parent_min_size[1], p.y() + self.click_offset[1]))
 
+
 class HLine(QtWidgets.QFrame):
     def __init__(self):
         super(HLine, self).__init__()
@@ -72,8 +73,10 @@ class HLine(QtWidgets.QFrame):
         self.setMidLineWidth(0)
         self.setLayout(None)
 
+
 class ClickableWidget(QtWidgets.QFrame):
     clicked = QtCore.Signal()
+
     def __init__(self, parent=None):
         super(ClickableWidget, self).__init__(parent)
         self.setMouseTracking(True)
@@ -83,34 +86,37 @@ class ClickableWidget(QtWidgets.QFrame):
         self.highlighted = highlighted
 
     def enterEvent(self, event):
-        ''' Mouse hovering '''
+        """ Mouse hovering """
         self.setHighlighted(True)
-        return True
+        return QtWidgets.QFrame.enterEvent(self, event)
 
     def leaveEvent(self, event):
-        ''' Stopped hovering '''
+        """ Stopped hovering """
         self.setHighlighted(False)
-        return True
+        return QtWidgets.QFrame.leaveEvent(self, event)
 
     def mouseReleaseEvent(self, event):
-        ''' Emit clicked '''
+        """ Emit clicked """
         super(ClickableWidget, self).mouseReleaseEvent(event)
         if event.button() == Qt.LeftButton:
             if self.highlighted:
                 self.clicked.emit()
                 pass
 
+
 class Arrow(QtWidgets.QFrame):
     def __init__(self, expanded=False, parent=None):
         super(Arrow, self).__init__(parent)
-        self.padding = (4,2)
-        self.setFixedSize(12+self.padding[0], 12+self.padding[1])
+        self.padding = (4, 2)
+        self.setFixedSize(12 + self.padding[0], 12 + self.padding[1])
 
         self.expanded = expanded
 
-        px,py = self.padding
-        self._arrow_down = [QtCore.QPointF(0+px, 2.0+py), QtCore.QPointF(10.0+px, 2.0+py), QtCore.QPointF(5.0+px, 7.0+py)]
-        self._arrow_right = [QtCore.QPointF(2.0+px, 0.0+py), QtCore.QPointF(7.0+px, 5.0+py), QtCore.QPointF(2.0+px, 10.0+py)]
+        px, py = self.padding
+        self._arrow_down = [QtCore.QPointF(0 + px, 2.0 + py), QtCore.QPointF(10.0 + px, 2.0 + py),
+                            QtCore.QPointF(5.0 + px, 7.0 + py)]
+        self._arrow_right = [QtCore.QPointF(2.0 + px, 0.0 + py), QtCore.QPointF(7.0 + px, 5.0 + py),
+                             QtCore.QPointF(2.0 + px, 10.0 + py)]
         self._arrowPoly = None
         self.setExpanded(expanded)
 
@@ -128,9 +134,12 @@ class Arrow(QtWidgets.QFrame):
         painter.setPen(QtGui.QColor(64, 64, 64))
         painter.drawPolygon(self._arrowPoly)
         painter.end()
+        return QtWidgets.QFrame.paintEvent(self, event)
+
 
 class ToggableGroup(QtWidgets.QFrame):
     """ Abstract QFrame with an arrow, a title area and a toggable content layout. """
+
     def __init__(self, parent=None, title="", collapsed=False):
         super(ToggableGroup, self).__init__(parent)
 
@@ -146,10 +155,9 @@ class ToggableGroup(QtWidgets.QFrame):
         self.top_clickable_layout = QtWidgets.QHBoxLayout()
         self.top_clickable_layout.setSpacing(6)
         self.top_clickable_widget.setLayout(self.top_clickable_layout)
-        #self.top_clickable_widget.setStyleSheet(".ClickableWidget{margin-top: 3px;background:transparent}")
-        #self.top_clickable_widget.setStyleSheet("background:#000;float:left;")
+        # self.top_clickable_widget.setStyleSheet(".ClickableWidget{margin-top: 3px;background:transparent}")
+        # self.top_clickable_widget.setStyleSheet("background:#000;float:left;")
         self.top_clickable_widget.clicked.connect(self.toggleCollapsed)
-
 
         # Right (non-clickable) part, for buttons or extras
         self.top_right_layout = QtWidgets.QHBoxLayout()
@@ -160,7 +168,7 @@ class ToggableGroup(QtWidgets.QFrame):
         self.title_label.setTextInteractionFlags(Qt.NoTextInteraction)
         self.title_label.setWordWrap(True)
 
-        self.top_clickable_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred,QtWidgets.QSizePolicy.Preferred)
+        self.top_clickable_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         self.setTitle(title)
         self.top_clickable_layout.addWidget(self.title_label)
         self.top_clickable_layout.addSpacing(1)
@@ -177,7 +185,7 @@ class ToggableGroup(QtWidgets.QFrame):
         self.content_widget.setStyleSheet("#content-widget{margin:6px 0px 5px 24px;}")
         self.content_layout = QtWidgets.QVBoxLayout()
         self.content_widget.setLayout(self.content_layout)
-        #self.content_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
+        # self.content_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
 
         # 3. Vertical layout of 1 and 2
         master_layout = QtWidgets.QVBoxLayout()
@@ -193,7 +201,7 @@ class ToggableGroup(QtWidgets.QFrame):
         self.setMinimumHeight(10)
         self.top_clickable_layout.setMargin(0)
 
-    def setTitle(self,text=""):
+    def setTitle(self, text=""):
         self.title_label.setText(text)
 
     def toggleCollapsed(self):
@@ -204,9 +212,10 @@ class ToggableGroup(QtWidgets.QFrame):
         self.collapsed = collapsed
         self.arrow.setExpanded(not collapsed)
         self.content_widget.setVisible(not collapsed)
-        logging.debug("Collapsed:"+str(collapsed))
+        logging.debug("Collapsed:" + str(collapsed))
 
-#TODO THE NEXT ONE:
+
+# TODO THE NEXT ONE:
 class ToggableCodeGroup(ToggableGroup):
     """ ToggableGroup adapted for having a code editor """
 
@@ -240,6 +249,7 @@ class ToggableCodeGroup(ToggableGroup):
 
 class RadioSelector(QtWidgets.QWidget):
     radio_selected = QtCore.Signal(object)
+
     def __init__(self, item_list=None, orientation=0, parent=None):
         """
         item_list: list of strings
@@ -250,7 +260,6 @@ class RadioSelector(QtWidgets.QWidget):
         self.button_list = OrderedDict()
         for item in item_list:
             self.button_list[item] = QtWidgets.QRadioButton(item)
-
 
         if orientation == 0:
             self.layout = QtWidgets.QHBoxLayout()
@@ -271,7 +280,7 @@ class RadioSelector(QtWidgets.QWidget):
     def button_clicked(self, button):
         self.radio_selected.emit(str(button.text()))
 
-    def set_button(self,text,emit=False):
+    def set_button(self, text, emit=False):
         text = text.lower()
         item_list_lower = [i.lower() for i in self.item_list]
         if text in item_list_lower:
@@ -285,10 +294,12 @@ class RadioSelector(QtWidgets.QWidget):
     def selected_text(self):
         return str(self.button_group.button(self.button_group.checkedId()).text())
 
-#TODO FIND A WAY NOT TO HAVE THIS FULLY DUPLICATED
+
+# TODO FIND A WAY NOT TO HAVE THIS FULLY DUPLICATED
 class KSToolButton(QtWidgets.QToolButton):
     """ Given the png name and sizes, makes a tool button """
-    def __init__(self, icon = None, icon_size=None, btn_size=None, parent=None):
+
+    def __init__(self, icon=None, icon_size=None, btn_size=None, parent=None):
         super(KSToolButton, self).__init__(parent=parent)
 
         self.icon_path = None
@@ -298,10 +309,10 @@ class KSToolButton(QtWidgets.QToolButton):
         self.setIconSize(QtCore.QSize(icon_size, icon_size))
         self.setFixedSize(QtCore.QSize(btn_size, btn_size))
 
-    def set_icon(self, icon_filename=None, add_extension = True, full_path = False):
+    def set_icon(self, icon_filename=None, add_extension=True, full_path=False):
         """ Set the button's icon (i.e. icon_search.png) """
-        #TODO TURN THIS FUNCTION INTO DECORATOR!
-        if icon_filename == None:
+        # TODO TURN THIS FUNCTION INTO DECORATOR!
+        if icon_filename is None:
             self.setIcon(None)
             return
         elif add_extension and not icon_filename.endswith(".png"):
@@ -313,9 +324,3 @@ class KSToolButton(QtWidgets.QToolButton):
             self.icon_path = os.path.join(config.ICONS_DIR, icon_filename)
 
         self.setIcon(QtGui.QIcon(self.icon_path))
-
-
-
-
-
-

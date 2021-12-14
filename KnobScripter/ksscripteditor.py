@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+""" Base script editor class for KnobScripter.
+
+The KSScriptEditor is a QPlainTextEdit adapted for scripting: it provides a line number area,
+and extended functionality for duplicating or moving lines.
+Wouter Gilsing built an incredibly useful python script editor for his Hotbox Manager (v1.5).
+Credit to him: http://www.woutergilsing.com/
+Starting from his code, I changed the style and added extra functionality.
+"""
+
 import nuke
 import re
 import logging
@@ -13,21 +23,20 @@ except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
 from KnobScripter import config, blinkhighlighter, pythonhighlighter
-#import utils
 
 
 class KSScriptEditor(QtWidgets.QPlainTextEdit):
-    '''
-    Script Editor Widget
+    """ Base Script Editor Widget
+
     Wouter Gilsing built an incredibly useful python script editor for his Hotbox Manager (v1.5).
     Credit to him: http://www.woutergilsing.com/
     Starting from his code, I changed the style and added extra functionality.
-    '''
+    """
 
-    def __init__(self, knobScripter=""):
+    def __init__(self, knob_scripter=""):
         super(KSScriptEditor, self).__init__()
 
-        self.knobScripter = knobScripter
+        self.knobScripter = knob_scripter
         self.selected_text = ""
 
         self.highlighter = None
@@ -53,9 +62,9 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
     def lineNumberAreaWidth(self):
         digits = 1
-        maxNum = max(1, self.blockCount())
-        while (maxNum >= 10):
-            maxNum /= 10
+        max_num = max(1, self.blockCount())
+        while max_num >= 10:
+            max_num /= 10
             digits += 1
 
         space = 7 + self.fontMetrics().width('9') * digits
@@ -66,12 +75,12 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
 
     def updateLineNumberArea(self, rect, dy):
 
-        if (dy):
+        if dy:
             self.lineNumberArea.scroll(0, dy)
         else:
             self.lineNumberArea.update(0, rect.y(), self.lineNumberArea.width(), rect.height())
 
-        if (rect.contains(self.viewport().rect())):
+        if rect.contains(self.viewport().rect()):
             self.updateLineNumberAreaWidth()
 
     def resizeEvent(self, event):
@@ -80,8 +89,8 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         cr = self.contentsRect()
         self.lineNumberArea.setGeometry(QtCore.QRect(cr.left(), cr.top(), self.lineNumberAreaWidth(), cr.height()))
 
-    #def toPlainText(self):
-    #    return utils.string(QtWidgets.QPlainTextEdit.toPlainText(self))
+    # def toPlainText(self):
+    #     return utils.string(QtWidgets.QPlainTextEdit.toPlainText(self))
 
     def lineNumberAreaPaintEvent(self, event):
 
@@ -92,28 +101,28 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         painter.fillRect(event.rect(), self.lineNumberAreaColor)  # Number bg
 
         block = self.firstVisibleBlock()
-        blockNumber = block.blockNumber()
+        block_number = block.blockNumber()
         top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
         bottom = top + int(self.blockBoundingRect(block).height())
-        currentLine = self.document().findBlock(self.textCursor().position()).blockNumber()
+        current_line = self.document().findBlock(self.textCursor().position()).blockNumber()
 
         painter.setPen(self.palette().color(QtGui.QPalette.Text))
 
-        painterFont = config.script_editor_font
+        painter_font = config.script_editor_font
         if self.knobScripter != "":
-            painterFont.setPointSize(config.prefs["se_font_size"])
-        painter.setFont(painterFont)
+            painter_font.setPointSize(config.prefs["se_font_size"])
+        painter.setFont(painter_font)
 
-        while (block.isValid() and top <= event.rect().bottom()):
+        while block.isValid() and top <= event.rect().bottom():
 
-            textColor = self.lineNumberColor  # Numbers
+            text_color = self.lineNumberColor  # Numbers
 
-            if blockNumber == currentLine and self.hasFocus():
-                textColor = self.currentLineNumberColor  # Number highlighted
+            if block_number == current_line and self.hasFocus():
+                text_color = self.currentLineNumberColor  # Number highlighted
 
-            painter.setPen(textColor)
+            painter.setPen(text_color)
 
-            number = "%s" % str(blockNumber + 1)
+            number = "%s" % str(block_number + 1)
             painter.drawText(-3, top, self.lineNumberArea.width(), self.fontMetrics().height(), QtCore.Qt.AlignRight,
                              number)
 
@@ -121,15 +130,15 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             block = block.next()
             top = bottom
             bottom = top + int(self.blockBoundingRect(block).height())
-            blockNumber += 1
+            block_number += 1
 
     def keyPressEvent(self, event):
-        '''
+        """
         Custom actions for specific keystrokes
-        '''
+        """
         key = event.key()
         ctrl = bool(event.modifiers() & Qt.ControlModifier)
-        alt = bool(event.modifiers() & Qt.AltModifier)
+        # alt = bool(event.modifiers() & Qt.AltModifier)
         shift = bool(event.modifiers() & Qt.ShiftModifier)
         pre_scroll = self.verticalScrollBar().value()
         # modifiers = QtWidgets.QApplication.keyboardModifiers()
@@ -152,7 +161,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             if not self.unindentBackspace():
                 QtWidgets.QPlainTextEdit.keyPressEvent(self, event)
         else:
-            ### COOL BEHAVIORS SIMILAR TO SUBLIME GO NEXT!
+            # COOL BEHAVIORS SIMILAR TO SUBLIME GO NEXT!
             cursor = self.textCursor()
             cpos = cursor.position()
             apos = cursor.anchor()
@@ -190,9 +199,9 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             elif key == Qt.Key_ParenRight and text_after_cursor.startswith(")"):  # )
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key in [94, Qt.Key_BracketLeft] and (
-                    len(selection) > 0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(
-                text_after_cursor)):  # [
+            elif key in [94, Qt.Key_BracketLeft] \
+                    and (len(selection) > 0 or re.match(r"[\s)}\];]+", text_after_cursor)
+                         or not len(text_after_cursor)):  # [
                 cursor.insertText("[" + selection + "]")
                 cursor.setPosition(apos + 1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos + 1, QtGui.QTextCursor.KeepAnchor)
@@ -200,9 +209,8 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             elif key in [Qt.Key_BracketRight, 43, 93] and text_after_cursor.startswith("]"):  # ]
                 cursor.movePosition(QtGui.QTextCursor.NextCharacter)
                 self.setTextCursor(cursor)
-            elif key == Qt.Key_BraceLeft and (
-                    len(selection) > 0 or re.match(r"[\s)}\];]+", text_after_cursor) or not len(
-                text_after_cursor)):  # {
+            elif key == Qt.Key_BraceLeft and (len(selection) > 0 or re.match(r"[\s)}\];]+", text_after_cursor)
+                                              or not len(text_after_cursor)):  # {
                 cursor.insertText("{" + selection + "}")
                 cursor.setPosition(apos + 1, QtGui.QTextCursor.MoveAnchor)
                 cursor.setPosition(cpos + 1, QtGui.QTextCursor.KeepAnchor)
@@ -352,12 +360,12 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             # If ctrl + +, increase font size
             elif ctrl and key == Qt.Key_Plus:
                 font = self.font()
-                font.setPointSize(-(-font.pointSize()//0.9))
+                font.setPointSize(-(-font.pointSize() // 0.9))
                 self.setFont(font)
             # If ctrl + -, decrease font size
             elif ctrl and key == Qt.Key_Minus:
                 font = self.font()
-                font.setPointSize(font.pointSize()//1.1)
+                font.setPointSize(font.pointSize() // 1.1)
                 self.setFont(font)
 
             else:
@@ -585,7 +593,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         self.scrollToCursor()
         return True
 
-    def set_code_language(self,lang="python"):
+    def set_code_language(self, lang="python"):
         """ Sets the appropriate highlighter and styles """
 
         if lang == None and self.highlighter:
@@ -613,7 +621,8 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
                     return
             self.code_language = lang
         else:
-            logging.debug("Lang type not valid: "+str(type(lang)))
+            logging.debug("Lang type not valid: " + str(type(lang)))
+
 
 class KSLineNumberArea(QtWidgets.QWidget):
     def __init__(self, scriptEditor):

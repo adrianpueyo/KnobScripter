@@ -166,12 +166,6 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         if "number" in styles:
             rules += [(r'\b[0-9]+\b', 0, styles['number'])]
 
-        if "string" in styles:
-            # Double-quoted string, possibly containing escape sequences
-            rules += [(r'"[^"\\]*(\\.[^"\\]*)*"', 0, styles['string'])]
-            # Single-quoted string, possibly containing escape sequences
-            rules += [(r"'[^'\\]*(\\.[^'\\]*)*'", 0, styles['string'])]
-
         # Function definitions
         if "function" in styles:
             rules += [(r"def[\s]+([\w\.]+)", 1, styles['function'])]
@@ -192,6 +186,12 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             for k in keywords.keys():
                 if k in styles:
                     rules += [(r'\b%s\b' % i, 0, styles[k]) for i in keywords[k]]
+
+        if "string" in styles:
+            # Double-quoted string, possibly containing escape sequences
+            rules += [(r'"[^"\\]*(\\.[^"\\]*)*"', 0, styles['string'])]
+            # Single-quoted string, possibly containing escape sequences
+            rules += [(r"'[^'\\]*(\\.[^'\\]*)*'", 0, styles['string'])]
 
         # Comments from '#' until a newline
         if "comment" in styles:
