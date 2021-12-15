@@ -1,3 +1,15 @@
+# -*- coding: utf-8 -*-
+""" Python Higlighter: KnobScripter's QSyntaxHighlighter adapted for python code.
+
+Adapted from an original version by Wouter Gilsing. His comments:
+Modified, simplified version of some code found I found when researching:
+wiki.python.org/moin/PyQt/Python%20syntax%20highlighting
+They did an awesome job, so credits to them. I only needed to make some modifications to make it fit my needs.
+
+adrianpueyo.com
+
+"""
+
 import nuke
 
 try:
@@ -10,14 +22,15 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
+
 class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
-    '''
-    Adapted from an original __version__ by Wouter Gilsing. His comments:
-    Modified, simplified __version__ of some code found I found when researching:
+    """
+    Adapted from an original version by Wouter Gilsing. His comments:
+    Modified, simplified version of some code found I found when researching:
     wiki.python.org/moin/PyQt/Python%20syntax%20highlighting
     They did an awesome job, so credits to them. I only needed to make some
-    modifications to make it fit my needs.
-    '''
+    modifications to make it fit my needs for KS.
+    """
 
     def __init__(self, document, style="monokai"):
 
@@ -27,14 +40,14 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         self.blocked = False
 
         self.styles = self.loadStyles()  # Holds a dict for each style
-        self._style = style # Can be set via setStyle
+        self._style = style  # Can be set via setStyle
         self.setStyle(self._style)  # Set default style
         # self.updateStyle()  # Load ks color scheme
 
         super(KSPythonHighlighter, self).__init__(document)
 
     def loadStyles(self):
-        ''' Loads the different sets of rules '''
+        """ Loads the different sets of rules """
         styles = dict()
 
         # LOAD ANY STYLE
@@ -90,9 +103,9 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         return styles
 
     def loadStyle(self, style_dict):
-        '''
+        """
         Given a dictionary of styles and keywords, returns the style as a dict
-        '''
+        """
 
         styles = style_dict["styles"].copy()
 
@@ -102,7 +115,7 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         else:
             base_format = self.format([255, 255, 255])
 
-        mainKeywords = [
+        main_keywords = [
             'and', 'assert', 'break', 'continue',
             'del', 'elif', 'else', 'except', 'exec', 'finally',
             'for', 'from', 'global', 'if', 'import', 'in',
@@ -110,19 +123,19 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             'raise', 'return', 'try', 'while', 'yield', 'with', 'as'
         ]
 
-        errorKeywords = ['AssertionError', 'AttributeError', 'EOFError', 'FloatingPointError',
-                         'FloatingPointError', 'GeneratorExit', 'ImportError', 'IndexError',
-                         'KeyError', 'KeyboardInterrupt', 'MemoryError', 'NameError',
-                         'NotImplementedError', 'OSError', 'OverflowError', 'ReferenceError',
-                         'RuntimeError', 'StopIteration', 'SyntaxError', 'IndentationError',
-                         'TabError', 'SystemError', 'SystemExit', 'TypeError', 'UnboundLocalError',
-                         'UnicodeError', 'UnicodeEncodeError', 'UnicodeDecodeError', 'UnicodeTranslateError',
-                         'ValueError', 'ZeroDivisionError',
-                         ]
+        error_keywords = ['AssertionError', 'AttributeError', 'EOFError', 'FloatingPointError',
+                          'FloatingPointError', 'GeneratorExit', 'ImportError', 'IndexError',
+                          'KeyError', 'KeyboardInterrupt', 'MemoryError', 'NameError',
+                          'NotImplementedError', 'OSError', 'OverflowError', 'ReferenceError',
+                          'RuntimeError', 'StopIteration', 'SyntaxError', 'IndentationError',
+                          'TabError', 'SystemError', 'SystemExit', 'TypeError', 'UnboundLocalError',
+                          'UnicodeError', 'UnicodeEncodeError', 'UnicodeDecodeError', 'UnicodeTranslateError',
+                          'ValueError', 'ZeroDivisionError',
+                          ]
 
-        baseKeywords = [',']
+        base_keywords = [',']
 
-        operatorKeywords = [
+        operator_keywords = [
             '=', '==', '!=', '<', '<=', '>', '>=',
             '\+', '-', '\*', '/', '//', '\%', '\*\*',
             '\+=', '-=', '\*=', '/=', '\%=',
@@ -145,20 +158,20 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             # Everything inside parentheses
             rules += [(r"def [\w]+[\s]*\((.*)\)", 1, styles['argument'])]
             # Now restore unwanted stuff...
-            rules += [(i, 0, base_format) for i in baseKeywords]
+            rules += [(i, 0, base_format) for i in base_keywords]
             rules += [(r"[^\(\w),.][\s]*[\w]+", 0, base_format)]
 
         if "callable" in styles:
             rules += [(r"\b([\w]+)[\s]*[(]", 1, styles['callable'])]
 
         if "keyword" in styles:
-            rules += [(r'\b%s\b' % i, 0, styles['keyword']) for i in mainKeywords]
+            rules += [(r'\b%s\b' % i, 0, styles['keyword']) for i in main_keywords]
 
         if "error" in styles:
-            rules += [(r'\b%s\b' % i, 0, styles['error']) for i in errorKeywords]
+            rules += [(r'\b%s\b' % i, 0, styles['error']) for i in error_keywords]
 
         if "operator" in styles:
-            rules += [(i, 0, styles['operator']) for i in operatorKeywords]
+            rules += [(i, 0, styles['operator']) for i in operator_keywords]
 
         if "singleton" in styles:
             rules += [(r'\b%s\b' % i, 0, styles['singleton']) for i in singletons]
@@ -207,30 +220,31 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
 
         return result
 
-    def format(self, rgb, style=''):
-        '''
+    @staticmethod
+    def format(rgb, style=''):
+        """
         Return a QtWidgets.QTextCharFormat with the given attributes.
-        '''
+        """
 
         color = QtGui.QColor(*rgb)
-        textFormat = QtGui.QTextCharFormat()
-        textFormat.setForeground(color)
+        text_format = QtGui.QTextCharFormat()
+        text_format.setForeground(color)
 
         if 'bold' in style:
-            textFormat.setFontWeight(QtGui.QFont.Bold)
+            text_format.setFontWeight(QtGui.QFont.Bold)
         if 'italic' in style:
-            textFormat.setFontItalic(True)
+            text_format.setFontItalic(True)
         if 'underline' in style:
-            textFormat.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
+            text_format.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
 
-        return textFormat
+        return text_format
 
     def highlightBlock(self, text):
-        '''
+        """
         Apply syntax highlighting to the given block of text.
-        '''
+        """
 
-        for expression, nth, format in self.styles[self._style]["rules"]:
+        for expression, nth, text_format in self.styles[self._style]["rules"]:
             index = expression.indexIn(text, 0)
 
             while index >= 0:
@@ -238,7 +252,7 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
                 index = expression.pos(nth)
                 length = len(expression.cap(nth))
                 try:
-                    self.setFormat(index, length, format)
+                    self.setFormat(index, length, text_format)
                 except:
                     return False
                 index = expression.indexIn(text, index + length)
@@ -250,7 +264,8 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
         if not in_multiline:
             in_multiline = self.match_multiline(text, *self.styles[self._style]["tri_double"])
 
-        # TODO if there's a selection, highlight same occurrences in the full document. If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
+        # TODO if there's a selection, highlight same occurrences in the full document.
+        #   If no selection but something highlighted, unhighlight full document. (do it thru regex or sth)
 
     def setStyle(self, style_name="nuke"):
         if style_name in self.styles.keys():
@@ -259,9 +274,9 @@ class KSPythonHighlighter(QtGui.QSyntaxHighlighter):
             raise Exception("Style {} not found.".format(str(style_name)))
 
     def match_multiline(self, text, delimiter, in_state, style):
-        '''
+        """
         Check whether highlighting requires multiple lines.
-        '''
+        """
         # If inside triple-single quotes, start at 0
         if self.previousBlockState() == in_state:
             start = 0

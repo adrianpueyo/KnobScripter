@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+""" KnobScripter's Main Script Editor: Version of KSScriptEditor with extended functionality.
+
+The KSScriptEditorMain is an extension of KSScriptEditor (QPlainTextEdit) which includes
+snippet functionality, auto-completions, suggestions and other features useful to have
+only in the main script editor, the one in the actual KnobScripter.
+
+adrianpueyo.com
+
+"""
+
 import nuke
 import re
 import sys

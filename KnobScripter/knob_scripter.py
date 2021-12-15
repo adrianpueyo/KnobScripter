@@ -5,7 +5,7 @@ This is the main KnobScripter module, which defines the classes necessary
 to create the floating and docked KnobScripters. Also handles the main
 initialization and menu creation in Nuke.
 
-adrianpueyo.com, 2016-2021
+adrianpueyo.com
 
 """
 
@@ -173,7 +173,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # self.loadedPrefs = self.loadPrefs()
 
         # Load snippets
-        content.all_snippets = snippets.load_snippets_dict(default_snippets=True)
+        content.all_snippets = snippets.load_snippets_dict()
 
         # Init UI
         self.initUI()
