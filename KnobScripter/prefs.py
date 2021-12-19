@@ -35,7 +35,8 @@ def load_prefs():
     config.codegallery_user_txt_path = os.path.join(config.ks_directory, config.prefs["ks_codegallery_file"])
     config.snippets_txt_path = os.path.join(config.ks_directory, config.prefs["ks_snippets_file"])
     config.prefs_txt_path = os.path.join(config.ks_directory, config.prefs["ks_prefs_file"])
-    config.state_txt_path = os.path.join(config.ks_directory, config.prefs["ks_state_file"])
+    config.py_state_txt_path = os.path.join(config.ks_directory, config.prefs["ks_py_state_file"])
+    config.knob_state_txt_path = os.path.join(config.ks_directory, config.prefs["ks_knob_state_file"])
 
     # Setup config font
     config.script_editor_font = QtGui.QFont()
@@ -78,6 +79,7 @@ class PrefsWidget(QtWidgets.QWidget):
         signature.setOpenExternalLinks(True)
         signature.setStyleSheet('''color:#555;font-size:9px;''')
         signature.setAlignment(QtCore.Qt.AlignLeft)
+        # TODO Add Logo on the right ap_tools.png and/or knob_scripter.png
         self.layout.addWidget(title_label)
         self.layout.addWidget(signature)
         self.layout.addWidget(line1)
@@ -147,6 +149,47 @@ class PrefsWidget(QtWidgets.QWidget):
         self.grab_dimensions_button = QtWidgets.QPushButton("Grab current dimensions")
         self.grab_dimensions_button.clicked.connect(self.grab_dimensions)
         self.form_layout.addRow("", self.grab_dimensions_button)
+
+        # Save knob editor state
+        self.knob_editor_state_box = QtWidgets.QFrame()
+        self.knob_editor_state_box.setContentsMargins(0, 0, 0, 0)
+        knob_editor_state_layout = QtWidgets.QHBoxLayout()
+        knob_editor_state_layout.setMargin(0)
+        self.save_knob_editor_state_combobox = QtWidgets.QComboBox()
+        self.save_knob_editor_state_combobox.setToolTip("Save script editor state on knobs? "
+                                                        "(which knob is open in editor, cursor pos, scroll values)\n"
+                                                        "  - Save in memory = active session only\n"
+                                                        "  - Save to disk = active between sessions")
+        self.save_knob_editor_state_combobox.addItem("Do not save", 0)
+        self.save_knob_editor_state_combobox.addItem("Save in memory", 1)
+        self.save_knob_editor_state_combobox.addItem("Save to disk", 2)
+        knob_editor_state_layout.addWidget(self.save_knob_editor_state_combobox)
+        self.clear_knob_history_button = QtWidgets.QPushButton("Clear history")
+        self.clear_knob_history_button.clicked.connect(self.grab_dimensions)
+        knob_editor_state_layout.addWidget(self.clear_knob_history_button)
+        self.knob_editor_state_box.setLayout(knob_editor_state_layout)
+        self.form_layout.addRow("Knob Editor State:", self.knob_editor_state_box)
+
+        # Save .py editor state
+        self.py_editor_state_box = QtWidgets.QFrame()
+        self.py_editor_state_box.setContentsMargins(0, 0, 0, 0)
+        py_editor_state_layout = QtWidgets.QHBoxLayout()
+        py_editor_state_layout.setMargin(0)
+        self.save_py_editor_state_combobox = QtWidgets.QComboBox()
+        self.save_py_editor_state_combobox.setToolTip("Save script editor state on .py scripts? "
+                                                        "(which script is open in editor, cursor pos, scroll values)\n"
+                                                        "  - Save in memory = active session only\n"
+                                                        "  - Save to disk = active between sessions")
+        self.save_py_editor_state_combobox.addItem("Do not save", 0)
+        self.save_py_editor_state_combobox.addItem("Save in memory", 1)
+        self.save_py_editor_state_combobox.addItem("Save to disk", 2)
+        py_editor_state_layout.addWidget(self.save_py_editor_state_combobox)
+        self.clear_py_history_button = QtWidgets.QPushButton("Clear history")
+        self.clear_py_history_button.clicked.connect(self.grab_dimensions)
+        py_editor_state_layout.addWidget(self.clear_py_history_button)
+        self.py_editor_state_box.setLayout(py_editor_state_layout)
+        self.form_layout.addRow(".py Editor State:", self.py_editor_state_box)
+
 
         # 3.2. Python
         self.form_layout.addRow(" ", None)
@@ -255,6 +298,9 @@ class PrefsWidget(QtWidgets.QWidget):
         self.show_knob_labels_checkbox.setChecked(config.prefs["ks_show_knob_labels"] is True)
         self.run_in_context_checkbox.setChecked(config.prefs["ks_run_in_context"] is True)
 
+        self.save_knob_editor_state_combobox.setCurrentIndex(config.prefs["ks_save_knob_state"])
+        self.save_py_editor_state_combobox.setCurrentIndex(config.prefs["ks_save_py_state"])
+
         i = self.python_color_scheme_combobox.findData(config.prefs["code_style_python"])
         if i != -1:
             self.python_color_scheme_combobox.setCurrentIndex(i)
@@ -272,6 +318,8 @@ class PrefsWidget(QtWidgets.QWidget):
             "ks_run_in_context": self.run_in_context_checkbox.isChecked(),
             "ks_show_knob_labels": self.show_knob_labels_checkbox.isChecked(),
             "ks_blink_autosave_on_compile": self.autosave_on_compile_checkbox.isChecked(),
+            "ks_save_knob_state": self.save_knob_editor_state_combobox.currentData(),
+            "ks_save_py_state": self.save_py_editor_state_combobox.currentData(),
             "code_style_python": self.python_color_scheme_combobox.currentData(),
             "se_font_family": self.font_box.currentFont().family(),
             "se_font_size": self.font_size_box.value(),
@@ -313,6 +361,7 @@ class PrefsWidget(QtWidgets.QWidget):
             ks.runInContextAct.setChecked(config.prefs["ks_run_in_context"])
             ks.show_labels = config.prefs["ks_show_knob_labels"]
             ks.blink_autoSave_act.setChecked(config.prefs["ks_blink_autosave_on_compile"])
+            # TODO Apply the "ks_save_py_state" and "ks_save_knob_state" here too
             if ks.nodeMode:
                 ks.refreshClicked()
 

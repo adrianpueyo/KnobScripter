@@ -63,11 +63,13 @@ def findSE():
         if widget.metaObject().className() == 'Nuke::NukeScriptEditor':
             return widget
 
+
 def string(text):
     # Quick workaround for python 2 vs 3 unicode str headache
     if type(text) != str:
         text = text.encode("utf8")
     return text
+
 
 def findSEInput(se):
     children = se.children()
@@ -79,6 +81,7 @@ def findSEInput(se):
         if widget.metaObject().className() == 'Foundry::PythonUI::ScriptInputWidget':
             return widget
     return None
+
 
 def filepath_version_up(filepath,find_next_available=True):
     '''
@@ -101,6 +104,7 @@ def filepath_version_up(filepath,find_next_available=True):
             if not find_next_available or not os.path.exists(new_path):
                 return new_path
             version += 1
+
 
 def findSEConsole(se=None):
     if not se:
@@ -188,6 +192,9 @@ def getKnobScripter(knob_scripter=None, alternative=True):
         nuke.message("No KnobScripters found!")
         return None
 
+
+def nk_saved_path():
+    return nuke.root().name().rsplit("_",1)[0] # Ignoring the version if it happens to be there. Doesn't hurt.
 
 def clear_layout(layout):
     if layout is not None:

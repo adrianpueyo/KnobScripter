@@ -11,11 +11,14 @@ prefs = {
     "ks_snippets_file": "Snippets.txt",
     "ks_codegallery_file": "code_gallery_dict.json",
     "ks_prefs_file": "Prefs.txt",
-    "ks_state_file": "State.txt",
+    "ks_py_state_file": "py_state.txt",
+    "ks_knob_state_file": "knob_state.txt",
     "ks_default_size": [800,500],
     "ks_run_in_context": True,
     "ks_show_knob_labels": True,
     "ks_blink_autosave_on_compile": False,
+    "ks_save_knob_state": 1,
+    "ks_save_py_state": 2,
     "code_style_python": "monokai",
     "code_style_blink": "default",
     "se_style": "default",
@@ -51,6 +54,11 @@ blink_dir = None
 snippets_txt_path = None
 codegallery_user_txt_path = None
 prefs_txt_path = None
-state_txt_path = None
+
+py_state_txt_path = None
+knob_state_txt_path = None
+py_state_dict = {} # In case of storing in memory
+knob_state_dict = {} # In case of storing in memory
 
 script_editor_font = None
+
