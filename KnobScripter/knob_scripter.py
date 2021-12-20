@@ -955,7 +955,12 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if prefs_state == 0: # Do not save
             logging.debug("Not loading the knob state dictionary (chosen in preferences).")
         elif prefs_state == 1: # Saved in memory
-            self.current_node_state_dict = config.knob_state_dict
+            full_knob_state_dict = config.knob_state_dict
+            nk_path = utils.nk_saved_path()
+            node_fullname = self.node.fullName()
+            if nk_path in full_knob_state_dict:
+                if node_fullname in full_knob_state_dict[nk_path]:
+                    self.current_node_state_dict = config.knob_state_dict[nk_path][node_fullname]
         elif prefs_state == 2: # Saved to disk
             if not os.path.isfile(config.knob_state_txt_path):
                 return False
@@ -963,7 +968,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 full_knob_state_dict = {}
                 with open(config.knob_state_txt_path, "r") as f:
                     full_knob_state_dict = json.load(f)
-
                 nk_path = utils.nk_saved_path()
                 node_fullname = self.node.fullName()
                 if nk_path in full_knob_state_dict:
@@ -980,11 +984,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         # current_node_state_dict: {"cursor_pos":{},"scroll_pos":{},"open_knob"=None}
         node_state_dict = self.current_node_state_dict
-        if "scroll_pos" in node_state_dict:
-            if self.knob in node_state_dict["scroll_pos"]:
-                print("scroll value found: "+str(node_state_dict["scroll_pos"][self.knob]))
-                self.script_editor.verticalScrollBar().setValue(
-                    int(node_state_dict["scroll_pos"][self.knob]))
 
         if "cursor_pos" in node_state_dict:
             if self.knob in node_state_dict["cursor_pos"]:
@@ -994,6 +993,12 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 cursor.setPosition(int(node_state_dict["cursor_pos"][self.knob][0]),
                                    QtGui.QTextCursor.KeepAnchor)
                 self.script_editor.setTextCursor(cursor)
+
+        if "scroll_pos" in node_state_dict:
+            if self.knob in node_state_dict["scroll_pos"]:
+                print("scroll value found: "+str(node_state_dict["scroll_pos"][self.knob]))
+                self.script_editor.verticalScrollBar().setValue(
+                    int(node_state_dict["scroll_pos"][self.knob]))
 
     def saveKnobState(self):
         """ Stores the current state of the script """
@@ -1036,6 +1041,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
             raise Exception("Error: config.prefs['ks_save_knob_state'] value should be 0, 1 or 2.")
             return False
 
+        print("Full dict:")
+        print(full_knob_state_dict)
+
         nk_path = utils.nk_saved_path()
         node_fullname = self.node.fullName()
         logging.debug("Node fullname: "+node_fullname)
@@ -1051,6 +1059,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # 4. Store in memory/disk/none
         if prefs_state == 1: # Saved in memory
             config.knob_state_dict = full_knob_state_dict
+            print("config.knob_state_dict:")
+            print(config.knob_state_dict)
+            print("------------")
         elif prefs_state == 2: # Saved to disk
             with open(config.knob_state_txt_path, "w") as f:
                 json.dump(full_knob_state_dict, f, sort_keys=True, indent=4)

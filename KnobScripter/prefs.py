@@ -56,6 +56,28 @@ def load_prefs():
             config.script_editor_font.setPointSize(config.prefs["se_font_size"])
             return prefs
 
+def clear_knob_state_history():
+    if not nuke.ask("Are you sure you want to clear all history of knob states?"):
+        return
+
+    # Per instance? Probably not
+    # for ks in nuke.AllKnobScripters:
+    #     if hasattr(ks, 'current_node_state_dict'):
+    #         ks.current_node_state_dict = {}
+
+    # In memory
+    config.knob_state_dict = {}
+    # In file
+    with open(config.knob_state_txt_path, "w") as f:
+        json.dump({}, f)
+
+def clear_py_state_history():
+    if not nuke.ask("Are you sure you want to clear all history of .py states?"):
+        return
+    # In memory
+    config.py_state_dict = {}
+    with open(config.py_state_txt_path, "w") as f:
+        json.dump({}, f)
 
 class PrefsWidget(QtWidgets.QWidget):
     def __init__(self, knob_scripter="", _parent=QtWidgets.QApplication.activeWindow()):
@@ -165,7 +187,7 @@ class PrefsWidget(QtWidgets.QWidget):
         self.save_knob_editor_state_combobox.addItem("Save to disk", 2)
         knob_editor_state_layout.addWidget(self.save_knob_editor_state_combobox)
         self.clear_knob_history_button = QtWidgets.QPushButton("Clear history")
-        self.clear_knob_history_button.clicked.connect(self.grab_dimensions)
+        self.clear_knob_history_button.clicked.connect(clear_knob_state_history)
         knob_editor_state_layout.addWidget(self.clear_knob_history_button)
         self.knob_editor_state_box.setLayout(knob_editor_state_layout)
         self.form_layout.addRow("Knob Editor State:", self.knob_editor_state_box)
@@ -185,7 +207,7 @@ class PrefsWidget(QtWidgets.QWidget):
         self.save_py_editor_state_combobox.addItem("Save to disk", 2)
         py_editor_state_layout.addWidget(self.save_py_editor_state_combobox)
         self.clear_py_history_button = QtWidgets.QPushButton("Clear history")
-        self.clear_py_history_button.clicked.connect(self.grab_dimensions)
+        self.clear_py_history_button.clicked.connect(clear_py_state_history)
         py_editor_state_layout.addWidget(self.clear_py_history_button)
         self.py_editor_state_box.setLayout(py_editor_state_layout)
         self.form_layout.addRow(".py Editor State:", self.py_editor_state_box)
