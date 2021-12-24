@@ -27,26 +27,32 @@ except ImportError:
 from KnobScripter.ksscripteditor import KSScriptEditor
 from KnobScripter import keywordhotbox, content
 
-def longest_ending_match(text, match_list):
+def best_ending_match(text, match_list):
     '''
     If the text ends with a key in the match_list, it returns the key and value.
     match_list example: [["ban","banana"],["ap","apple"],["or","orange"]]
     If there are several matches, returns the longest one.
+    Except if one starts with space, in which case return the other.
     False if no matches.
     '''
-    longest = 0  # len of longest match
-    match_key = None
-    match_snippet = ""
+    ending_matches = []
+
+    # 1. Find which items from match_list are found
     for item in match_list:
-        match = re.search(r"[\s.(){}\[\],;=+-]" + item[0] + r"$", text)  # TODO check if worked
+        if item[0].startswith(" "):
+            match = re.search(item[0] + r"$", text)
+        else:
+            match = re.search(r"[\s.(){}\[\],;=+-]" + item[0] + r"$", text)
         if match or text == item[0]:
-            if len(item[0]) > longest:
-                longest = len(item[0])
-                match_key = item[0]
-                match_snippet = item[1]
-    if match_key is None:
+            ending_matches.append(item)
+    if not len(ending_matches):
         return False
-    return match_key, match_snippet
+
+    # 2. If multiple matches, decide which is the best one
+    # Order by length
+    ending_matches = sorted(ending_matches, key = lambda a: len(a[0]))
+
+    return ending_matches[-1]
 
 class KSScriptEditorMain(KSScriptEditor):
     '''
@@ -220,6 +226,9 @@ class KSScriptEditorMain(KSScriptEditor):
                 cpos = self.cursor.position()
                 text_before_cursor = self.toPlainText()[:cpos]
                 line_before_cursor = text_before_cursor.split('\n')[-1]
+                # Remove tabs too, so it doesn't count as active space
+                while line_before_cursor.startswith(" "*max(1,self.tab_spaces)):
+                    line_before_cursor = line_before_cursor[self.tab_spaces:]
                 text_after_cursor = self.toPlainText()[cpos:]
 
                 # Abort mission if there's a tab before, or selected text
@@ -229,15 +238,17 @@ class KSScriptEditorMain(KSScriptEditor):
 
                 # 3. Check coincidences in snippets dicts
                 try:  # Meaning snippet found
-                    snippets_list = content.all_snippets[self.knobScripter.code_language]
+                    snippets_lang = []
+                    snippets_all = []
+                    if self.knobScripter.code_language in content.all_snippets:
+                        snippets_lang = content.all_snippets[self.knobScripter.code_language]
                     if "all" in content.all_snippets:
-                        for i in content.all_snippets["all"]:
-                            snippets_list.append(i)
-                    match_key, match_snippet = longest_ending_match(line_before_cursor, snippets_list)
+                        snippets_all = content.all_snippets["all"]
+                    snippets_list = snippets_lang + snippets_all
+                    match_key, match_snippet = best_ending_match(line_before_cursor, snippets_list)
                     for i in range(len(match_key)):
                         self.cursor.deletePreviousChar()
-                    self.addSnippetText(
-                        match_snippet)  # This function takes care of adding the appropriate snippet and moving the cursor...
+                    self.addSnippetText(match_snippet)  # Add the appropriate snippet and move the cursor
                 except:  # Meaning snippet not found...
                     # 3.1. Go with nuke/python completer
                     if self.knobScripter.code_language in ["python","blink"]:

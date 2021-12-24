@@ -61,7 +61,7 @@ def clear_knob_state_history():
         return
 
     # Per instance? Probably not
-    # for ks in nuke.AllKnobScripters:
+    # for ks in config.all_knobscripters:
     #     if hasattr(ks, 'current_node_state_dict'):
     #         ks.current_node_state_dict = {}
 
@@ -275,27 +275,27 @@ class PrefsWidget(QtWidgets.QWidget):
 
     def font_size_changed(self):
         config.script_editor_font.setPointSize(self.font_size_box.value())
-        for ks in nuke.AllKnobScripters:
+        for ks in config.all_knobscripters:
             if hasattr(ks, 'script_editor'):
                 ks.script_editor.setFont(config.script_editor_font)
 
     def font_changed(self):
         self.font = self.font_box.currentFont().family()
         config.script_editor_font.setFamily(self.font)
-        for ks in nuke.AllKnobScripters:
+        for ks in config.all_knobscripters:
             if hasattr(ks, 'script_editor'):
                 ks.script_editor.setFont(config.script_editor_font)
 
     def tab_spaces_changed(self):
         config.prefs["se_tab_spaces"] = self.tab_spaces_combobox.currentData()
-        for ks in nuke.AllKnobScripters:
+        for ks in config.all_knobscripters:
             if hasattr(ks, 'highlighter'):
                 ks.highlighter.rehighlight()
         return
 
     def color_scheme_changed(self):
         config.prefs["code_style_python"] = self.python_color_scheme_combobox.currentData()
-        for ks in nuke.AllKnobScripters:
+        for ks in config.all_knobscripters:
             if hasattr(ks, 'script_editor'):
                 if ks.script_editor.code_language == "python":
                     ks.script_editor.highlighter.setStyle(config.prefs["code_style_python"])
@@ -375,7 +375,7 @@ class PrefsWidget(QtWidgets.QWidget):
     def apply_prefs(self):
         """ Apply the current knob values to the KnobScripters """
         self.save_config()
-        for ks in nuke.AllKnobScripters:
+        for ks in config.all_knobscripters:
             ks.script_editor.setFont(config.script_editor_font)
             ks.script_editor.tab_spaces = config.prefs["se_tab_spaces"]
             ks.script_editor.highlighter.rehighlight()

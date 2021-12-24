@@ -146,7 +146,7 @@ def setSEConsoleChanged():
 
 def consoleChanged(self):
     ''' This will be called every time the ScriptEditor Output text is changed '''
-    for ks in nuke.AllKnobScripters:
+    for ks in config.all_knobscripters:
         try:
             console_text = self.document().toPlainText()
             omit_se_console_text = ks.omit_se_console_text  # The text from the console that will be omitted
@@ -165,17 +165,17 @@ def consoleChanged(self):
 
 
 def relistAllKnobScripterPanes():
-    """ Removes from nuke.AllKnobScripters the panes that are closed. """
+    """ Removes from config.all_knobscripters the panes that are closed. """
     def topParent(qwidget):
         parent = qwidget.parent()
         if not parent:
             return qwidget
         else:
             return topParent(parent)
-    for ks in nuke.AllKnobScripters:
+    for ks in config.all_knobscripters:
         if ks.isPane:
             if topParent(ks).metaObject().className() != "Foundry::UI::DockMainWindow":
-                nuke.AllKnobScripters.remove(ks)
+                config.all_knobscripters.remove(ks)
 
 
 def getKnobScripter(knob_scripter=None, alternative=True):
@@ -186,15 +186,15 @@ def getKnobScripter(knob_scripter=None, alternative=True):
     """
     relistAllKnobScripterPanes()
     ks = None
-    if knob_scripter in nuke.AllKnobScripters:
+    if knob_scripter in config.all_knobscripters:
         ks = knob_scripter
         return ks
-    elif len(nuke.AllKnobScripters) and alternative:
-        for widget in nuke.AllKnobScripters:
+    elif len(config.all_knobscripters) and alternative:
+        for widget in config.all_knobscripters:
             if widget.metaObject().className() == 'KnobScripterPane' and widget.isVisible():
                 ks = widget
         if not ks:
-            ks = nuke.AllKnobScripters[-1]
+            ks = config.all_knobscripters[-1]
             return ks
     else:
         nuke.message("No KnobScripters found!")

@@ -48,7 +48,6 @@ except ImportError:
 
 KS_DIR = os.path.dirname(__file__)
 icons_path = KS_DIR + "/icons/"
-nuke.AllKnobScripters = []  # All instances open at a given time
 nuke.ks_multipanel = ""
 PrefsPanel = ""
 SnippetEditPanel = ""
@@ -117,12 +116,12 @@ class KnobScripterWidget(QtWidgets.QDialog):
         super(KnobScripterWidget, self).__init__(_parent)
 
         # Autosave the other knobscripters and add this one
-        for ks in nuke.AllKnobScripters:
+        for ks in config.all_knobscripters:
             if hasattr(ks, 'autosave'):
                 ks.autosave()
 
-        if self not in nuke.AllKnobScripters:
-            nuke.AllKnobScripters.append(self)
+        if self not in config.all_knobscripters:
+            config.all_knobscripters.append(self)
 
         self.nodeMode = (node != "")
         if node == "":
@@ -2006,8 +2005,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.saveScriptState()
             self.autosave()
 
-        if self in nuke.AllKnobScripters:
-            nuke.AllKnobScripters.remove(self)
+        if self in config.all_knobscripters:
+            config.all_knobscripters.remove(self)
         close_event.accept()
 
     # Landing functions

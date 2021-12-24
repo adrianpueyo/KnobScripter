@@ -93,7 +93,8 @@ blink_keyword_dict = {
 
 default_snippets = {
                         "all": [
-                            [" b","[$$]"], # In the nuke panes, most times Nuke doesn't allow the [] keys with is a pain
+                            [" b","[$$]"], # In nuke panes, Nuke doesn't allow the [] keys with is a pain
+                            ["b","[$$]"], # In nuke panes, Nuke doesn't allow the [] keys with is a pain
                         ],
                         "blink": [
                             ["img","Image<eRead, eAccessPoint, eEdgeClamped> $$src$$;"],

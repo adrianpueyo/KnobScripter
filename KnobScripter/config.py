@@ -49,6 +49,7 @@ script_editor_styles = {
 code_gallery_files = [CODE_GALLERY_DEFAULT_FILE,] # json files. TODO Make the extension of this list available as a function right after importing KS3
 
 # Initialized at runtime
+all_knobscripters = []
 py_scripts_dir = None
 blink_dir = None
 snippets_txt_path = None
