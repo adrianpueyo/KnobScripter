@@ -42,7 +42,7 @@ def best_ending_match(text, match_list):
         if item[0].startswith(" "):
             match = re.search(item[0] + r"$", text)
         else:
-            match = re.search(r"[\s.(){}\[\],;=+-]" + item[0] + r"$", text)
+            match = re.search(r"[\s.(){}\[\],;:=+-]" + item[0] + r"$", text)
         if match or text == item[0]:
             ending_matches.append(item)
     if not len(ending_matches):
