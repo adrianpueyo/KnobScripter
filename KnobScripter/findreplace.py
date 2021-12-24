@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+""" FindReplaceWidget: Search and Replace widget for a QPlainTextEdit! Designed for KnobScripter
+
+adrianpueyo.com
+
+"""
+
 import nuke
 
 try:
@@ -10,10 +17,11 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
+
 class FindReplaceWidget(QtWidgets.QWidget):
-    '''
+    """
     SearchReplace Widget for the knobscripter. FindReplaceWidget(parent = QPlainTextEdit)
-    '''
+    """
 
     def __init__(self, textedit, parent=None):
         super(FindReplaceWidget, self).__init__(parent)
@@ -97,9 +105,9 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.layout.addLayout(self.find_layout)
         self.layout.addLayout(self.replace_layout)
         self.layout.setSpacing(4)
-        try:  # >n11
+        if nuke.NUKE_VERSION_MAJOR >= 11:
             self.layout.setMargin(2)
-        except:  # <n10
+        else:
             self.layout.setContentsMargins(2, 2, 2, 2)
         self.layout.addSpacing(4)
         self.layout.addWidget(line)
@@ -182,14 +190,14 @@ class FindReplaceWidget(QtWidgets.QWidget):
 
         # Beginning of undo block
         cursor = self.editor.textCursor()
-        cursor_orig_pos = cursor.position()
+        # cursor_orig_pos = cursor.position()
         cursor.beginEditBlock()
 
         # Use flags for case match
         flags = QtGui.QTextDocument.FindFlags()
         flags = flags | QtGui.QTextDocument.FindCaseSensitively
 
-        if rep_all == True:
+        if rep_all:
             cursor.movePosition(QtGui.QTextCursor.Start)
             self.editor.setTextCursor(cursor)
             cursor = self.editor.textCursor()

@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+""" Dialogs: Main dialog boxes for KnobScripter
+
+adrianpueyo.com
+
+"""
 import nuke
 import re
 

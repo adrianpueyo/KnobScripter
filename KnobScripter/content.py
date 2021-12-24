@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+""" Content: Module containing keywords, snippets and other code content that's useful for KnobScripter and doesn't
+come from a dynamic json but instead is part of the bare KnobScripter.
+
+adrianpueyo.com
+
+"""
+
 blink_keywords = ["eComponentWise","ePixelWise","ImageComputationKernel","ImageRollingKernel","ImageReductionKernel",
                   "eRead","eWrite","eReadWrite","kernel",
                   "eAccessPoint","eAccessRanged1D","eAccessRanged2D","eAccessRandom",
@@ -85,7 +93,7 @@ blink_keyword_dict = {
 
 default_snippets = {
                         "all": [
-                            ["b","[$$]"], # In the nuke panes, most times Nuke doesn't allow the [] keys with is a pain
+                            [" b","[$$]"], # In the nuke panes, most times Nuke doesn't allow the [] keys with is a pain
                         ],
                         "blink": [
                             ["img","Image<eRead, eAccessPoint, eEdgeClamped> $$src$$;"],

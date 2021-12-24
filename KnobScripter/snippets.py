@@ -238,26 +238,26 @@ class SnippetsWidget(QtWidgets.QWidget):
         # 3. Lower buttons
         self.lower_layout = QtWidgets.QHBoxLayout()
 
-        self.add_snippet_btn = widgets.KSToolButton("add_filled")
+        self.add_snippet_btn = widgets.APToolButton("add_filled")
         self.add_snippet_btn.setToolTip("Add new snippet")
         self.add_snippet_btn.clicked.connect(self.add_snippet)
 
-        self.sort_az_btn = widgets.KSToolButton("sort_az", icon_size=22)
+        self.sort_az_btn = widgets.APToolButton("sort_az", icon_size=22)
         self.sort_az_btn.setToolTip("Sort snippets A-Z")
         self.sort_az_btn.clicked.connect(self.sort_snippets)
-        self.sort_za_btn = widgets.KSToolButton("sort_za", icon_size=22)
+        self.sort_za_btn = widgets.APToolButton("sort_za", icon_size=22)
         self.sort_za_btn.setToolTip("Sort snippets Z-A")
         self.sort_za_btn.clicked.connect(lambda: self.sort_snippets(reverse=True))
-        self.v_expand_btn = widgets.KSToolButton("v_expand", icon_size=22)
+        self.v_expand_btn = widgets.APToolButton("v_expand", icon_size=22)
         self.v_expand_btn.setToolTip("Expand all snippets")
         self.v_expand_btn.clicked.connect(self.expand_snippets)
-        self.v_collapse_btn = widgets.KSToolButton("v_collapse", icon_size=22)
+        self.v_collapse_btn = widgets.APToolButton("v_collapse", icon_size=22)
         self.v_collapse_btn.setToolTip("Collapse all snippets")
         self.v_collapse_btn.clicked.connect(self.collapse_snippets)
-        self.save_snippets_btn = widgets.KSToolButton("save_all")
+        self.save_snippets_btn = widgets.APToolButton("save_all")
         self.save_snippets_btn.setToolTip("Save all snippets")
         self.save_snippets_btn.clicked.connect(self.save_all_snippets)
-        self.snippets_help_btn = widgets.KSToolButton("help_filled")
+        self.snippets_help_btn = widgets.APToolButton("help_filled")
         self.snippets_help_btn.setToolTip("Help")
         self.snippets_help_btn.clicked.connect(self.snippets_help)
 
@@ -416,11 +416,11 @@ class SnippetsItem(widgets.ToggableCodeGroup):
         self.top_clickable_layout.addWidget(self.key_lineedit)
 
         # Add buttons
-        self.btn_insert = widgets.KSToolButton("download")
+        self.btn_insert = widgets.APToolButton("download")
         self.btn_insert.setToolTip("Insert code into KnobScripter editor")
-        self.btn_duplicate = widgets.KSToolButton("duplicate")
+        self.btn_duplicate = widgets.APToolButton("duplicate")
         self.btn_duplicate.setToolTip("Duplicate snippet")
-        self.btn_delete = widgets.KSToolButton("delete")
+        self.btn_delete = widgets.APToolButton("delete")
         self.btn_delete.setToolTip("Delete snippet")
 
         self.top_right_layout.addWidget(self.btn_insert)

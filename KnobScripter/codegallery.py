@@ -294,18 +294,18 @@ class CodeGalleryWidget(QtWidgets.QWidget):
         # 3. Lower buttons
         self.lower_layout = QtWidgets.QHBoxLayout()
 
-        self.add_code_btn = widgets.KSToolButton("add_filled")
+        self.add_code_btn = widgets.APToolButton("add_filled")
         self.add_code_btn.setToolTip("Add new code")
         self.add_code_btn.clicked.connect(self.add_code)
 
-        self.v_expand_btn = widgets.KSToolButton("v_expand", icon_size=22)
+        self.v_expand_btn = widgets.APToolButton("v_expand", icon_size=22)
         self.v_expand_btn.setToolTip("Expand all codes")
         self.v_expand_btn.clicked.connect(self.expand_codes)
-        self.v_collapse_btn = widgets.KSToolButton("v_collapse", icon_size=22)
+        self.v_collapse_btn = widgets.APToolButton("v_collapse", icon_size=22)
         self.v_collapse_btn.setToolTip("Collapse all codes")
         self.v_collapse_btn.clicked.connect(self.collapse_codes)
 
-        self.help_btn = widgets.KSToolButton("help_filled")
+        self.help_btn = widgets.APToolButton("help_filled")
         self.help_btn.setToolTip("Help")
         self.help_btn.clicked.connect(self.show_help)
 

@@ -59,10 +59,10 @@ from KnobScripter.info import __version__, __date__
 from KnobScripter import config, prefs, utils, dialogs, widgets, ksscripteditormain
 from KnobScripter import snippets, codegallery, script_output, findreplace, content
 
-#logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 nuke.tprint('KnobScripter v{}, built {}.\n'
-            'Copyright (c) 2016-2021 Adrian Pueyo. All Rights Reserved.'.format(__version__, __date__))
+            'Copyright (c) 2016-2022 Adrian Pueyo. All Rights Reserved.'.format(__version__, __date__))
 # logging.debug('Initializing KnobScripter')
 
 # Init config.script_editor_font (will be overwritten once reading the prefs)
@@ -145,6 +145,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.modifiedKnobs = set()
         self.py_scroll_positions = {}
         self.py_cursor_positions = {}
+        self.py_state_dict = {}
         #self.knob_scroll_positions = {}
         #self.knob_cursor_positions = {}
         self.current_node_state_dict = {}
@@ -182,6 +183,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         utils.setSEConsoleChanged()
         self.omit_se_console_text = self.nukeSEOutput.document().toPlainText()
         self.clearConsole()
+        #print(self.py_state_dict) # We need to update it!!!!
 
     def initUI(self):
         """ Initializes the tool UI"""
@@ -198,13 +200,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # ---------------------
         # ---
         # 2.1. Left buttons
-        self.change_btn = widgets.KSToolButton("pick")
+        self.change_btn = widgets.APToolButton("pick")
         self.change_btn.setToolTip("Change to node if selected. Otherwise, change to Script Mode.")
         self.change_btn.clicked.connect(self.changeClicked)
 
         # ---
         # 2.2.A. Node mode UI
-        self.exit_node_btn = widgets.KSToolButton("exitnode")
+        self.exit_node_btn = widgets.APToolButton("exitnode")
         self.exit_node_btn.setToolTip("Exit the node, and change to Script Mode.")
         self.exit_node_btn.clicked.connect(self.exitNodeMode)
         self.current_node_label_node = QtWidgets.QLabel(" Node:")
@@ -257,20 +259,20 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # ---
         # 2.3. File-system buttons
         # Refresh dropdowns
-        self.refresh_btn = widgets.KSToolButton("refresh")
+        self.refresh_btn = widgets.APToolButton("refresh")
         self.refresh_btn.setToolTip("Refresh the dropdowns.\nShortcut: F5")
         self.refresh_btn.setShortcut('F5')
         self.refresh_btn.clicked.connect(self.refreshClicked)
 
         # Reload script
-        self.reload_btn = widgets.KSToolButton("download")
+        self.reload_btn = widgets.APToolButton("download")
         self.reload_btn.setToolTip(
             "Reload the current script. Will overwrite any changes made to it.\nShortcut: Ctrl+R")
         self.reload_btn.setShortcut('Ctrl+R')
         self.reload_btn.clicked.connect(self.reloadClicked)
 
         # Save script
-        self.save_btn = widgets.KSToolButton("save")
+        self.save_btn = widgets.APToolButton("save")
 
         if not self.isPane:
             self.save_btn.setShortcut('Ctrl+S')
@@ -289,21 +291,21 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # 2.4. Right Side buttons
 
         # Python: Run script
-        self.run_script_button = widgets.KSToolButton("run")
+        self.run_script_button = widgets.APToolButton("run")
         self.run_script_button.setToolTip(
             "Execute the current selection on the KnobScripter, or the whole script if no selection.\n"
             "Shortcut: Ctrl+Enter")
         self.run_script_button.clicked.connect(self.runScript)
 
         # Python: Clear console
-        self.clear_console_button = widgets.KSToolButton("clear_console")
+        self.clear_console_button = widgets.APToolButton("clear_console")
         self.clear_console_button.setToolTip(
             "Clear the text in the console window.\nShortcut: Ctrl+Backspace, or click+Backspace on the console.")
         self.clear_console_button.setShortcut('Ctrl+Backspace')
         self.clear_console_button.clicked.connect(self.clearConsole)
 
         # Blink: Save & Compile
-        self.save_recompile_button = widgets.KSToolButton("play")
+        self.save_recompile_button = widgets.APToolButton("play")
         self.save_recompile_button.setToolTip(
             "Save the blink code and recompile the Blinkscript node.\nShortcut: Ctrl+Enter")
         self.save_recompile_button.clicked.connect(self.blinkSaveRecompile)
@@ -321,7 +323,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # self.backup_button.clicked.connect(self.blinkBackup) #TODO: whatever this does
 
         # FindReplace button
-        self.find_button = widgets.KSToolButton("search")
+        self.find_button = widgets.APToolButton("search")
         self.find_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.\nShortcut: Ctrl+F")
         self.find_button.setShortcut('Ctrl+F')
         self.find_button.setCheckable(True)
@@ -331,12 +333,12 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.find_button.toggle()
 
         # Gallery
-        self.codegallery_button = widgets.KSToolButton("enter")
+        self.codegallery_button = widgets.APToolButton("enter")
         self.codegallery_button.setToolTip("Open the code gallery panel.")
         self.codegallery_button.clicked.connect(lambda: self.open_multipanel(tab="code_gallery"))
 
         # Snippets
-        self.snippets_button = widgets.KSToolButton("snippets")
+        self.snippets_button = widgets.APToolButton("snippets")
         self.snippets_button.setToolTip("Call the snippets by writing the shortcut and pressing Tab.")
         self.snippets_button.clicked.connect(lambda: self.open_multipanel(tab="snippet_editor"))
 
@@ -458,53 +460,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.current_knob_dropdown.blockSignals(False)
             self.splitter.setSizes([0, 1])
         else:
-            self.setCodeLanguage("python")
             self.exitNodeMode()
 
         self.script_editor.setFocus()
-
-
-
-
-
-
-        """
-        # Load stored state of knobs
-        self.loadKnobState()
-        state_dict = self.current_node_state_dict
-        if "open_knob" in state_dict and state_dict["open_knob"] in self.node.knobs():
-            self.knob = state_dict["open_knob"]
-        elif "kernelSource" in self.node.knobs() and self.node.Class() == "BlinkScript":
-            self.knob = "kernelSource"
-        else:
-            self.knob = "knobChanged"
-
-        self.script_editor.setPlainText("")
-        self.unsaved_knobs = {}
-        # self.knob_scroll_positions = {}
-        self.setWindowTitle("KnobScripter - %s %s" % (self.node.fullName(), self.knob))
-        self.current_node_label_name.setText(self.node.fullName())
-
-        self.to_load_knob = False
-        self.updateKnobDropdown()  # onee
-        self.to_load_knob = True
-
-        self.setCurrentKnob(self.knob)  # TODO: If a knob was previously open, open that one instead (load...)
-        self.loadKnobValue(check=False)
-        self.script_editor.setFocus()
-        self.setKnobState()
-        self.setKnobModified(False)
-        self.current_knob_dropdown.blockSignals(False)
-        """
-
-
-
-
-
-
-
-
-
 
 
     # Preferences submenus
@@ -996,7 +954,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         if "scroll_pos" in node_state_dict:
             if self.knob in node_state_dict["scroll_pos"]:
-                print("scroll value found: "+str(node_state_dict["scroll_pos"][self.knob]))
+                logging.debug("Scroll value found: "+str(node_state_dict["scroll_pos"][self.knob]))
                 self.script_editor.verticalScrollBar().setValue(
                     int(node_state_dict["scroll_pos"][self.knob]))
 
@@ -1014,7 +972,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if "cursor_pos" not in self.current_node_state_dict:
             self.current_node_state_dict["cursor_pos"] = {}
         self.current_node_state_dict["cursor_pos"][self.knob] = [self.script_editor.textCursor().position(),
-                                                    self.script_editor.textCursor().anchor()]
+                                                                 self.script_editor.textCursor().anchor()]
 
         # 1.3. Save current open knob in own dict
         self.current_node_state_dict["open_knob"] = self.knob
@@ -1041,9 +999,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
             raise Exception("Error: config.prefs['ks_save_knob_state'] value should be 0, 1 or 2.")
             return False
 
-        print("Full dict:")
-        print(full_knob_state_dict)
-
         nk_path = utils.nk_saved_path()
         node_fullname = self.node.fullName()
         logging.debug("Node fullname: "+node_fullname)
@@ -1059,23 +1014,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # 4. Store in memory/disk/none
         if prefs_state == 1: # Saved in memory
             config.knob_state_dict = full_knob_state_dict
-            print("config.knob_state_dict:")
-            print(config.knob_state_dict)
-            print("------------")
         elif prefs_state == 2: # Saved to disk
             with open(config.knob_state_txt_path, "w") as f:
                 json.dump(full_knob_state_dict, f, sort_keys=True, indent=4)
-
-    """
-    def setLastKnob(self):
-        if 'last_folder' in self.py_state_dict and 'last_script' in self.py_state_dict:
-            self.updateFoldersDropdown()
-            self.setCurrentFolder(self.py_state_dict['last_folder'])
-            self.updateScriptsDropdown()
-            self.setCurrentScript(self.py_state_dict['last_script'])
-            self.loadScriptContents()
-            self.script_editor.setFocus()
-    """
 
     # Blink Options in node mode
 
@@ -1347,7 +1288,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         folder_list = [self.current_folder_dropdown.itemData(i) for i in range(self.current_folder_dropdown.count())]
         if folder_name in folder_list:
             index = folder_list.index(folder_name)
+            self.current_folder_dropdown.blockSignals(True)
             self.current_folder_dropdown.setCurrentIndex(index)
+            self.current_folder_dropdown.blockSignals(False)
             self.current_folder = folder_name
         self.folder_index = self.current_folder_dropdown.currentIndex()
         self.current_folder = self.current_folder_dropdown.itemData(self.folder_index)
@@ -1358,7 +1301,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         script_list = [self.current_script_dropdown.itemData(i) for i in range(self.current_script_dropdown.count())]
         if script_name in script_list:
             index = script_list.index(script_name)
+            self.current_script_dropdown.blockSignals(True)
             self.current_script_dropdown.setCurrentIndex(index)
+            self.current_script_dropdown.blockSignals(False)
             self.current_script = script_name
         self.script_index = self.current_script_dropdown.currentIndex()
         self.current_script = self.current_script_dropdown.itemData(self.script_index)
@@ -1412,8 +1357,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.script_editor.setPlainText(script_content)
             self.script_editor.verticalScrollBar().setValue(obtained_scroll_value)
             self.setScriptModified(False)
-            self.loadScriptState()
-            self.setScriptState()
 
         # 3: If .py doesn't exist... only then stick to the autosave
         elif os.path.isfile(script_path_temp):
@@ -1487,8 +1430,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 os.remove(script_path_temp)
                 logging.debug("Removed " + script_path_temp)
             self.setScriptModified(False)
-        self.saveScrollValue()
-        self.saveCursorPosValue()
+        self.saveScriptState()
         logging.debug("Saved " + script_path + "\n---")
         return
 
@@ -1602,10 +1544,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.updateScriptsDropdown()
             # 4: Load the current script!
             self.loadScriptContents()
-            self.script_editor.setFocus()
 
             self.loadScriptState()
             self.setScriptState()
+            self.script_editor.setFocus()
 
         return
 
@@ -1637,13 +1579,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
                     self.current_script = script_name
                     self.setCurrentScript(script_name)
                     self.saveScriptContents(temp=False)
-                    # self.loadScriptContents()
                 else:
                     self.message_box("There was a problem creating the script.")
                     self.current_script_dropdown.setCurrentIndex(self.script_index)
             else:
                 # Canceled/rejected
                 self.current_script_dropdown.setCurrentIndex(self.script_index)
+                self.current_script_dropdown.blockSignals(False)
                 return
             self.current_script_dropdown.blockSignals(False)
 
@@ -1746,49 +1688,91 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
     def loadScriptState(self):
         """
-        Loads the last state of the script from a file inside the SE directory's root.
-        SAVES self.py_scroll_positions, self.py_cursor_positions
+        Loads the last state of the script from the appropriate location into self.py_state_dict
+        Appropriate location: None, config.py_state_dict, or on disk
         """
-        self.py_state_dict = {}
+
         prefs_state = config.prefs["ks_save_py_state"]
         if prefs_state == 0: # Do not save
             logging.debug("Not loading the script state dictionary (chosen in preferences).")
         elif prefs_state == 1: # Saved in memory
             self.py_state_dict = config.py_state_dict
         elif prefs_state == 2: # Saved to disk
+            logging.debug("Prefs ks_save_py_state is 2")
             if not os.path.isfile(config.py_state_txt_path):
-                return False
+                return {}
             else:
                 with open(config.py_state_txt_path, "r") as f:
                     self.py_state_dict = json.load(f)
 
-            logging.debug("Loading state into self.py_state_dict, self.py_scroll_positions, self.py_cursor_positions")
-            logging.debug(self.py_state_dict)
+        return self.py_state_dict
 
-            if "scroll_pos" in self.py_state_dict:
-                self.py_scroll_positions = self.py_state_dict["scroll_pos"]
-            if "cursor_pos" in self.py_state_dict:
-                self.py_cursor_positions = self.py_state_dict["cursor_pos"]
+        # Rest is not needed anymore. Use self.py_state_dict only
+        # TODO Remove the following stuff...
+        if "scroll_pos" in self.py_state_dict:
+            self.py_scroll_positions = self.py_state_dict["scroll_pos"]
+        if "cursor_pos" in self.py_state_dict:
+            self.py_cursor_positions = self.py_state_dict["cursor_pos"]
 
     def setScriptState(self):
         """
-        Sets the already script state from self.state_dict into the current script if applicable
+        Sets the stored (only if stored) script state from self.py_state_dict into the current script
         """
         script_fullname = self.current_folder + "/" + self.current_script
 
-        if "scroll_pos" in self.py_state_dict:
-            if script_fullname in self.py_state_dict["scroll_pos"]:
-                self.script_editor.verticalScrollBar().setValue(int(self.py_state_dict["scroll_pos"][script_fullname]))
+        logging.debug("Setting script state")
 
         if "cursor_pos" in self.py_state_dict:
-            if script_fullname in self.py_state_dict["cursor_pos"]:
+            cp_dict = self.py_state_dict["cursor_pos"]
+            if script_fullname in cp_dict:
                 cursor = self.script_editor.textCursor()
-                cursor.setPosition(int(self.py_state_dict["cursor_pos"][script_fullname][1]), QtGui.QTextCursor.MoveAnchor)
-                cursor.setPosition(int(self.py_state_dict["cursor_pos"][script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
+                cursor.setPosition(int(cp_dict[script_fullname][1]), QtGui.QTextCursor.MoveAnchor)
+                cursor.setPosition(int(cp_dict[script_fullname][0]), QtGui.QTextCursor.KeepAnchor)
                 self.script_editor.setTextCursor(cursor)
+
+        if "scroll_pos" in self.py_state_dict:
+            sp_dict = self.py_state_dict["scroll_pos"]
+            if script_fullname in sp_dict:
+                self.script_editor.verticalScrollBar().setValue(int(sp_dict[script_fullname]))
 
         if 'splitter_sizes' in self.py_state_dict:
             self.splitter.setSizes(self.py_state_dict['splitter_sizes'])
+
+    def saveScriptState(self):
+        """ Stores the current state of the script into the self.py_state_dict. Then, also stores the full dict
+        into the location specified in preferences (None, memory or disk).
+        """
+        logging.debug("Saving script state")
+
+        script_fullname = self.current_folder + "/" + self.current_script
+
+        # 1. Save into this instance's own dict first (self.py_state_dict)
+        # 1.1. Save current scroll pos into own dict
+        scroll_pos = self.script_editor.verticalScrollBar().value()
+        if "scroll_pos" not in self.py_state_dict:
+            self.py_state_dict["scroll_pos"] = {}
+        self.py_state_dict["scroll_pos"][script_fullname] = scroll_pos
+
+        # 1.2. Save current cursor pos into own dict
+        if "cursor_pos" not in self.py_state_dict:
+            self.py_state_dict["cursor_pos"] = {}
+        cursor_pos = [self.script_editor.textCursor().position(), self.script_editor.textCursor().anchor()]
+        self.py_state_dict["cursor_pos"][script_fullname] = cursor_pos
+
+        # 1.3. Last folder, script and splitter sizes
+        self.py_state_dict['last_folder'] = self.current_folder
+        self.py_state_dict['last_script'] = self.current_script
+        self.py_state_dict['splitter_sizes'] = self.splitter.sizes()
+
+        # 2. Store to appropriate location
+        prefs_state = config.prefs["ks_save_py_state"]
+        if prefs_state == 0: # Do not save
+            logging.debug("Not saving the script state dictionary (chosen in prefs).")
+        elif prefs_state == 1: # Saved in memory
+            config.py_state_dict = self.py_state_dict
+        elif prefs_state == 2: # Saved to disk
+            with open(config.py_state_txt_path, "w") as f:
+                json.dump(self.py_state_dict, f, sort_keys=True, indent=4)
 
     def setLastScript(self):
         if 'last_folder' in self.py_state_dict and 'last_script' in self.py_state_dict:
@@ -1796,33 +1780,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.setCurrentFolder(self.py_state_dict['last_folder'])
             self.updateScriptsDropdown()
             self.setCurrentScript(self.py_state_dict['last_script'])
-            self.loadScriptContents()
-            self.script_editor.setFocus()
 
-    def saveScriptState(self):
-        """ Stores the current state of the script """
-        logging.debug("About to save script state...")
-
-        self.loadScriptState()
-
-        # Overwrite current values into the scriptState
-        self.saveScrollValue()
-        self.saveCursorPosValue()
-
-        self.py_state_dict['scroll_pos'] = self.py_scroll_positions
-        self.py_state_dict['cursor_pos'] = self.py_cursor_positions
-        self.py_state_dict['last_folder'] = self.current_folder
-        self.py_state_dict['last_script'] = self.current_script
-        self.py_state_dict['splitter_sizes'] = self.splitter.sizes()
-
-        prefs_state = config.prefs["ks_save_knob_state"]
-        if prefs_state == 0: # Do not save
-            logging.debug("Not saving the script state dictionary (chosen in preferences).")
-        elif prefs_state == 1: # Saved in memory
-            config.py_state_dict = self.py_state_dict
-        elif prefs_state == 2: # Saved to disk
-            with open(config.py_state_txt_path, "w") as f:
-                json.dump(self.py_state_dict, f, sort_keys=True, indent=4)
 
     # Autosave background loop
     def autosave(self):
@@ -1830,7 +1788,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
             # Save the script...
             self.saveScriptContents()
             self.toAutosave = False
-            self.saveScriptState()
             logging.debug("autosaving...")
             return
 
@@ -2023,19 +1980,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
         """ Run the current script... """
         self.script_editor.runScript()
 
-    def saveScrollValue(self):
-        """ Save scroll values in this tool's temp state dict """
-        if self.nodeMode:
-            self.knob_scroll_positions[self.knob] = self.script_editor.verticalScrollBar().value()
-        else:
-            self.py_scroll_positions[
-                self.current_folder + "/" + self.current_script] = self.script_editor.verticalScrollBar().value()
-
-    def saveCursorPosValue(self):
-        """ Saves cursor pos and anchor values """
-        self.py_cursor_positions[self.current_folder + "/" + self.current_script] = [self.script_editor.textCursor().position(),
-                                                                                     self.script_editor.textCursor().anchor()]
-
     def closeEvent(self, close_event):
         if self.nodeMode:
             updated_count = self.updateUnsavedKnobs()
@@ -2059,6 +2003,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             else:
                 close_event.accept()
         else:
+            self.saveScriptState()
             self.autosave()
 
         if self in nuke.AllKnobScripters:

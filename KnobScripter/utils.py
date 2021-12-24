@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+""" Utils: KnobScripter's utility functions
+
+utils.py contains utility functions that can potentially be helpful for multiple ks modules.
+
+adrianpueyo.com
+
+"""
 import nuke
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:

@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+""" KeywordHotbox: KnobScripter's floating panel for word suggestions while scripting.
+
+adrianpueyo.com
+
+"""
 import nuke
 from functools import partial
 
@@ -13,7 +19,7 @@ except ImportError:
 
 
 class KeywordHotbox(QtWidgets.QDialog):
-    '''
+    """
     Floating panel with word suggestions
     Based on the given keywords dictionary of lists. Example:
     keyword_dict = {
@@ -23,16 +29,15 @@ class KeywordHotbox(QtWidgets.QDialog):
         },
     }
     When clicking on a button, the accept() signal is emitted, and the button's text is stored under self.selection
-    '''
+    """
 
     def __init__(self, parent, category="", category_dict=None):
         super(KeywordHotbox, self).__init__(parent)
         category_dict = category_dict or {}
 
         self.script_editor = parent
-        # self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.Popup)
         self.setWindowFlags(
-            QtCore.Qt.FramelessWindowHint | QtCore.Qt.Popup)  # Without self.windowFlags() first, it closes on click outside as intended
+            QtCore.Qt.FramelessWindowHint | QtCore.Qt.Popup)  # Without self.windowFlags() first, closes as intended
 
         if not category or "keywords" not in category_dict:
             self.reject()
@@ -59,16 +64,16 @@ class KeywordHotbox(QtWidgets.QDialog):
             master_layout.insertWidget(-1, button)
 
         # 2. ToolTip etc
-        try:
+        if "help" in self.category_dict:
             category_help = self.category_dict["help"]
-        except:
+        else:
             category_help = ""
 
-        try:  # >n11
+        if nuke.NUKE_VERSION_MAJOR < 11:
+            master_layout.setContentsMargins(0, 0, 0, 0)
+        else:
             master_layout.setMargin(0)
             master_layout.setSpacing(0)
-        except:  # <n10
-            master_layout.setContentsMargins(0, 0, 0, 0)
 
         self.setToolTip("<h2>{}</h2>".format(self.category) + category_help)
 
@@ -87,12 +92,13 @@ class KeywordHotbox(QtWidgets.QDialog):
 
     def focusOutEvent(self, event):
         self.close()
+        QtWidgets.QDialog.focusOutEvent(event)
 
 
 class KeywordHotboxButton(QtWidgets.QLabel):
-    '''
+    """
     Keyword button for the KeywordHotbox. It's really a label, with a selection color and stuff.
-    '''
+    """
     clicked = QtCore.Signal()
 
     def __init__(self, name, parent=None):
@@ -101,9 +107,9 @@ class KeywordHotboxButton(QtWidgets.QLabel):
 
         self.parent = parent
 
-        try:
+        if hasattr(parent, 'script_editor') and hasattr(parent.script_editor, 'knob_scripter'):
             self.knobScripter = parent.script_editor.knob_scripter
-        except:
+        else:
             self.knobScripter = None
 
         self.name = name
@@ -127,9 +133,9 @@ class KeywordHotboxButton(QtWidgets.QLabel):
             self.setFont(font)
 
     def setHighlighted(self, highlighted=False):
-        '''
+        """
         Define the style of the button for different states
-        '''
+        """
 
         # Selected
         if highlighted:
@@ -154,19 +160,21 @@ class KeywordHotboxButton(QtWidgets.QLabel):
         self.highlighted = highlighted
 
     def enterEvent(self, event):
-        ''' Mouse hovering '''
+        """ Mouse hovering """
         self.setHighlighted(True)
+        QtWidgets.QLabel.enterEvent(event)
         return True
 
     def leaveEvent(self, event):
-        ''' Stopped hovering '''
+        """ Stopped hovering """
         self.setHighlighted(False)
+        QtWidgets.QLabel.leaveEvent(event)
         return True
 
     def mouseReleaseEvent(self, event):
-        '''
+        """
         Execute the buttons' self.function (str)
-        '''
+        """
         if self.highlighted:
             self.clicked.emit()
             pass

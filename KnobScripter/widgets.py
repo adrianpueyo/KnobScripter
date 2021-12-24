@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+""" Widgets: KnobScripter's module for abstract or general class definitions which can be useful elsewhere.
+
+adrianpueyo.com
+
+"""
 import logging
 from collections import OrderedDict
 import nuke
@@ -215,7 +221,6 @@ class ToggableGroup(QtWidgets.QFrame):
         logging.debug("Collapsed:" + str(collapsed))
 
 
-# TODO THE NEXT ONE:
 class ToggableCodeGroup(ToggableGroup):
     """ ToggableGroup adapted for having a code editor """
 
@@ -295,12 +300,11 @@ class RadioSelector(QtWidgets.QWidget):
         return str(self.button_group.button(self.button_group.checkedId()).text())
 
 
-# TODO FIND A WAY NOT TO HAVE THIS FULLY DUPLICATED
-class KSToolButton(QtWidgets.QToolButton):
+class APToolButton(QtWidgets.QToolButton):
     """ Given the png name and sizes, makes a tool button """
 
     def __init__(self, icon=None, icon_size=None, btn_size=None, parent=None):
-        super(KSToolButton, self).__init__(parent=parent)
+        super(APToolButton, self).__init__(parent=parent)
 
         self.icon_path = None
         self.set_icon(icon)
@@ -311,7 +315,6 @@ class KSToolButton(QtWidgets.QToolButton):
 
     def set_icon(self, icon_filename=None, add_extension=True, full_path=False):
         """ Set the button's icon (i.e. icon_search.png) """
-        # TODO TURN THIS FUNCTION INTO DECORATOR!
         if icon_filename is None:
             self.setIcon(None)
             return
