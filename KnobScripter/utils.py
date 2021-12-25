@@ -7,6 +7,7 @@ adrianpueyo.com
 
 """
 import nuke
+from KnobScripter import config
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
         from PySide import QtGui as QtWidgets

@@ -481,7 +481,6 @@ class KSScriptEditorMain(KSScriptEditor):
         self.currentNukeCompletion = highlighted
 
     def runScript(self):
-        # TODO this shouldn't go inside of this class probably?
         cursor = self.textCursor()
         nukeSEInput = self.knobScripter.nukeSEInput
         if cursor.hasSelection():

@@ -90,19 +90,46 @@ class PrefsWidget(QtWidgets.QWidget):
         self.layout = QtWidgets.QVBoxLayout()
 
         # 1. Title (name, version)
+        self.title_widget = QtWidgets.QWidget()
+        self.title_layout = QtWidgets.QHBoxLayout()
+        self.title_layout.setMargin(0)
         title_label = QtWidgets.QLabel("KnobScripter v" + __version__)
         title_label.setStyleSheet("font-weight:bold;color:#CCCCCC;font-size:20px;")
+        built_label = QtWidgets.QLabel('<i style="color:#777">Built {0}</i>'.format(__date__))
+        built_label.setStyleSheet("color:#555;font-size:9px;padding-top:10px;")
         subtitle_label = QtWidgets.QLabel("Script editor for python and callback knobs")
         subtitle_label.setStyleSheet("color:#999")
         line1 = widgets.HLine()
 
+        img_ap = QtWidgets.QLabel()
+        pixmap = QtGui.QPixmap(os.path.join(config.ICONS_DIR, "ap_tools.png"))
+        img_ap.setPixmap(pixmap)
+        img_ap.resize(pixmap.width(), pixmap.height())
+        img_ap.setStyleSheet("padding-top: 3px;")
+
+
         signature = QtWidgets.QLabel('<a href="http://www.adrianpueyo.com/" style="color:#888;text-decoration:none">'
-                                     '<b>adrianpueyo.com</b></a>, 2016-{}'.format(__date__.split(" ")[-1]))
+                                     '<b>adrianpueyo.com</b></a>, 2016-{0}'.format(__date__.split(" ")[-1]))
+
         signature.setOpenExternalLinks(True)
+        # signature.setStyleSheet('''color:#555;font-size:9px;padding-left: {}px;'''.format(pixmap.width()+4))
         signature.setStyleSheet('''color:#555;font-size:9px;''')
         signature.setAlignment(QtCore.Qt.AlignLeft)
-        # TODO Add Logo on the right ap_tools.png and/or knob_scripter.png
-        self.layout.addWidget(title_label)
+
+        img_ks = QtWidgets.QLabel()
+        pixmap = QtGui.QPixmap(os.path.join(config.ICONS_DIR, "knob_scripter.png"))
+        img_ks.setPixmap(pixmap)
+        img_ks.resize(pixmap.width(), pixmap.height())
+
+        # self.title_layout.addWidget(img_ks)
+        self.title_layout.addWidget(img_ap)
+        self.title_layout.addSpacing(2)
+        self.title_layout.addWidget(title_label)
+        self.title_layout.addWidget(built_label)
+        self.title_layout.addStretch()
+        self.title_widget.setLayout(self.title_layout)
+
+        self.layout.addWidget(self.title_widget)
         self.layout.addWidget(signature)
         self.layout.addWidget(line1)
 

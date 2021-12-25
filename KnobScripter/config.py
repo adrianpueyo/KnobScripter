@@ -3,6 +3,7 @@ import os
 KS_DIR = os.path.dirname(__file__)
 ICONS_DIR = os.path.join(KS_DIR, "icons")
 CODE_GALLERY_DEFAULT_FILE = os.path.join(KS_DIR, "code_gallery_dict.json")
+KS_ICON_PATH = os.path.join(ICONS_DIR, "knob_scripter.png")
 
 prefs = {
     "ks_directory" : "KS3",
@@ -50,6 +51,7 @@ code_gallery_files = [CODE_GALLERY_DEFAULT_FILE,] # json files. TODO Make the ex
 
 # Initialized at runtime
 all_knobscripters = []
+ks_multipanel = ""
 py_scripts_dir = None
 blink_dir = None
 snippets_txt_path = None

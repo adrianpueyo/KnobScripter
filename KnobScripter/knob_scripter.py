@@ -18,6 +18,7 @@ import subprocess
 import platform
 from webbrowser import open as open_url
 import logging
+import datetime
 
 # Symlinks on windows.
 if os.name == "nt" and nuke.NUKE_VERSION_MAJOR < 13:
@@ -46,12 +47,11 @@ try:
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
-KS_DIR = os.path.dirname(__file__)
-icons_path = KS_DIR + "/icons/"
-nuke.ks_multipanel = ""
 PrefsPanel = ""
 SnippetEditPanel = ""
 CodeGalleryPanel = ""
+now = datetime.datetime.now()
+christmas = (now.month == 12 and now.day > 15) or (now.month == 1 and now.day < 15)
 
 # ks imports
 from KnobScripter.info import __version__, __date__
@@ -60,8 +60,9 @@ from KnobScripter import snippets, codegallery, script_output, findreplace, cont
 
 # logging.basicConfig(level=logging.DEBUG)
 
-nuke.tprint('KnobScripter v{}, built {}.\n'
-            'Copyright (c) 2016-2022 Adrian Pueyo. All Rights Reserved.'.format(__version__, __date__))
+nuke.tprint('KnobScripter v{0}, built {1}.\n'
+            'Copyright (c) 2016-{2} Adrian Pueyo.'
+            ' All Rights Reserved.'.format(__version__, __date__, __date__.split(" ")[-1]))
 # logging.debug('Initializing KnobScripter')
 
 # Init config.script_editor_font (will be overwritten once reading the prefs)
@@ -179,6 +180,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         # Init UI
         self.initUI()
+        self.setWindowIcon(QtGui.QIcon(config.KS_ICON_PATH))
+
         utils.setSEConsoleChanged()
         self.omit_se_console_text = self.nukeSEOutput.document().toPlainText()
         self.clearConsole()
@@ -486,10 +489,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
                                            triggered=self.showInGithub)
         self.snippetsAct = QtWidgets.QAction("Snippets", self, statusTip="Open the Snippets editor.",
                                              triggered=lambda: self.open_multipanel(tab="snippet_editor"))
-        self.snippetsAct.setIcon(QtGui.QIcon(icons_path + "icon_snippets.png"))
+        self.snippetsAct.setIcon(QtGui.QIcon(os.path.join(config.ICONS_DIR, "icon_snippets.png")))
         self.prefsAct = QtWidgets.QAction("Preferences", self, statusTip="Open the Preferences panel.",
                                           triggered=lambda: self.open_multipanel(tab="ks_prefs"))
-        self.prefsAct.setIcon(QtGui.QIcon(icons_path + "icon_prefs.png"))
+        self.prefsAct.setIcon(QtGui.QIcon(os.path.join(config.ICONS_DIR, "icon_prefs.png")))
 
         # Menus
         self.prefsMenu = QtWidgets.QMenu("Preferences")
@@ -1671,7 +1674,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
     def openInFileBrowser(path=""):
         the_os = platform.system()
         if not os.path.exists(path):
-            path = KS_DIR
+            path = config.KS_DIR
         if the_os == "Windows":
             # os.startfile(path)
             filebrowser_path = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
@@ -1932,29 +1935,29 @@ class KnobScripterWidget(QtWidgets.QDialog):
             multipanel_parent = QtWidgets.QApplication.activeWindow()
         else:
             multipanel_parent = self._parent
-        if nuke.ks_multipanel == "":
-            nuke.ks_multipanel = MultiPanel(self, multipanel_parent, initial_tab=tab,
+        if config.ks_multipanel == "":
+            config.ks_multipanel = MultiPanel(self, multipanel_parent, initial_tab=tab,
                                             lang=lang or self.script_editor.code_language)
         else:
             try:
                 if lang:
-                    nuke.ks_multipanel.set_lang(lang)
-                nuke.ks_multipanel.set_tab(tab)
-                nuke.ks_multipanel.set_knob_scripter(self)
+                    config.ks_multipanel.set_lang(lang)
+                config.ks_multipanel.set_tab(tab)
+                config.ks_multipanel.set_knob_scripter(self)
             except:
                 pass
 
-        if not nuke.ks_multipanel.isVisible():
-            nuke.ks_multipanel.reload()
-            nuke.ks_multipanel.set_lang(lang or self.script_editor.code_language)
+        if not config.ks_multipanel.isVisible():
+            config.ks_multipanel.reload()
+            config.ks_multipanel.set_lang(lang or self.script_editor.code_language)
 
-        nuke.ks_multipanel.activateWindow()
+        config.ks_multipanel.activateWindow()
 
-        if nuke.ks_multipanel.show():
+        if config.ks_multipanel.show():
             # Something else to do when clicking OK?
             content.all_snippets = snippets.load_snippets_dict()
 
-            nuke.ks_multipanel = ""
+            config.ks_multipanel = ""
 
     def message_box(self, the_text=""):
         """ Just a simple message box """
@@ -2098,14 +2101,19 @@ class MultiPanel(QtWidgets.QDialog):
         super(MultiPanel, self).__init__(_parent)
 
         # TODO future (really, future): enable drag and drop of snippet and gallery into the knobscripter??
-        # TODO add on knobscripter button to Reload Style and Snippets
 
         self.knob_scripter = knob_scripter
-        self.setWindowTitle("KnobScripter Multi-Panel")
+        self.base_title = "KnobScripter"
+        self.setWindowTitle(self.base_title)
         self.resize(600, 400)
         self.lang = lang
 
         self.initUI()
+        # Christmas mode...
+        if christmas:
+            from KnobScripter import letItSnow  # Nice one, Fynn Laue...
+            self.letItSnow = letItSnow.LetItSnow(parent=self)
+        self.setWindowIcon(QtGui.QIcon(config.KS_ICON_PATH))
         self.set_tab(initial_tab)
         self.set_lang(self.lang)
 
@@ -2114,6 +2122,7 @@ class MultiPanel(QtWidgets.QDialog):
 
         # Main TabWidget
         self.tab_widget = QtWidgets.QTabWidget()
+        self.tab_widget.currentChanged.connect(self.tab_changed)
 
         self.code_gallery = codegallery.CodeGalleryWidget(self.knob_scripter, None)
         self.snippet_editor = snippets.SnippetsWidget(self.knob_scripter, None)
@@ -2130,6 +2139,10 @@ class MultiPanel(QtWidgets.QDialog):
 
         master_layout.addWidget(self.tab_widget)
         self.setLayout(master_layout)
+
+    def tab_changed(self,i):
+        subtitle = self.tab_widget.tabText(i)
+        self.setWindowTitle("{0} - {1}".format(self.base_title,subtitle))
 
     def set_knob_scripter(self, knob_scripter=None):
         self.code_gallery.knob_scripter = knob_scripter
