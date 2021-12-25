@@ -162,13 +162,11 @@ class KeywordHotboxButton(QtWidgets.QLabel):
     def enterEvent(self, event):
         """ Mouse hovering """
         self.setHighlighted(True)
-        QtWidgets.QLabel.enterEvent(event)
         return True
 
     def leaveEvent(self, event):
         """ Stopped hovering """
         self.setHighlighted(False)
-        QtWidgets.QLabel.leaveEvent(event)
         return True
 
     def mouseReleaseEvent(self, event):
