@@ -11,6 +11,9 @@ adrianpueyo.com
 
 import os
 import json
+import six
+import io
+
 from nukescripts import panels
 import nuke
 import re
@@ -57,8 +60,8 @@ christmas = (now.month == 12 and now.day > 15) or (now.month == 1 and now.day < 
 from KnobScripter.info import __version__, __date__
 from KnobScripter import config, prefs, utils, dialogs, widgets, ksscripteditormain
 from KnobScripter import snippets, codegallery, script_output, findreplace, content
-
-# logging.basicConfig(level=logging.DEBUG)
+from KnobScripter.utils import string
+logging.basicConfig(level=logging.DEBUG)
 
 nuke.tprint('KnobScripter v{0}, built {1}.\n'
             'Copyright (c) 2016-{2} Adrian Pueyo.'
@@ -84,23 +87,6 @@ def is_blink_knob(knob):
         return True
     else:
         return False
-
-
-def string(text):
-    """Quick workaround for python 2 vs 3 unicode str headache.
-
-    Args:
-        text (str): any string or bytes object
-
-    Returns:
-        str: text utf8 encoded
-
-    """
-
-    if type(text) != str:
-        text = text.encode("utf8")
-    return text
-
 
 class KnobScripterWidget(QtWidgets.QDialog):
     """ Main KnobScripter Widget, which is defined as a floating QDialog by default.
@@ -617,14 +603,15 @@ class KnobScripterWidget(QtWidgets.QDialog):
         try:
             # If blinkscript, use getValue.
             if knob_language == "blink":
-                obtained_knob_value = str(self.node[dropdown_value].getValue())
+                obtained_knob_value = string(self.node[dropdown_value].getValue())
             elif knob_language == "python":
-                obtained_knob_value = str(self.node[dropdown_value].value())
+                obtained_knob_value = string(self.node[dropdown_value].value())
                 logging.debug(obtained_knob_value)
+                logging.debug(type(obtained_knob_value))
             else:  # TODO: knob language is None -> try to get the expression for tcl???
                 return
             obtained_scroll_value = 0
-            edited_knob_value = string(self.script_editor.toPlainText())
+            edited_knob_value = self.script_editor.toPlainText()
         except:
             try:
                 error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s" % (
@@ -632,15 +619,14 @@ class KnobScripterWidget(QtWidgets.QDialog):
             except:
                 error_message = QtWidgets.QMessageBox.information(None, "",
                                                                   "Unable to find the node's {}".format(dropdown_value))
-            error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            # error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             error_message.exec_()
             return
 
         # If there were changes to the previous knob, update the dictionary
         if update_dict is True:
-            self.unsaved_knobs[self.knob] = edited_knob_value
-            #self.py_scroll_positions[self.knob] = self.script_editor.verticalScrollBar().value()
-            # Remember scroll and cursor values
+            if obtained_knob_value != edited_knob_value:
+                self.unsaved_knobs[self.knob] = edited_knob_value
             self.saveKnobState()
 
         prev_knob = self.knob  # knobChanged...
@@ -664,7 +650,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.script_editor.blockSignals(True)
         if update_dict:
             if self.knob in self.unsaved_knobs:
-                if self.unsaved_knobs[self.knob] == obtained_knob_value:
+                if self.unsaved_knobs[self.knob] == obtained_knob_value: #first is str, second is bytes
                     self.script_editor.setPlainText(obtained_knob_value)
                     self.setKnobModified(False)
                 else:
@@ -719,7 +705,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             error_message.exec_()
             return
-        edited_knob_value = string(self.script_editor.toPlainText())
+        edited_knob_value = self.script_editor.toPlainText() # string()
         if check and obtained_knob_value != edited_knob_value:
             msg_box = QtWidgets.QMessageBox()
             msg_box.setText("Do you want to overwrite %s.%s?" % (self.node.name(), dropdown_value))
@@ -735,7 +721,11 @@ class KnobScripterWidget(QtWidgets.QDialog):
             nuke.tcl('''knob {}.kernelSource "{}"'''.format(self.node.fullName(),
                                                             edited_knob_value.replace('"', '\\"').replace('[', '\[')))
         else:
-            self.node[dropdown_value].setValue(string(edited_knob_value))
+            if nuke.NUKE_VERSION_MAJOR < 13:
+                self.node[dropdown_value].setValue(edited_knob_value.encode("utf8"))
+            else:
+                self.node[dropdown_value].setValue(edited_knob_value)
+
         self.setKnobModified(modified=False, knob=dropdown_value, change_title=True)
         nuke.tcl("modified 1")
         if self.knob in self.unsaved_knobs:
@@ -758,7 +748,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
         saved_count = 0
         for k in self.unsaved_knobs.copy():
             try:
-                self.node.knob(k).setValue(self.unsaved_knobs[k])
+                if nuke.NUKE_VERSION_MAJOR < 13:
+                    self.node.knob(k).setValue(self.unsaved_knobs[k].encode("utf8"))
+                else:
+                    self.node.knob(k).setValue(self.unsaved_knobs[k])
                 del self.unsaved_knobs[k]
                 saved_count += 1
                 nuke.tcl("modified 1")
@@ -795,13 +788,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
             # Node has been deleted, so simply return 0. Who cares.
             return 0
 
-        edited_knob_value = string(self.script_editor.toPlainText())
+        edited_knob_value = self.script_editor.toPlainText() # string()
         self.unsaved_knobs[self.knob] = edited_knob_value
 
         if len(self.unsaved_knobs) > 0:
             for k in self.unsaved_knobs.copy():
                 if self.node.knob(k):
-                    if str(self.getKnobValue(k)) == str(self.unsaved_knobs[k]):
+                    if string(self.getKnobValue(k)) == string(self.unsaved_knobs[k]):
                         del self.unsaved_knobs[k]
                 else:
                     del self.unsaved_knobs[k]
@@ -1080,7 +1073,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                     self.node.knob("saveKernelFile").execute()  # This one asks for confirmation...
                 else:
                     file = open(self.node.knob("kernelSourceFile").value(), 'w')
-                    file.write(string(self.script_editor.toPlainText()))
+                    file.write(self.script_editor.toPlainText().encode('utf8')) # string()
                     file.close()
         except:
             logging.debug("Error saving the Blinkscript file.")
@@ -1105,7 +1098,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             if create:
                 # Make the path!
                 kernel_name_re = r"kernel ([\w]+)[ ]*:[ ]*Image[a-zA-Z]+Kernel[ ]*<"
-                kernel_name_search = re.search(kernel_name_re, string(self.script_editor.toPlainText()))
+                kernel_name_search = re.search(kernel_name_re, self.script_editor.toPlainText()) # string()
                 if not kernel_name_search:
                     name = "Kernel"
                 else:
@@ -1328,7 +1321,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # 1: If autosave exists and pyOnly is false, load it
         if os.path.isfile(script_path_temp) and not py_only:
             logging.debug("Loading .py.autosave file\n---")
-            with open(script_path_temp, 'r') as script:
+            with io.open(script_path_temp, 'r', encoding="utf-8") as script:
                 script_content = script.read()
             self.script_editor.setPlainText(script_content)
             self.setScriptModified(True)
@@ -1337,9 +1330,11 @@ class KnobScripterWidget(QtWidgets.QDialog):
         # 2: Try to load the .py as first priority, if it exists
         elif os.path.isfile(script_path):
             logging.debug("Loading .py file\n---")
-            with open(script_path, 'r') as script:
-                script_content = script.read()
-            current_text = string(self.script_editor.toPlainText())
+            with io.open(script_path, 'r', encoding="utf-8") as script: # Takes to Text??? (py2: unicode, py3: str)
+                script_content = script.read() # Unicode str if needed
+
+            current_text = self.script_editor.toPlainText() # str type: Text (py2: unicode, py3: str)
+
             if check and current_text != script_content and current_text.strip() != "":
                 msg_box = QtWidgets.QMessageBox()
                 msg_box.setText("The script has been modified.")
@@ -1406,18 +1401,18 @@ class KnobScripterWidget(QtWidgets.QDialog):
         script_path = os.path.join(config.py_scripts_dir, self.current_folder, self.current_script)
         script_path_temp = script_path + ".autosave"
         orig_content = ""
-        script_content = string(self.script_editor.toPlainText())
+        script_content = self.script_editor.toPlainText() # str type: Text (py2: unicode, py3: str)
 
         if temp:
             if os.path.isfile(script_path):
-                with open(script_path, 'r') as script:
-                    orig_content = script.read()
-            elif script_content == "" and os.path.isfile(
-                    script_path_temp):  # If script path doesn't exist and autosave does but the script is empty...
+                with io.open(script_path, 'r', encoding="utf-8") as script:
+                    orig_content = string(script.read()) # string()
+            elif script_content == "" and os.path.isfile(script_path_temp):
+                # If script path doesn't exist and autosave does but the script is empty...
                 os.remove(script_path_temp)
                 return
             if script_content != orig_content:
-                with open(script_path_temp, 'w') as script:
+                with io.open(script_path_temp, 'w', encoding="utf-8") as script:
                     script.write(script_content)
             else:
                 if os.path.isfile(script_path_temp):
@@ -1425,8 +1420,8 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 logging.debug("Nothing to save")
                 return
         else:
-            with open(script_path, 'w') as script:
-                script.write(string(self.script_editor.toPlainText()))
+            with io.open(script_path, 'w', encoding="utf-8") as script:
+                script.write(self.script_editor.toPlainText())
             # Clear trash
             if os.path.isfile(script_path_temp):
                 os.remove(script_path_temp)
@@ -1795,7 +1790,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
     # Global stuff
     def setTextSelection(self):
-        self.script_editor.highlighter.selected_text = string(self.script_editor.textCursor().selection().toPlainText())
+        self.script_editor.highlighter.selected_text = self.script_editor.textCursor().selection().toPlainText() # string()
         return
 
     def resizeEvent(self, res_event):
@@ -1916,7 +1911,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.setScriptState()
 
     def clearConsole(self):
-        self.omit_se_console_text = string(self.nukeSEOutput.document().toPlainText())
+        self.omit_se_console_text = self.nukeSEOutput.document().toPlainText() # string()
         self.script_output.setPlainText("")
 
     def toggleFRW(self, frw_pressed):
@@ -2020,6 +2015,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.current_knob_dropdown.blockSignals(True)
             self.current_knob_dropdown.clear()  # First remove all items
             self.updateKnobDropdown()
+            print(self.unsaved_knobs)
             available_knobs = []
             for i in range(self.current_knob_dropdown.count()):
                 if self.current_knob_dropdown.itemData(i) is not None:
@@ -2053,7 +2049,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
     def setModified(self):
         if self.nodeMode:
             if not self.current_knob_modified:
-                if self.getKnobValue(self.knob) != string(self.script_editor.toPlainText()):
+                if string(self.getKnobValue(self.knob)) != self.script_editor.toPlainText(): # string()
                     self.setKnobModified(True)
         elif not self.current_script_modified:
             self.setScriptModified(True)
@@ -2112,7 +2108,7 @@ class MultiPanel(QtWidgets.QDialog):
         # Christmas mode...
         if christmas:
             from KnobScripter import letItSnow  # Nice one, Fynn Laue...
-            self.letItSnow = letItSnow.LetItSnow(parent=self)
+            # self.letItSnow = letItSnow.LetItSnow(parent=self)
         self.setWindowIcon(QtGui.QIcon(config.KS_ICON_PATH))
         self.set_tab(initial_tab)
         self.set_lang(self.lang)

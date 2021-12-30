@@ -7,6 +7,8 @@ adrianpueyo.com
 
 """
 import nuke
+import six
+
 from KnobScripter import config
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -75,9 +77,20 @@ def findSE():
 
 def string(text):
     # Quick workaround for python 2 vs 3 unicode str headache
-    if type(text) != str:
-        text = text.encode("utf8")
-    return text
+    if six.PY3:
+        unicode = str
+    if isinstance(text, six.binary_type):
+        return text.decode("utf-8")
+    else:
+        return text
+
+def check_str(text):
+    """ Quick check of str type in order to understand this topic. """
+    print("Text type (unicode in py2, str in py3): {0}\n"
+          "Binary type? (str in py2, bytes in py3): {1}\n"
+          "Type is: {2}".format(isinstance(text, six.text_type), isinstance(text, six.binary_type),
+                                type(text)))
+    return
 
 
 def findSEInput(se):

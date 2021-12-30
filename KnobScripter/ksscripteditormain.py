@@ -25,7 +25,7 @@ except ImportError:
 
 
 from KnobScripter.ksscripteditor import KSScriptEditor
-from KnobScripter import keywordhotbox, content
+from KnobScripter import keywordhotbox, content, dialogs
 
 def best_ending_match(text, match_list):
     '''
@@ -108,9 +108,9 @@ class KSScriptEditorMain(KSScriptEditor):
                 break
             word = placeholder_variable.groups()[0]
             word_bare = word[1:-1]
-            panel = TextInputDialog(self.knobScripter, name=word_bare, text="", title="Set text for " + word_bare)
+            panel = dialogs.TextInputDialog(self.knobScripter, name=word_bare, text="", title="Set text for " + word_bare)
             if panel.exec_():
-                #    # Accepted
+                # Accepted
                 text = text.replace(word, panel.text)
             else:
                 text = text.replace(word, "")
@@ -482,7 +482,6 @@ class KSScriptEditorMain(KSScriptEditor):
 
     def runScript(self):
         cursor = self.textCursor()
-        nukeSEInput = self.knobScripter.nukeSEInput
         if cursor.hasSelection():
             code = cursor.selection().toPlainText()
         else:
@@ -491,45 +490,62 @@ class KSScriptEditorMain(KSScriptEditor):
         if code == "":
             return
 
-        # If node mode and run in context (experimental) selected in preferences, run the code in its proper context!
-        if self.knobScripter.nodeMode and self.knobScripter.runInContext:
-            # 1. change thisNode, thisKnob...
+        if nuke.NUKE_VERSION_MAJOR >= 13 and self.knobScripter.nodeMode and self.knobScripter.runInContext:
+            # The simple and nice approach for run in context!! Doesn't work with Nuke 12...
+            run_context = "root"
+            # If node mode and run in context (experimental) selected in preferences, run the code in its proper context!
+            # if self.knobScripter.nodeMode and self.knobScripter.runInContext:
             nodeName = self.knobScripter.node.fullName()
             knobName = self.knobScripter.current_knob_dropdown.itemData(
                 self.knobScripter.current_knob_dropdown.currentIndex())
             if nuke.exists(nodeName) and knobName in nuke.toNode(nodeName).knobs():
-                code = code.replace("nuke.thisNode()", "nuke.toNode('{}')".format(nodeName))
-                code = code.replace("nuke.thisKnob()", "nuke.toNode('{}').knob('{}')".format(nodeName, knobName))
-                # 2. If group, wrap all with: with nuke.toNode(fullNameOfGroup) and then indent every single line!! at least by one space. replace "\n" with "\n "
-                if self.knobScripter.node.Class() in ["Group", "LiveGroup", "Root"]:
-                    code = code.replace("\n", "\n  ")
-                    code = "with nuke.toNode('{}'):\n {}".format(nodeName, code)
+                run_context = "{}.{}".format(nodeName, knobName)
+            # Run the code! Much cleaner in this way:
+            nuke.runIn(run_context, code)
 
-        # Store original ScriptEditor status
-        nukeSECursor = nukeSEInput.textCursor()
-        origSelection = nukeSECursor.selectedText()
-        oldAnchor = nukeSECursor.anchor()
-        oldPosition = nukeSECursor.position()
-
-        # Add the code to be executed and select it
-        nukeSEInput.insertPlainText(code)
-
-        if oldAnchor < oldPosition:
-            newAnchor = oldAnchor
-            newPosition = nukeSECursor.position()
         else:
-            newAnchor = nukeSECursor.position()
-            newPosition = oldPosition
+            nukeSEInput = self.knobScripter.nukeSEInput
+            # If node mode and run in context (experimental) selected in preferences, run the code in its proper context!
+            if self.knobScripter.nodeMode and self.knobScripter.runInContext:
+                # 1. change thisNode, thisKnob...
+                nodeName = self.knobScripter.node.fullName()
+                knobName = self.knobScripter.current_knob_dropdown.itemData(
+                    self.knobScripter.current_knob_dropdown.currentIndex())
+                if nuke.exists(nodeName) and knobName in nuke.toNode(nodeName).knobs():
+                    code = code.replace("nuke.thisNode()", "nuke.toNode('{}')".format(nodeName))
+                    code = code.replace("nuke.thisKnob()", "nuke.toNode('{}').knob('{}')".format(nodeName, knobName))
+                    # 2. If group, wrap all with: with nuke.toNode(fullNameOfGroup) and then indent every single line!
+                    #      at least by one space. replace "\n" with "\n "
+                    if self.knobScripter.node.Class() in ["Group", "LiveGroup", "Root"]:
+                        code = code.replace("\n", "\n  ")
+                        code = "with nuke.toNode('{}'):\n {}".format(nodeName, code)
 
-        nukeSECursor.setPosition(newAnchor, QtGui.QTextCursor.MoveAnchor)
-        nukeSECursor.setPosition(newPosition, QtGui.QTextCursor.KeepAnchor)
-        nukeSEInput.setTextCursor(nukeSECursor)
+            # Store original ScriptEditor status
+            nukeSECursor = nukeSEInput.textCursor()
+            origSelection = nukeSECursor.selectedText()
+            oldAnchor = nukeSECursor.anchor()
+            oldPosition = nukeSECursor.position()
 
-        # Run the code!
-        self.knobScripter.nukeSERunBtn.click()
+            # Add the code to be executed and select it
+            nukeSEInput.insertPlainText(code)
 
-        # Revert ScriptEditor to original
-        nukeSEInput.insertPlainText(origSelection)
-        nukeSECursor.setPosition(oldAnchor, QtGui.QTextCursor.MoveAnchor)
-        nukeSECursor.setPosition(oldPosition, QtGui.QTextCursor.KeepAnchor)
-        nukeSEInput.setTextCursor(nukeSECursor)
+            if oldAnchor < oldPosition:
+                newAnchor = oldAnchor
+                newPosition = nukeSECursor.position()
+            else:
+                newAnchor = nukeSECursor.position()
+                newPosition = oldPosition
+
+            nukeSECursor.setPosition(newAnchor, QtGui.QTextCursor.MoveAnchor)
+            nukeSECursor.setPosition(newPosition, QtGui.QTextCursor.KeepAnchor)
+            nukeSEInput.setTextCursor(nukeSECursor)
+
+            # Run the code!
+            self.knobScripter.nukeSERunBtn.click()
+
+            # Revert ScriptEditor to original
+            nukeSEInput.insertPlainText(origSelection)
+            nukeSECursor.setPosition(oldAnchor, QtGui.QTextCursor.MoveAnchor)
+            nukeSECursor.setPosition(oldPosition, QtGui.QTextCursor.KeepAnchor)
+            nukeSEInput.setTextCursor(nukeSECursor)
+
