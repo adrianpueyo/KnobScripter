@@ -61,7 +61,7 @@ from KnobScripter.info import __version__, __date__
 from KnobScripter import config, prefs, utils, dialogs, widgets, ksscripteditormain
 from KnobScripter import snippets, codegallery, script_output, findreplace, content
 from KnobScripter.utils import string
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 nuke.tprint('KnobScripter v{0}, built {1}.\n'
             'Copyright (c) 2016-{2} Adrian Pueyo.'
