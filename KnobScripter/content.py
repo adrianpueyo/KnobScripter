@@ -93,8 +93,8 @@ blink_keyword_dict = {
 
 default_snippets = {
                         "all": [
-                            [" b","[$$]"], # In nuke panes, Nuke doesn't allow the [] keys with is a pain
-                            ["b","[$$]"], # In nuke panes, Nuke doesn't allow the [] keys with is a pain
+                            [" b","[$$]"], # In nuke panes, most times Nuke doesn't allow the [] keys with is a pain
+                            ["b","[$$]"], # In nuke panes, most times Nuke doesn't allow the [] keys with is a pain
                         ],
                         "blink": [
                             ["img","Image<eRead, eAccessPoint, eEdgeClamped> $$src$$;"],
@@ -107,6 +107,7 @@ default_snippets = {
                             ["sns","nuke.selectedNodes()"],
                             ["sn","nuke.selectedNode()"],
                             ["ntn","nuke.toNode($$)"],
+                            ["cn","nuke.createNode($$)"],
                             ["p","print($$)"],
                             ["an","nuke.allNodes($$)"],
                             ["deselect","[n.setSelected(False) for n in $$nuke.selectedNodes()$$]"],

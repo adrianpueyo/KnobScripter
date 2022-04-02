@@ -54,6 +54,17 @@ def best_ending_match(text, match_list):
 
     return ending_matches[-1]
 
+def get_last_word(text):
+    '''
+    Return the last word (azAZ09_) appearing in the text or False.
+    '''
+    s = re.split(r"[\W]",text)
+    if len(s):
+        return s[-1]
+    else:
+        return False
+
+
 class KSScriptEditorMain(KSScriptEditor):
     '''
     Modified KSScriptEditor to include snippets, tab menu, etc.
@@ -97,8 +108,10 @@ class KSScriptEditorMain(KSScriptEditor):
         to_end = total - from_start
         return to_end
 
-    def addSnippetText(self, snippet_text):
-        ''' Adds the selected text as a snippet (taking care of $$, $name$ etc) to the script editor '''
+    def addSnippetText(self, snippet_text, last_word = None):
+        ''' Adds the selected text as a snippet (taking care of $$, $name$ etc) to the script editor.
+        If last_word arg supplied, it replaces $_$ for that word.
+        '''
         cursor_placeholder_find = r"(?<!\\)(\$\$)"  # Matches $$
         variables_placeholder_find = r"(?:^|[^\\\$])(\$[\w]*[^\t\n\r\f\v\$\\]+\$)(?:$|[^\$])"  # Matches $thing$
         text = snippet_text
@@ -108,12 +121,21 @@ class KSScriptEditorMain(KSScriptEditor):
                 break
             word = placeholder_variable.groups()[0]
             word_bare = word[1:-1]
-            panel = dialogs.TextInputDialog(self.knobScripter, name=word_bare, text="", title="Set text for " + word_bare)
-            if panel.exec_():
-                # Accepted
-                text = text.replace(word, panel.text)
-            else:
-                text = text.replace(word, "")
+            if word == "$_$": # We just add the last word!
+                if last_word:
+                    text = text.replace(word, last_word)
+                else:
+                    text = text.replace(word, "$Variable!$")
+            else: # Another variable to add.
+                panel = dialogs.TextInputDialog(self.knobScripter, name=word_bare, text="", title="Set text for " + word_bare)
+                if panel.exec_():
+                    # Accepted
+                    text = text.replace(word, panel.text)
+                    if word_bare == "Variable!": # Meaning it was supposed to be "$_$"
+                        if not last_word:
+                            text = "{0}.{1}".format(panel.text,text)
+                else:
+                    text = text.replace(word, "")
 
         placeholder_to_end = self.placeholderToEnd(text, cursor_placeholder_find)
 
@@ -231,8 +253,8 @@ class KSScriptEditorMain(KSScriptEditor):
                     line_before_cursor = line_before_cursor[self.tab_spaces:]
                 text_after_cursor = self.toPlainText()[cpos:]
 
-                # Abort mission if there's a tab before, or selected text
-                if self.cursor.hasSelection() or text_before_cursor.endswith("\t"):
+                # Abort mission if there's a tab or nothing before, or selected text
+                if self.cursor.hasSelection() or any([text_before_cursor.endswith(_) for _ in ["\t","\n"]]):
                     KSScriptEditor.keyPressEvent(self, event)
                     return
 
@@ -248,7 +270,13 @@ class KSScriptEditorMain(KSScriptEditor):
                     match_key, match_snippet = best_ending_match(line_before_cursor, snippets_list)
                     for i in range(len(match_key)):
                         self.cursor.deletePreviousChar()
-                    self.addSnippetText(match_snippet)  # Add the appropriate snippet and move the cursor
+                    new_line_before_cursor = text_before_cursor[:-len(match_key)].split('\n')[-1]
+
+                    # Next we'll be able to check what's the last word before the cursor
+                    word_before_cursor = None
+                    if new_line_before_cursor.endswith("."):
+                        word_before_cursor = get_last_word(new_line_before_cursor[:-1].strip())
+                    self.addSnippetText(match_snippet,last_word = word_before_cursor)  # Add the appropriate snippet and move the cursor
                 except:  # Meaning snippet not found...
                     # 3.1. Go with nuke/python completer
                     if self.knobScripter.code_language in ["python","blink"]:

@@ -1568,7 +1568,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                     self.message_box("Script already exists.")
                     self.current_script_dropdown.setCurrentIndex(self.script_index)
                 if self.makeScriptFile(name=script_name):
-                    # Success creating the folder
+                    # Success creating the script
                     self.saveScriptContents(temp=True)
                     if self.current_script != "Untitled.py":
                         self.script_editor.setPlainText("")
@@ -1595,27 +1595,30 @@ class KnobScripterWidget(QtWidgets.QDialog):
             if self.current_script.endswith(".py"):
                 current_name = current_name[:-3]
 
-            test_name = current_name
             while True:
-                test_name += "_copy"
-                new_script_path = os.path.join(config.py_scripts_dir, self.current_folder, test_name + ".py")
-                if not os.path.isfile(new_script_path):
+                panel = dialogs.FileNameDialog(self, mode="script", text="{0}_copy".format(current_name))
+                if panel.exec_():
+                    # Accepted
+                    script_name = panel.text + ".py"
+                    script_path = os.path.join(config.py_scripts_dir, self.current_folder, script_name)
+                    if os.path.isfile(script_path):
+                        self.message_box("Script already exists, please select a different name.")
+                        current_name += "_copy"
+                        continue
+
+                    if self.makeScriptFile(name=script_name):
+                        # Success creating the script
+                        self.saveScriptContents(temp=True)
+                        self.updateScriptsDropdown()
+                        # self.script_editor.setPlainText("")
+                        self.current_script = script_name
+                        self.setCurrentScript(script_name)
+                        self.script_editor.setFocus()
+                        self.saveScriptContents(temp=False)
+                    else:
+                        self.message_box("There was a problem duplicating the script.")
+                        self.current_script_dropdown.setCurrentIndex(self.script_index)
                     break
-
-            script_name = test_name + ".py"
-
-            if self.makeScriptFile(name=script_name, folder=self.current_folder):
-                # Success creating the folder
-                self.saveScriptContents(temp=True)
-                self.updateScriptsDropdown()
-                # self.script_editor.setPlainText("")
-                self.current_script = script_name
-                self.setCurrentScript(script_name)
-                self.script_editor.setFocus()
-            else:
-                self.message_box("There was a problem duplicating the script.")
-                self.current_script_dropdown.setCurrentIndex(self.script_index)
-
             self.current_script_dropdown.blockSignals(False)
 
         elif sd_data == "open in browser":
