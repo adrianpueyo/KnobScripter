@@ -253,10 +253,28 @@ class KSScriptEditorMain(KSScriptEditor):
                     line_before_cursor = line_before_cursor[self.tab_spaces:]
                 text_after_cursor = self.toPlainText()[cpos:]
 
-                # Abort mission if there's a tab or nothing before, or selected text
-                if self.cursor.hasSelection() or any([text_before_cursor.endswith(_) for _ in ["\t","\n"]]):
+                # Abort mission if there's a tab or nothing before
+                if any([text_before_cursor.endswith(_) for _ in ["\t","\n"]]) or not len(line_before_cursor.strip()):
                     KSScriptEditor.keyPressEvent(self, event)
                     return
+
+                # If cursor has selection, abort mission if it spawns multiple lines or includes start of line + spaces
+                # Otherwise, open floating panel to input a text to encapsulate with () the selection! New v3.0
+                if self.cursor.hasSelection():
+                    cursor_text = self.cursor.selectedText()
+                    if "\n" not in cursor_text and len(line_before_cursor):
+                        panel = dialogs.TextInputDialog(self.knobScripter, name="Wrap with", text="", title="Wrap selection.")
+                        if panel.exec_():
+                            # Accepted
+                            cpos = self.cursor.position()
+                            apos = self.cursor.anchor()
+                            text_len = int(len(panel.text))
+                            self.cursor.insertText(panel.text+"(" + cursor_text + ")")
+                            self.cursor.setPosition(apos , QtGui.QTextCursor.MoveAnchor)
+                            self.cursor.setPosition(cpos + 2 + text_len, QtGui.QTextCursor.KeepAnchor)
+                            self.setTextCursor(self.cursor)
+                    return
+
 
                 # 3. Check coincidences in snippets dicts
                 try:  # Meaning snippet found
