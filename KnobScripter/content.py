@@ -101,16 +101,20 @@ default_snippets = {
                             ["kernel","kernel $$SaturationKernel$$ : ImageComputationKernel <ePixelWise>\n{\n\n}"],
                         ],
                         "python": [
-                            ["try","try:\n    $$\nexcept:\n    pass"],
-                            ["tn","nuke.thisNode()"],
-                            ["tk","nuke.thisKnob()"],
-                            ["sns","nuke.selectedNodes()"],
-                            ["sn","nuke.selectedNode()"],
-                            ["ntn","nuke.toNode($$)"],
-                            ["cn","nuke.createNode($$)"],
-                            ["p","print($$)"],
                             ["an","nuke.allNodes($$)"],
+                            ["cx","xpos()+$_$.screenWidth()/2"],
+                            ["cy","ypos()+$_$.screenHeight()/2"],
                             ["deselect","[n.setSelected(False) for n in $$nuke.selectedNodes()$$]"],
+                            ["ntn","nuke.toNode($$)"],
+                            ["p","print($$)"],
+                            ["sn","nuke.selectedNode()"],
+                            ["sns","nuke.selectedNodes()"],
+                            ["tk","nuke.thisKnob()"],
+                            ["tn","nuke.thisNode()"],
+                            ["try","try:\n    $$\nexcept:\n    pass"],
+                            ["x","xpos()"],
+                            ["xy","$node$_pos = [$node$.xpos(),$node$.ypos()]\n"],
+                            ["y","ypos()"],
                         ]
                     }
 
