@@ -262,18 +262,19 @@ class KSScriptEditorMain(KSScriptEditor):
                 # Otherwise, open floating panel to input a text to encapsulate with () the selection! New v3.0
                 if self.cursor.hasSelection():
                     cursor_text = self.cursor.selectedText()
-                    if "\n" not in cursor_text and len(line_before_cursor):
+                    if u"\u2029" not in cursor_text and len(line_before_cursor): # Newline "\n" is auto converted to u"\u2029"
                         panel = dialogs.TextInputDialog(self.knobScripter, name="Wrap with", text="", title="Wrap selection.")
                         if panel.exec_():
                             # Accepted
                             cpos = self.cursor.position()
                             apos = self.cursor.anchor()
-                            text_len = int(len(panel.text))
-                            self.cursor.insertText(panel.text+"(" + cursor_text + ")")
-                            self.cursor.setPosition(apos , QtGui.QTextCursor.MoveAnchor)
-                            self.cursor.setPosition(cpos + 2 + text_len, QtGui.QTextCursor.KeepAnchor)
+                            cpos = min(cpos,apos)
+                            new_text = "{0}({1})".format(panel.text,cursor_text)
+                            self.cursor.insertText(new_text)
+                            self.cursor.setPosition(cpos , QtGui.QTextCursor.MoveAnchor)
+                            self.cursor.setPosition(cpos + len(new_text), QtGui.QTextCursor.KeepAnchor)
                             self.setTextCursor(self.cursor)
-                    return
+                        return
 
 
                 # 3. Check coincidences in snippets dicts

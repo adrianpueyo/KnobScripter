@@ -102,9 +102,12 @@ default_snippets = {
                         ],
                         "python": [
                             ["an","nuke.allNodes($$)"],
+                            ["cn","nuke.createNode(\"$$\")"],
                             ["cx","xpos()+$_$.screenWidth()/2"],
                             ["cy","ypos()+$_$.screenHeight()/2"],
                             ["deselect","[n.setSelected(False) for n in $$nuke.selectedNodes()$$]"],
+                            ["docs","\"\"\"\nThis is an example of Google style.\n\nArgs:\n    param1: This is the first param.\n    param2: This is a second param.\n\nReturns:\n    This is a description of what is returned.\n\nRaises:\n    KeyError: Raises an exception.\n\"\"\""],
+                            ["nodename","$Node title$ = nuke.thisNode()\n$Node title$_name = $Node title$.name()"],
                             ["ntn","nuke.toNode($$)"],
                             ["p","print($$)"],
                             ["sn","nuke.selectedNode()"],

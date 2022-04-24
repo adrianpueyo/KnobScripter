@@ -256,7 +256,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
                     cursor.setPosition(cpos + 1, QtGui.QTextCursor.KeepAnchor)
                 self.setTextCursor(cursor)
             elif key == 35 and len(selection):  # # (yes, a hash)
-                # If there's a selection, insert a hash at the start of each line.. how the fuck?
+                # If there's a selection, insert a hash at the start of each line.. how?
                 if selection != "":
                     selection_split = selection.split("\n")
                     if all(i.startswith("#") for i in selection_split):
