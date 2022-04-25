@@ -466,8 +466,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
                                                            "nuke.thisNode() to the node's name, etc.",
                                                  triggered=self.toggleRunInContext)
         self.runInContextAct.setChecked(self.runInContext)
-        self.helpAct = QtWidgets.QAction("&Help", self, statusTip="Open the KnobScripter help in your browser.",
+        self.helpAct = QtWidgets.QAction("&User Guide (pdf)", self, statusTip="Open the KnobScripter 3 User Guide in your browser.",
                                          shortcut="F1", triggered=self.showHelp)
+        self.videotutAct = QtWidgets.QAction("Video Tutorial", self, statusTip="Link to the KnobScripter 3 tutorial in your browser.",
+                                         triggered=self.showVideotut)
         self.nukepediaAct = QtWidgets.QAction("Show in Nukepedia", self,
                                               statusTip="Open the KnobScripter download page on Nukepedia.",
                                               triggered=self.showInNukepedia)
@@ -489,6 +491,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         self.prefsMenu.addAction(self.githubAct)
         self.prefsMenu.addSeparator()
         self.prefsMenu.addAction(self.helpAct)
+        self.prefsMenu.addAction(self.videotutAct)
         self.prefsMenu.addSeparator()
         self.prefsMenu.addAction(self.snippetsAct)
         self.prefsMenu.addAction(self.prefsAct)
@@ -518,7 +521,13 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
     @staticmethod
     def showHelp():
-        open_url("https://vimeo.com/adrianpueyo/knobscripter2")
+        open_url("https://adrianpueyo.com/ks3-docs")
+
+    @staticmethod
+    def showVideotut():
+        open_url("https://adrianpueyo.com/ks3-video")
+
+    
 
     # Blink Backups menu
     def createBlinkBackupsMenu(self):
