@@ -548,6 +548,7 @@ class KSScriptEditorMain(KSScriptEditor):
                 self.knobScripter.current_knob_dropdown.currentIndex())
             if nuke.exists(nodeName) and knobName in nuke.toNode(nodeName).knobs():
                 run_context = "{}.{}".format(nodeName, knobName)
+                code = 'exec("""{}""")'.format(code.replace('\\', '\\\\'))
             # Run the code! Much cleaner in this way:
             nuke.runIn(run_context, code)
 
