@@ -45,4 +45,7 @@ class ScriptOutputWidget(QtWidgets.QTextEdit):
                 return KnobScripter.keyPressEvent(self.knobScripter, event)
             elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
                 self.knobScripter.clearConsole()
+            elif key == Qt.Key_Escape:
+                if type( self.parent().parent() ) == nuke.KnobScripterPane:
+                    return
         return QtWidgets.QTextEdit.keyPressEvent(self, event)
