@@ -10,6 +10,8 @@ adrianpueyo.com
 """
 
 import nuke
+import math
+from KnobScripter import config
 
 try:
     if nuke.NUKE_VERSION_MAJOR < 11:
@@ -33,19 +35,27 @@ class ScriptOutputWidget(QtWidgets.QTextEdit):
         self.knobScripter = parent
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.setMinimumHeight(20)
+        #self.font = QtGui.QFont()
+        #self.setFont(self.font)
+        self.setFont(config.script_editor_font)
+
 
     def keyPressEvent(self, event):
         # ctrl = ((event.modifiers() and Qt.ControlModifier) != 0)
+        ctrl = bool(event.modifiers() & Qt.ControlModifier)
         # alt = ((event.modifiers() and Qt.AltModifier) != 0)
         # shift = ((event.modifiers() and Qt.ShiftModifier) != 0)
         key = event.key()
         if type(event) == QtGui.QKeyEvent:
-            # print event.key()
-            if key in [32]:  # Space
-                return KnobScripter.keyPressEvent(self.knobScripter, event)
+            #print(event.key())
+            # If ctrl + +, increase font size
+            if ctrl and key == Qt.Key_Plus:
+                self.zoomIn()
+            # If ctrl + -, decrease font size
+            elif ctrl and key == Qt.Key_Minus:
+                self.zoomOut()
+            elif key in [32]:  # Space
+                return self.knobScripter.keyPressEvent(event)
             elif key in [Qt.Key_Backspace, Qt.Key_Delete]:
                 self.knobScripter.clearConsole()
-            elif key == Qt.Key_Escape:
-                if type( self.parent().parent() ) == nuke.KnobScripterPane:
-                    return
         return QtWidgets.QTextEdit.keyPressEvent(self, event)
