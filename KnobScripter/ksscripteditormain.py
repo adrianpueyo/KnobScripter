@@ -238,7 +238,8 @@ class KSScriptEditorMain(KSScriptEditor):
 
         if type(event) == QtGui.QKeyEvent:
             if key == Qt.Key_Escape:  # Close the knobscripter...
-                self.knobScripter.close()
+                if not type( self.parent().parent() ) == nuke.KnobScripterPane:
+                    self.knobScripter.close()
             elif not ctrl and not alt and not shift and event.key() == Qt.Key_Tab:  # If only tab
                 self.placeholder = "$$"
                 # 1. Set the cursor
@@ -547,6 +548,7 @@ class KSScriptEditorMain(KSScriptEditor):
                 self.knobScripter.current_knob_dropdown.currentIndex())
             if nuke.exists(nodeName) and knobName in nuke.toNode(nodeName).knobs():
                 run_context = "{}.{}".format(nodeName, knobName)
+                code = 'exec("""{}""")'.format(code.replace('\\', '\\\\'))
             # Run the code! Much cleaner in this way:
             nuke.runIn(run_context, code)
 
