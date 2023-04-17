@@ -390,7 +390,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
 
         if config.prefs["se_tab_spaces"] != 0:
             self.script_editor.setTabStopWidth(
-                config.prefs["se_tab_spaces"] * QtGui.QFontMetrics(config.script_editor_font).width(' '))
+                config.prefs["se_tab_spaces"] * QtGui.QFontMetrics(config.script_editor_font).horizontalAdvance(' '))
 
         # Add input and output to splitter
         self.splitter.addWidget(self.script_output)

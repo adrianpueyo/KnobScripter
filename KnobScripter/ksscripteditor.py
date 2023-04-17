@@ -70,7 +70,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             max_num /= 10
             digits += 1
 
-        space = 7 + self.fontMetrics().width('9') * digits
+        space = 7 + self.fontMetrics().horizontalAdvance('9') * digits
         return space
 
     def updateLineNumberAreaWidth(self):
