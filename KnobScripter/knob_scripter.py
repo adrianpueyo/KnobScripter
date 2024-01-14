@@ -11,7 +11,7 @@ adrianpueyo.com
 
 import os
 import json
-import six
+#import six
 import io
 
 from nukescripts import panels
@@ -60,7 +60,7 @@ christmas = (now.month == 12 and now.day > 15) or (now.month == 1 and now.day < 
 from KnobScripter.info import __version__, __date__
 from KnobScripter import config, prefs, utils, dialogs, widgets, ksscripteditormain
 from KnobScripter import snippets, codegallery, script_output, findreplace, content
-from KnobScripter.utils import string
+
 # logging.basicConfig(level=logging.DEBUG)
 
 nuke.tprint('KnobScripter v{0}, built {1}.\n'
@@ -612,9 +612,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
         try:
             # If blinkscript, use getValue.
             if knob_language == "blink":
-                obtained_knob_value = string(self.node[dropdown_value].getValue())
+                obtained_knob_value = self.node[dropdown_value].getValue()
             elif knob_language == "python":
-                obtained_knob_value = string(self.node[dropdown_value].value())
+                obtained_knob_value = self.node[dropdown_value].value()
                 logging.debug(obtained_knob_value)
                 logging.debug(type(obtained_knob_value))
             else:  # TODO: knob language is None -> try to get the expression for tcl???
@@ -803,7 +803,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if len(self.unsaved_knobs) > 0:
             for k in self.unsaved_knobs.copy():
                 if self.node.knob(k):
-                    if string(self.getKnobValue(k)) == string(self.unsaved_knobs[k]):
+                    if self.getKnobValue(k) == self.unsaved_knobs[k]:
                         del self.unsaved_knobs[k]
                 else:
                     del self.unsaved_knobs[k]
@@ -1415,7 +1415,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if temp:
             if os.path.isfile(script_path):
                 with io.open(script_path, 'r', encoding="utf-8") as script:
-                    orig_content = string(script.read()) # string()
+                    orig_content = script.read()
             elif script_content == "" and os.path.isfile(script_path_temp):
                 # If script path doesn't exist and autosave does but the script is empty...
                 os.remove(script_path_temp)
@@ -2061,7 +2061,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
     def setModified(self):
         if self.nodeMode:
             if not self.current_knob_modified:
-                if string(self.getKnobValue(self.knob)) != self.script_editor.toPlainText(): # string()
+                if self.getKnobValue(self.knob) != self.script_editor.toPlainText(): 
                     self.setKnobModified(True)
         elif not self.current_script_modified:
             self.setScriptModified(True)
