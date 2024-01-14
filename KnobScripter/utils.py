@@ -7,6 +7,7 @@ adrianpueyo.com
 
 """
 import nuke
+import six
 
 from KnobScripter import config
 try:
@@ -76,9 +77,9 @@ def findSE():
 
 def string(text):
     # Quick workaround for python 2 vs 3 unicode str headache
-    if nuke.NUKE_VERSION_MAJOR >= 13:
+    if six.PY3:
         unicode = str
-    if isinstance(text, bytes):
+    if isinstance(text, six.binary_type):
         return text.decode("utf-8")
     else:
         return text
