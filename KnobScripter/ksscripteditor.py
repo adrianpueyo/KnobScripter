@@ -413,7 +413,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         # snap to previous indent level
         spaces = len(text_in_front)
 
-        for space in range(int(spaces - int(float(spaces - 1) / self.tab_spaces) * self.tab_spaces - 1)):
+        for space in range(int(spaces - int(float(spaces - 1) // self.tab_spaces) * self.tab_spaces - 1)):
             self.cursor.deletePreviousChar()
 
     def indentNewLine(self):
@@ -436,7 +436,7 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
             else:
                 break
 
-        indent_level /= self.tab_spaces
+        indent_level //= self.tab_spaces
 
         # find out whether text_in_front's last character was a ':'
         # if that's the case add another indent.

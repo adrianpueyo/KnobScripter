@@ -11,7 +11,6 @@ adrianpueyo.com
 
 import os
 import json
-#import six
 import io
 
 from nukescripts import panels
@@ -36,7 +35,6 @@ if os.name == "nt" and nuke.NUKE_VERSION_MAJOR < 13:
                 raise ctypes.WinError()
         except AttributeError:
             pass
-
 
     os.symlink = symlink_ms
 
