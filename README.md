@@ -1,5 +1,5 @@
 # KnobScripter
-**KnobScripter v3.0** (or **KS3**) is a full script editor for Nuke that can script python on .py files and knobs as well as BlinkScript, with all the functionality from the default script editor in Nuke plus syntax helpers, predictions, snippets and other handy features.
+**KnobScripter v3.1** (or **KS3**) is a full script editor for Nuke that can script python on .py files and knobs as well as BlinkScript, with all the functionality from the default script editor in Nuke plus syntax helpers, predictions, snippets and other handy features.
  
 **KS3** is the next major step for this tool, and it features a greatly optimized code, Python 3 compatibility, BlinkScript mode, a Code Gallery and many other features and fixes.
 
