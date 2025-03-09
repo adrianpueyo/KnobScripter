@@ -1,21 +1,24 @@
 # -*- coding: utf-8 -*-
 """ Utils: KnobScripter's utility functions
 
-utils.py contains utility functions that can potentially be helpful for multiple ks modules.
+utils.py contains utility functions that can potentially be helpful for multiple KS modules.
 
 adrianpueyo.com
 
 """
 import nuke
-
 from KnobScripter import config
+
 try:
-    if nuke.NUKE_VERSION_MAJOR < 11:
-        from PySide import QtGui as QtWidgets
-    else:
+    if nuke.NUKE_VERSION_MAJOR >= 16:
+        from PySide6 import QtWidgets
+    elif nuke.NUKE_VERSION_MAJOR >= 11:
         from PySide2 import QtWidgets
+    else:
+        from PySide import QtGui as QtWidgets
 except ImportError:
     from Qt import QtWidgets
+
 
 def remove_comments_and_docstrings(source):
     """
@@ -86,7 +89,7 @@ def findSEInput(se):
     return None
 
 
-def filepath_version_up(filepath,find_next_available=True):
+def filepath_version_up(filepath, find_next_available=True):
     '''
     Return versioned up version of filepath.
     @param find_next_available: whether to find the next version that doesn't exist, or simply return the version +1
@@ -103,7 +106,7 @@ def filepath_version_up(filepath,find_next_available=True):
         padding = len(version_str)
         version = int(version_str)
         while True:
-            new_path = re.sub(filepath_re, "\g<1>"+str(version+1).zfill(padding)+"\g<3>", filepath)
+            new_path = re.sub(filepath_re, "\g<1>" + str(version+1).zfill(padding) + "\g<3>", filepath)
             if not find_next_available or not os.path.exists(new_path):
                 return new_path
             version += 1
@@ -176,8 +179,8 @@ def relistAllKnobScripterPanes():
 def getKnobScripter(knob_scripter=None, alternative=True):
     """
     Return the given knobscripter if it exists.
-    Otherwise if alternative == True, find+return another one.
-    If no knobscripters found, returns None.
+    Otherwise if alternative == True, find and return another one.
+    If no knobscripters are found, returns None.
     """
     relistAllKnobScripterPanes()
     ks = None
@@ -197,7 +200,8 @@ def getKnobScripter(knob_scripter=None, alternative=True):
 
 
 def nk_saved_path():
-    return nuke.root().name().rsplit("_",1)[0] # Ignoring the version if it happens to be there. Doesn't hurt.
+    return nuke.root().name().rsplit("_", 1)[0]  # Ignoring the version if present. Doesn't hurt.
+
 
 def clear_layout(layout):
     if layout is not None:
@@ -206,4 +210,4 @@ def clear_layout(layout):
             if child.widget() is not None:
                 child.widget().deleteLater()
             elif child.layout() is not None:
-                clearLayout(child.layout())
+                clear_layout(child.layout())

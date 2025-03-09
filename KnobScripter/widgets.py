@@ -10,12 +10,15 @@ import nuke
 import os
 
 try:
-    if nuke.NUKE_VERSION_MAJOR < 11:
-        from PySide import QtCore, QtGui, QtGui as QtWidgets
-        from PySide.QtCore import Qt
-    else:
+    if nuke.NUKE_VERSION_MAJOR >= 16:
+        from PySide6 import QtCore, QtGui, QtWidgets
+        from PySide6.QtCore import Qt
+    elif nuke.NUKE_VERSION_MAJOR >= 11:
         from PySide2 import QtWidgets, QtGui, QtCore
         from PySide2.QtCore import Qt
+    else:
+        from PySide import QtCore, QtGui, QtGui as QtWidgets
+        from PySide.QtCore import Qt
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
 
@@ -28,7 +31,10 @@ class GripWidget(QtWidgets.QFrame):
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(inner_widget)
-        layout.setMargin(0)
+        if hasattr(layout, "setContentsMargins"):
+            layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            layout.setMargin(0)
         self.setLayout(layout)
 
         cursor = None
@@ -40,7 +46,6 @@ class GripWidget(QtWidgets.QFrame):
             cursor = Qt.SplitVCursor
 
         self.setCursor(QtGui.QCursor(cursor))
-
         self.parent = parent
         self.resize_x = resize_x
         self.resize_y = resize_y
@@ -107,7 +112,6 @@ class ClickableWidget(QtWidgets.QFrame):
         if event.button() == Qt.LeftButton:
             if self.highlighted:
                 self.clicked.emit()
-                pass
 
 
 class Arrow(QtWidgets.QFrame):
@@ -119,9 +123,11 @@ class Arrow(QtWidgets.QFrame):
         self.expanded = expanded
 
         px, py = self.padding
-        self._arrow_down = [QtCore.QPointF(0 + px, 2.0 + py), QtCore.QPointF(10.0 + px, 2.0 + py),
+        self._arrow_down = [QtCore.QPointF(0 + px, 2.0 + py),
+                            QtCore.QPointF(10.0 + px, 2.0 + py),
                             QtCore.QPointF(5.0 + px, 7.0 + py)]
-        self._arrow_right = [QtCore.QPointF(2.0 + px, 0.0 + py), QtCore.QPointF(7.0 + px, 5.0 + py),
+        self._arrow_right = [QtCore.QPointF(2.0 + px, 0.0 + py),
+                             QtCore.QPointF(7.0 + px, 5.0 + py),
                              QtCore.QPointF(2.0 + px, 10.0 + py)]
         self._arrowPoly = None
         self.setExpanded(expanded)
@@ -145,42 +151,34 @@ class Arrow(QtWidgets.QFrame):
 
 class ToggableGroup(QtWidgets.QFrame):
     """ Abstract QFrame with an arrow, a title area and a toggable content layout. """
-
     def __init__(self, parent=None, title="", collapsed=False):
         super(ToggableGroup, self).__init__(parent)
-
         self.collapsed = collapsed
 
         # Widgets and layouts
         self.arrow = Arrow(parent=self)
 
-        # Layout
         # 1. Top Layout
-        # Left (clickable) part, for the title
         self.top_clickable_widget = ClickableWidget()
         self.top_clickable_layout = QtWidgets.QHBoxLayout()
         self.top_clickable_layout.setSpacing(6)
+        if hasattr(self.top_clickable_layout, "setContentsMargins"):
+            self.top_clickable_layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            self.top_clickable_layout.setMargin(0)
         self.top_clickable_widget.setLayout(self.top_clickable_layout)
-        # self.top_clickable_widget.setStyleSheet(".ClickableWidget{margin-top: 3px;background:transparent}")
-        # self.top_clickable_widget.setStyleSheet("background:#000;float:left;")
         self.top_clickable_widget.clicked.connect(self.toggleCollapsed)
 
-        # Right (non-clickable) part, for buttons or extras
         self.top_right_layout = QtWidgets.QHBoxLayout()
-
         self.top_clickable_layout.addWidget(self.arrow)
         self.title_label = QtWidgets.QLabel()
         self.title_label.setStyleSheet("line-height:50%;")
         self.title_label.setTextInteractionFlags(Qt.NoTextInteraction)
         self.title_label.setWordWrap(True)
-
-        self.top_clickable_widget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
-        self.setTitle(title)
         self.top_clickable_layout.addWidget(self.title_label)
         self.top_clickable_layout.addSpacing(1)
         self.top_clickable_layout.setAlignment(Qt.AlignVCenter)
 
-        # Together
         self.top_layout = QtWidgets.QHBoxLayout()
         self.top_layout.addWidget(self.top_clickable_widget)
         self.top_layout.addLayout(self.top_right_layout)
@@ -191,21 +189,28 @@ class ToggableGroup(QtWidgets.QFrame):
         self.content_widget.setStyleSheet("#content-widget{margin:6px 0px 5px 24px;}")
         self.content_layout = QtWidgets.QVBoxLayout()
         self.content_widget.setLayout(self.content_layout)
-        # self.content_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
 
-        # 3. Vertical layout of 1 and 2
+        # 3. Master layout
         master_layout = QtWidgets.QVBoxLayout()
         master_layout.addLayout(self.top_layout)
         master_layout.addWidget(self.content_widget)
-
         self.setLayout(master_layout)
         self.setCollapsed(self.collapsed)
 
-        master_layout.setMargin(0)
-        self.content_layout.setMargin(0)
+        if hasattr(master_layout, "setContentsMargins"):
+            master_layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            master_layout.setMargin(0)
+        if hasattr(self.content_layout, "setContentsMargins"):
+            self.content_layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            self.content_layout.setMargin(0)
         self.content_layout.setSizeConstraint(self.content_layout.SetNoConstraint)
         self.setMinimumHeight(10)
-        self.top_clickable_layout.setMargin(0)
+        if hasattr(self.top_clickable_layout, "setContentsMargins"):
+            self.top_clickable_layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            self.top_clickable_layout.setMargin(0)
 
     def setTitle(self, text=""):
         self.title_label.setText(text)
@@ -223,19 +228,14 @@ class ToggableGroup(QtWidgets.QFrame):
 
 class ToggableCodeGroup(ToggableGroup):
     """ ToggableGroup adapted for having a code editor """
-
     def __init__(self, parent=None):
         self.prev_height = None
         super(ToggableCodeGroup, self).__init__(parent=parent)
         self.parent = parent
-
-        # Add content
         self.script_editor = ksscripteditor.KSScriptEditor()
         self.script_editor.setMinimumHeight(20)
-
         self.content_layout.addWidget(self.script_editor)
         self.content_layout.setSpacing(1)
-
         self.grip_line = GripWidget(self, inner_widget=HLine())
         self.grip_line.setStyleSheet("GripWidget:hover{border: 1px solid #DDD;}")
         self.grip_line.parent_min_size = (100, 100)
@@ -248,7 +248,6 @@ class ToggableCodeGroup(ToggableGroup):
         else:
             if self.prev_height:
                 self.setFixedHeight(self.prev_height)
-
         super(ToggableCodeGroup, self).setCollapsed(collapsed)
 
 
@@ -257,8 +256,8 @@ class RadioSelector(QtWidgets.QWidget):
 
     def __init__(self, item_list=None, orientation=0, parent=None):
         """
-        item_list: list of strings
-        orientation = 0 (h) or 1 (v)
+        item_list: list of strings.
+        orientation = 0 (horizontal) or 1 (vertical).
         """
         super(RadioSelector, self).__init__(parent)
         self.item_list = item_list
@@ -276,11 +275,12 @@ class RadioSelector(QtWidgets.QWidget):
             self.button_group.addButton(self.button_list[btn], i)
             self.layout.addWidget(self.button_list[btn])
         self.button_group.buttonClicked.connect(self.button_clicked)
-
         self.layout.addStretch(1)
-
         self.setLayout(self.layout)
-        self.layout.setMargin(0)
+        if hasattr(self.layout, "setContentsMargins"):
+            self.layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            self.layout.setMargin(0)
 
     def button_clicked(self, button):
         self.radio_selected.emit(str(button.text()))
@@ -301,11 +301,9 @@ class RadioSelector(QtWidgets.QWidget):
 
 
 class APToolButton(QtWidgets.QToolButton):
-    """ Given the png name and sizes, makes a tool button """
-
+    """Given the png name and sizes, creates a tool button."""
     def __init__(self, icon=None, icon_size=None, btn_size=None, parent=None):
         super(APToolButton, self).__init__(parent=parent)
-
         self.icon_path = None
         self.set_icon(icon)
         icon_size = icon_size or config.prefs["qt_icon_size"]
@@ -314,7 +312,7 @@ class APToolButton(QtWidgets.QToolButton):
         self.setFixedSize(QtCore.QSize(btn_size, btn_size))
 
     def set_icon(self, icon_filename=None, add_extension=True, full_path=False):
-        """ Set the button's icon (i.e. icon_search.png) """
+        """Set the button's icon (e.g., icon_search.png)."""
         if icon_filename is None:
             self.setIcon(None)
             return

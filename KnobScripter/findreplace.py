@@ -1,44 +1,48 @@
 # -*- coding: utf-8 -*-
-""" FindReplaceWidget: Search and Replace widget for a QPlainTextEdit! Designed for KnobScripter
+""" FindReplaceWidget: Search and Replace widget for a QPlainTextEdit!
+Designed for KnobScripter
 
 adrianpueyo.com
-
 """
 
 import nuke
 
 try:
-    if nuke.NUKE_VERSION_MAJOR < 11:
-        from PySide import QtCore, QtGui, QtGui as QtWidgets
-        from PySide.QtCore import Qt
-    else:
+    if nuke.NUKE_VERSION_MAJOR >= 16:
+        from PySide6 import QtCore, QtGui, QtWidgets
+        from PySide6.QtCore import Qt
+        IS_PYSIDE6 = True
+    elif nuke.NUKE_VERSION_MAJOR >= 11:
         from PySide2 import QtWidgets, QtGui, QtCore
         from PySide2.QtCore import Qt
+        IS_PYSIDE6 = False
+    else:
+        from PySide import QtCore, QtGui, QtGui as QtWidgets
+        from PySide.QtCore import Qt
+        IS_PYSIDE6 = False
 except ImportError:
     from Qt import QtCore, QtGui, QtWidgets
+    IS_PYSIDE6 = False
 
 
 class FindReplaceWidget(QtWidgets.QWidget):
     """
-    SearchReplace Widget for the knobscripter. FindReplaceWidget(parent = QPlainTextEdit)
+    Search and Replace widget for KnobScripter's QPlainTextEdit.
+    Provides UI for finding and replacing text within the editor.
     """
 
     def __init__(self, textedit, parent=None):
         super(FindReplaceWidget, self).__init__(parent)
-
         self.editor = textedit
-
         self.initUI()
 
     def initUI(self):
-
         # --------------
         # Find Row
         # --------------
 
         # Widgets
         self.find_label = QtWidgets.QLabel("Find:")
-        # self.find_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
         self.find_label.setFixedWidth(50)
         self.find_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.find_lineEdit = QtWidgets.QLineEdit()
@@ -48,7 +52,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.find_prev_button.clicked.connect(self.findBack)
         self.find_lineEdit.returnPressed.connect(self.find_next_button.click)
 
-        # Layout
+        # Layout for Find Row
         self.find_layout = QtWidgets.QHBoxLayout()
         self.find_layout.addWidget(self.find_label)
         self.find_layout.addWidget(self.find_lineEdit, stretch=1)
@@ -61,7 +65,6 @@ class FindReplaceWidget(QtWidgets.QWidget):
 
         # Widgets
         self.replace_label = QtWidgets.QLabel("Replace:")
-        # self.replace_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
         self.replace_label.setFixedWidth(50)
         self.replace_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.replace_lineEdit = QtWidgets.QLineEdit()
@@ -71,21 +74,17 @@ class FindReplaceWidget(QtWidgets.QWidget):
         self.replace_all_button.clicked.connect(lambda: self.replace(rep_all=True))
         self.replace_lineEdit.returnPressed.connect(self.replace_button.click)
 
-        # Layout
+        # Layout for Replace Row
         self.replace_layout = QtWidgets.QHBoxLayout()
         self.replace_layout.addWidget(self.replace_label)
         self.replace_layout.addWidget(self.replace_lineEdit, stretch=1)
         self.replace_layout.addWidget(self.replace_button)
         self.replace_layout.addWidget(self.replace_all_button)
 
-        # Info text
+        # Info text for feedback
         self.info_text = QtWidgets.QLabel("")
         self.info_text.setVisible(False)
         self.info_text.mousePressEvent = lambda x: self.info_text.setVisible(False)
-        # f = self.info_text.font()
-        # f.setItalic(True)
-        # self.info_text.setFont(f)
-        # self.info_text.clicked.connect(lambda:self.info_text.setVisible(False))
 
         # Divider line
         line = QtWidgets.QFrame()
@@ -93,28 +92,24 @@ class FindReplaceWidget(QtWidgets.QWidget):
         line.setFrameShadow(QtWidgets.QFrame.Sunken)
         line.setLineWidth(0)
         line.setMidLineWidth(1)
-        line.setFrameShadow(QtWidgets.QFrame.Sunken)
 
         # --------------
         # Main Layout
         # --------------
-
         self.layout = QtWidgets.QVBoxLayout()
         self.layout.addSpacing(4)
         self.layout.addWidget(self.info_text)
         self.layout.addLayout(self.find_layout)
         self.layout.addLayout(self.replace_layout)
         self.layout.setSpacing(4)
-        if nuke.NUKE_VERSION_MAJOR >= 11:
-            self.layout.setMargin(2)
-        else:
+        if hasattr(self.layout, "setContentsMargins"):
             self.layout.setContentsMargins(2, 2, 2, 2)
+        else:
+            self.layout.setMargin(2)
         self.layout.addSpacing(4)
         self.layout.addWidget(line)
         self.setLayout(self.layout)
         self.setTabOrder(self.find_lineEdit, self.replace_lineEdit)
-        # self.adjustSize()
-        # self.setMaximumHeight(180)
 
     def find(self, find_str="", match_case=True):
         if find_str == "":
@@ -128,16 +123,16 @@ class FindReplaceWidget(QtWidgets.QWidget):
         else:
             self.info_text.setVisible(False)
 
-        # Beginning of undo block
+        # Begin undo block
         cursor = self.editor.textCursor()
         cursor.beginEditBlock()
 
-        # Use flags for case match
+        # Set flags for case sensitivity
         flags = QtGui.QTextDocument.FindFlags()
         if match_case:
             flags = flags | QtGui.QTextDocument.FindCaseSensitively
 
-        # Find next
+        # Find next occurrence
         r = self.editor.find(find_str, flags)
 
         cursor.endEditBlock()
@@ -158,17 +153,16 @@ class FindReplaceWidget(QtWidgets.QWidget):
         else:
             self.info_text.setVisible(False)
 
-        # Beginning of undo block
+        # Begin undo block
         cursor = self.editor.textCursor()
         cursor.beginEditBlock()
 
-        # Use flags for case match
-        flags = QtGui.QTextDocument.FindFlags()
-        flags = flags | QtGui.QTextDocument.FindBackward
+        # Set flags for case sensitivity and backward search
+        flags = QtGui.QTextDocument.FindFlags() | QtGui.QTextDocument.FindBackward
         if match_case:
             flags = flags | QtGui.QTextDocument.FindCaseSensitively
 
-        # Find prev
+        # Find previous occurrence
         r = self.editor.find(find_str, flags)
         cursor.endEditBlock()
         self.editor.setFocus()
@@ -188,14 +182,12 @@ class FindReplaceWidget(QtWidgets.QWidget):
         else:
             self.info_text.setVisible(False)
 
-        # Beginning of undo block
+        # Begin undo block
         cursor = self.editor.textCursor()
-        # cursor_orig_pos = cursor.position()
         cursor.beginEditBlock()
 
-        # Use flags for case match
-        flags = QtGui.QTextDocument.FindFlags()
-        flags = flags | QtGui.QTextDocument.FindCaseSensitively
+        # Use flags for case sensitive search
+        flags = QtGui.QTextDocument.FindFlags() | QtGui.QTextDocument.FindCaseSensitively
 
         if rep_all:
             cursor.movePosition(QtGui.QTextCursor.Start)
@@ -204,7 +196,7 @@ class FindReplaceWidget(QtWidgets.QWidget):
             rep_count = 0
             while True:
                 if not cursor.hasSelection() or cursor.selectedText() != find_str:
-                    self.editor.find(find_str, flags)  # Find next
+                    self.editor.find(find_str, flags)
                     cursor = self.editor.textCursor()
                     if not cursor.hasSelection():
                         break
@@ -213,10 +205,10 @@ class FindReplaceWidget(QtWidgets.QWidget):
                     rep_count += 1
             self.info_text.setText("              Replaced " + str(rep_count) + " matches.")
             self.info_text.setVisible(True)
-        else:  # If not "find all"
+        else:
             if not cursor.hasSelection() or cursor.selectedText() != find_str:
-                self.editor.find(find_str, flags)  # Find next
-                if not cursor.hasSelection() and matches > 0:  # If not found but there are matches, start over
+                self.editor.find(find_str, flags)
+                if not cursor.hasSelection() and matches > 0:
                     cursor.movePosition(QtGui.QTextCursor.Start)
                     self.editor.setTextCursor(cursor)
                     self.editor.find(find_str, flags)
