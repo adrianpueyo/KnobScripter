@@ -42,6 +42,22 @@ class ScriptOutputWidget(QtWidgets.QTextEdit):
         self.setMinimumHeight(20)
         self.setFont(config.script_editor_font)
 
+    def set_custom_tab_stop(self, width):
+        if hasattr(self, 'setTabStopDistance'):
+            # PySide6
+            self.setTabStopDistance(width)
+        else:
+            # PySide2
+            self.setTabStopWidth(int(width))
+
+    def get_custom_tab_stop(self):
+        if hasattr(self, 'tabStopDistance'):
+            # PySide6
+            return self.tabStopDistance()
+        else:
+            # PySide2
+            return self.tabStopWidth()
+
     def keyPressEvent(self, event):
         """
         Handle key press events.

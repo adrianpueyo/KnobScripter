@@ -168,12 +168,9 @@ class PrefsWidget(QtWidgets.QWidget):
         self.form_layout.addRow("Font size:", self.font_size_box)
         # Window size
         self.window_size_box = QtWidgets.QFrame()
-        if hasattr(self.window_size_box.layout(), "setContentsMargins"):
-            window_size_layout = QtWidgets.QHBoxLayout()
-            window_size_layout.setContentsMargins(0, 0, 0, 0)
-        else:
-            window_size_layout = QtWidgets.QHBoxLayout()
-            window_size_layout.setMargin(0)
+        window_size_layout = QtWidgets.QHBoxLayout()
+        window_size_layout.setContentsMargins(0, 0, 0, 0)
+
         self.window_size_w_box = QtWidgets.QSpinBox()
         self.window_size_w_box.setValue(config.prefs["ks_default_size"][0])
         self.window_size_w_box.setMinimum(200)

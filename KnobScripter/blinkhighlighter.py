@@ -68,15 +68,15 @@ class KSBlinkHighlighter(QtGui.QSyntaxHighlighter):
         :param document: The QTextDocument to apply highlighting.
         :param style: The name of the style to use.
         """
+        super(KSBlinkHighlighter, self).__init__(document)
         self.selected_text = ""
         self.selected_text_prev = ""
         self.styles = self.loadStyles()  # Holds a dict for each style.
         self._style = style  # Can be set via setStyle.
-        # For now forcing the default style (TODO: remove if not needed)
+        # For now forcing the default style
         self._style = "default"
         self.setStyle(self._style)  # Apply default style.
 
-        super(KSBlinkHighlighter, self).__init__(document)
 
     def loadStyles(self):
         '''

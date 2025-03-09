@@ -426,68 +426,84 @@ class KSScriptEditor(QtWidgets.QPlainTextEdit):
         self.setExtraSelections(extra_selections)
         self.scrollToCursor()
 
-        @staticmethod
-        def format(rgb, style=''):
-            color = QtGui.QColor(*rgb)
-            text_format = QtGui.QTextCharFormat()
-            text_format.setForeground(color)
-            if 'bold' in style:
-                text_format.setFontWeight(QtGui.QFont.Bold)
-            if 'italic' in style:
-                text_format.setFontItalic(True)
-            if 'underline' in style:
-                text_format.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
-            return text_format
+    def set_custom_tab_stop(self, width):
+        if hasattr(self, 'setTabStopDistance'):
+            # PySide6
+            self.setTabStopDistance(width)
+        else:
+            # PySide2
+            self.setTabStopWidth(int(width))
 
-        def setColorStyle(self, style=None):
-            styles = config.script_editor_styles
-            if not style:
-                style = config.prefs["se_style"]
-            if style not in styles:
-                return False
-            self.setStyleSheet(styles[style]["stylesheet"])
-            self.lineColor = QtGui.QColor(*styles[style]["selected_line_color"])
-            self.lineNumberAreaColor = QtGui.QColor(*styles[style]["lineNumberAreaColor"])
-            self.lineNumberColor = QtGui.QColor(*styles[style]["lineNumberColor"])
-            self.currentLineNumberColor = QtGui.QColor(*styles[style]["currentLineNumberColor"])
-            self.highlightCurrentLine()
-            self.scrollToCursor()
-            return True
+    def get_custom_tab_stop(self):
+        if hasattr(self, 'tabStopDistance'):
+            # PySide6
+            return self.tabStopDistance()
+        else:
+            # PySide2
+            return self.tabStopWidth()
 
-        def set_code_language(self, lang="python"):
-            """ Sets the appropriate syntax highlighter and styles based on the language """
-            if lang is None and self.highlighter:
-                self.highlighter.setDocument(None)
-                self.highlighter = None
-                self.code_language = None
-            if isinstance(lang, str):
-                if lang != self.code_language:
-                    lang = lang.lower()
-                    if self.highlighter:
-                        self.highlighter.setDocument(None)
-                        self.highlighter = None
-                    if lang == "blink":
-                        self.highlighter = blinkhighlighter.KSBlinkHighlighter(self.document())
-                        self.highlighter.setStyle(config.prefs["code_style_blink"])
-                        self.setColorStyle("blink_default")
-                    elif lang == "python":
-                        self.highlighter = pythonhighlighter.KSPythonHighlighter(self.document())
-                        self.highlighter.setStyle(config.prefs["code_style_python"])
-                        self.setColorStyle("default")
-                    else:
-                        self.setColorStyle("default")
-                        self.code_language = None
-                        return
-                self.code_language = lang
-            else:
-                logging.debug("Lang type not valid: " + str(type(lang)))
+    @staticmethod
+    def format(rgb, style=''):
+        color = QtGui.QColor(*rgb)
+        text_format = QtGui.QTextCharFormat()
+        text_format.setForeground(color)
+        if 'bold' in style:
+            text_format.setFontWeight(QtGui.QFont.Bold)
+        if 'italic' in style:
+            text_format.setFontItalic(True)
+        if 'underline' in style:
+            text_format.setUnderlineStyle(QtGui.QTextCharFormat.SingleUnderline)
+        return text_format
 
-    class KSLineNumberArea(QtWidgets.QWidget):
-        def __init__(self, script_editor):
-            super(KSLineNumberArea, self).__init__(script_editor)
-            self.scriptEditor = script_editor
-            self.setStyleSheet("text-align: center;")
+    def setColorStyle(self, style=None):
+        styles = config.script_editor_styles
+        if not style:
+            style = config.prefs["se_style"]
+        if style not in styles:
+            return False
+        self.setStyleSheet(styles[style]["stylesheet"])
+        self.lineColor = QtGui.QColor(*styles[style]["selected_line_color"])
+        self.lineNumberAreaColor = QtGui.QColor(*styles[style]["lineNumberAreaColor"])
+        self.lineNumberColor = QtGui.QColor(*styles[style]["lineNumberColor"])
+        self.currentLineNumberColor = QtGui.QColor(*styles[style]["currentLineNumberColor"])
+        self.highlightCurrentLine()
+        self.scrollToCursor()
+        return True
 
-        def paintEvent(self, event):
-            self.scriptEditor.lineNumberAreaPaintEvent(event)
-            return
+    def set_code_language(self, lang="python"):
+        """ Sets the appropriate syntax highlighter and styles based on the language """
+        if lang is None and self.highlighter:
+            self.highlighter.setDocument(None)
+            self.highlighter = None
+            self.code_language = None
+        if isinstance(lang, str):
+            if lang != self.code_language:
+                lang = lang.lower()
+                if self.highlighter:
+                    self.highlighter.setDocument(None)
+                    self.highlighter = None
+                if lang == "blink":
+                    self.highlighter = blinkhighlighter.KSBlinkHighlighter(self.document())
+                    self.highlighter.setStyle(config.prefs["code_style_blink"])
+                    self.setColorStyle("blink_default")
+                elif lang == "python":
+                    self.highlighter = pythonhighlighter.KSPythonHighlighter(self.document())
+                    self.highlighter.setStyle(config.prefs["code_style_python"])
+                    self.setColorStyle("default")
+                else:
+                    self.setColorStyle("default")
+                    self.code_language = None
+                    return
+            self.code_language = lang
+        else:
+            logging.debug("Lang type not valid: " + str(type(lang)))
+
+class KSLineNumberArea(QtWidgets.QWidget):
+    def __init__(self, script_editor):
+        super(KSLineNumberArea, self).__init__(script_editor)
+        self.scriptEditor = script_editor
+        self.setStyleSheet("text-align: center;")
+
+    def paintEvent(self, event):
+        self.scriptEditor.lineNumberAreaPaintEvent(event)
+        return

@@ -205,7 +205,7 @@ class ToggableGroup(QtWidgets.QFrame):
             self.content_layout.setContentsMargins(0, 0, 0, 0)
         else:
             self.content_layout.setMargin(0)
-        self.content_layout.setSizeConstraint(self.content_layout.SetNoConstraint)
+        self.content_layout.setSizeConstraint(QtWidgets.QLayout.SetNoConstraint)
         self.setMinimumHeight(10)
         if hasattr(self.top_clickable_layout, "setContentsMargins"):
             self.top_clickable_layout.setContentsMargins(0, 0, 0, 0)
