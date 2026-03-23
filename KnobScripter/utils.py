@@ -106,7 +106,7 @@ def filepath_version_up(filepath, find_next_available=True):
         padding = len(version_str)
         version = int(version_str)
         while True:
-            new_path = re.sub(filepath_re, "\g<1>" + str(version+1).zfill(padding) + "\g<3>", filepath)
+            new_path = re.sub(filepath_re, r"\g<1>" + str(version+1).zfill(padding) + r"\g<3>", filepath)
             if not find_next_available or not os.path.exists(new_path):
                 return new_path
             version += 1

@@ -1,6 +1,6 @@
 """ Version/author information """
 __version__ = "3.2"
 __author__ = "Adrian Pueyo"
-__date__ = "Mar 09 2025"
+__date__ = "Mar 23 2026"
 __mail__ = "pueyovfx@gmail.com"
 __web__ = "www.adrianpueyo.com"

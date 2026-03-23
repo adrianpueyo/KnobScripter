@@ -594,10 +594,9 @@ class KnobScripterWidget(QtWidgets.QDialog):
             edited_knob_value = self.script_editor.toPlainText()
         except:
             try:
-                error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s" % (self.node.name(), dropdown_value))
+                self.message_box("Unable to find %s.%s" % (self.node.name(), dropdown_value))
             except:
-                error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find the node's {}".format(dropdown_value))
-            error_message.exec_()
+                self.message_box("Unable to find the node's {}".format(dropdown_value))
             return
 
         if update_dict is True:
@@ -616,7 +615,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setIcon(QtWidgets.QMessageBox.Question)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.No:
                 self.setCurrentKnob(prev_knob)
                 return
@@ -654,7 +653,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setIcon(QtWidgets.QMessageBox.Question)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.No:
                 return
         self.unsaved_knobs = {}
@@ -667,9 +666,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             obtained_knob_value = self.getKnobValue(dropdown_value)
             self.knob = dropdown_value
         except:
-            error_message = QtWidgets.QMessageBox.information(None, "", "Unable to find %s.%s" % (self.node.name(), dropdown_value))
-            error_message.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-            error_message.exec_()
+            self.message_box("Unable to find %s.%s" % (self.node.name(), dropdown_value))
             return
         edited_knob_value = self.script_editor.toPlainText()
         if check and obtained_knob_value != edited_knob_value:
@@ -679,12 +676,12 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setIcon(QtWidgets.QMessageBox.Question)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.No:
                 return
         if dropdown_value == "kernelSource" and self.node.Class() == "BlinkScript":
             nuke.tcl('''knob {}.kernelSource "{}"'''.format(self.node.fullName(),
-                                                            edited_knob_value.replace('"', '\\"').replace('[', '\[')))
+                                                            edited_knob_value.replace('"', '\\"').replace('[', '\\[')))
         else:
             if nuke.NUKE_VERSION_MAJOR < 13:
                 self.node[dropdown_value].setValue(edited_knob_value.encode("utf8"))
@@ -705,10 +702,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setIcon(QtWidgets.QMessageBox.Question)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            if IS_PYSIDE6:
-                reply = msg_box.exec()
-            else:
-                reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.No:
                 return
         save_errors = 0
@@ -730,10 +724,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             error_box.setIcon(QtWidgets.QMessageBox.Warning)
             error_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             error_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            if IS_PYSIDE6:
-                error_box.exec()
-            else:
-                error_box.exec_()
+            dialogs.exec_dialog(error_box)
         else:
             logging.debug("KnobScripter: %s knobs saved" % str(saved_count))
         return
@@ -1259,10 +1250,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 msg_box.setIcon(QtWidgets.QMessageBox.Question)
                 msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
                 msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-                if IS_PYSIDE6:
-                    reply = msg_box.exec()
-                else:
-                    reply = msg_box.exec_()
+                reply = dialogs.exec_dialog(msg_box)
                 if reply == QtWidgets.QMessageBox.No:
                     return
             if os.path.isfile(script_path_temp):
@@ -1280,10 +1268,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setIcon(QtWidgets.QMessageBox.Question)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            if IS_PYSIDE6:
-                reply = msg_box.exec()
-            else:
-                reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.No:
                 return
             os.remove(script_path_temp)
@@ -1359,10 +1344,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setIcon(QtWidgets.QMessageBox.Question)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.No)
-            if IS_PYSIDE6:
-                reply = msg_box.exec()
-            else:
-                reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.No:
                 return False
 
@@ -1383,10 +1365,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         fd_data = folders_dropdown.itemData(fd_index)
         if fd_data == "create new":
             panel = dialogs.FileNameDialog(self, mode="folder")
-            if IS_PYSIDE6:
-                panel_result = panel.exec()
-            else:
-                panel_result = panel.exec_()
+            panel_result = dialogs.exec_dialog(panel)
             if panel_result:
                 folder_name = panel.text
                 if os.path.isdir(os.path.join(config.py_scripts_dir, folder_name)):
@@ -1587,10 +1566,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 msg_box.setIcon(QtWidgets.QMessageBox.Question)
                 msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
                 msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-                if IS_PYSIDE6:
-                    reply = msg_box.exec()
-                else:
-                    reply = msg_box.exec_()
+                reply = dialogs.exec_dialog(msg_box)
                 if reply == QtWidgets.QMessageBox.No:
                     return
             if os.path.isfile(script_path_temp):
@@ -1608,10 +1584,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setIcon(QtWidgets.QMessageBox.Question)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            if IS_PYSIDE6:
-                reply = msg_box.exec()
-            else:
-                reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.No:
                 return
             os.remove(script_path_temp)
@@ -1641,10 +1614,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
         if sd_data == "create new":
             self.current_script_dropdown.blockSignals(True)
             panel = dialogs.FileNameDialog(self, mode="script")
-            if IS_PYSIDE6:
-                result = panel.exec()
-            else:
-                result = panel.exec_()
+            result = dialogs.exec_dialog(panel)
             if result:
                 # Accepted
                 script_name = panel.text + ".py"
@@ -1680,10 +1650,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 current_name = current_name[:-3]
             while True:
                 panel = dialogs.FileNameDialog(self, mode="script", text="{0}_copy".format(current_name))
-                if IS_PYSIDE6:
-                    result = panel.exec()
-                else:
-                    result = panel.exec_()
+                result = dialogs.exec_dialog(panel)
                 if result:
                     # Accepted
                     script_name = panel.text + ".py"
@@ -1893,16 +1860,10 @@ class KnobScripterWidget(QtWidgets.QDialog):
             selection = [new_node]
         elif not len(selection):
             node_dialog = dialogs.ChooseNodeDialog(self)
-            if IS_PYSIDE6:
-                if node_dialog.exec():
-                    selection = [nuke.toNode(node_dialog.name)]
-                else:
-                    return
+            if dialogs.exec_dialog(node_dialog):
+                selection = [nuke.toNode(node_dialog.name)]
             else:
-                if node_dialog.exec_():
-                    selection = [nuke.toNode(node_dialog.name)]
-                else:
-                    return
+                return
 
         # Change to node mode...
         self.node_mode_bar.setVisible(True)
@@ -1923,10 +1884,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel)
             msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-            if IS_PYSIDE6:
-                reply = msg_box.exec()
-            else:
-                reply = msg_box.exec_()
+            reply = dialogs.exec_dialog(msg_box)
             if reply == QtWidgets.QMessageBox.Yes:
                 self.saveAllKnobValues(check=False)
             elif reply == QtWidgets.QMessageBox.Cancel:
@@ -2034,10 +1992,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
             msg_box = QtWidgets.QMessageBox(self)
         msg_box.setText(the_text)
         msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-        if IS_PYSIDE6:
-            msg_box.exec()
-        else:
-            msg_box.exec_()
+        dialogs.exec_dialog(msg_box)
 
     def loadPrefs(self):
         """ Load prefs """
@@ -2062,10 +2017,7 @@ class KnobScripterWidget(QtWidgets.QDialog):
                 msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel)
                 msg_box.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
                 msg_box.setDefaultButton(QtWidgets.QMessageBox.Yes)
-                if IS_PYSIDE6:
-                    reply = msg_box.exec()
-                else:
-                    reply = msg_box.exec_()
+                reply = dialogs.exec_dialog(msg_box)
                 if reply == QtWidgets.QMessageBox.Yes:
                     self.saveAllKnobValues(check=False)
                     close_event.accept()
@@ -2091,7 +2043,6 @@ class KnobScripterWidget(QtWidgets.QDialog):
             self.current_knob_dropdown.blockSignals(True)
             self.current_knob_dropdown.clear()  # First remove all items
             self.updateKnobDropdown()
-            print(self.unsaved_knobs)
             available_knobs = []
             for i in range(self.current_knob_dropdown.count()):
                 if self.current_knob_dropdown.itemData(i) is not None:
