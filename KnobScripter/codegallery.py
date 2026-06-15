@@ -129,13 +129,13 @@ def load_all_code_gallery_dicts():
     full_dict = dict()
     for file in config.code_gallery_files + [config.codegallery_user_txt_path]:
         file_dict = load_code_gallery_dict(file)
-        logging.debug(f"Loading file: {file}")
+        logging.debug("Loading file: {}".format(file))
         for key in file_dict.keys():
             if key not in full_dict:
                 full_dict[key] = []
             for single_code_dict in file_dict[key]:
                 full_dict[key].append(single_code_dict)
-    logging.debug(f"Combined code gallery dict: {full_dict}")
+    logging.debug("Combined code gallery dict: {}".format(full_dict))
     return full_dict
 
 
@@ -149,7 +149,7 @@ def load_code_gallery_dict(path=None):
     if not path:
         path = config.codegallery_user_txt_path
     if not os.path.isfile(path):
-        logging.debug(f"Path doesn't exist: {path}")
+        logging.debug("Path doesn't exist: {}".format(path))
         return dict()
     else:
         try:
@@ -157,7 +157,7 @@ def load_code_gallery_dict(path=None):
                 code_dict = json.load(f)
                 return code_dict
         except Exception as e:
-            logging.debug(f"Couldn't open file: {path}.\nLoading empty dict instead. Error: {e}")
+            logging.debug("Couldn't open file: {0}.\nLoading empty dict instead. Error: {1}".format(path, e))
             return dict()
 
 
@@ -283,7 +283,13 @@ class AppendCodePanel(QtWidgets.QDialog):
             self.warnings_label.show()
             return False
         logging.debug(
-            f"Code to be saved \nLang:\n{lang}\nTitle:\n{title}\nDescription:\n{description}\nCategory:\n{categories}\nCode:\n{code}\n------")
+            "Code to be saved \nLang:\n{0}\nTitle:\n{1}\nDescription:\n{2}\nCategory:\n{3}\nCode:\n{4}\n------".format(
+                lang,
+                title,
+                description,
+                categories,
+                code)
+        )
         append_code(code, title, description, categories, lang=lang)
         code_gallery_dict = load_code_gallery_dict()
         try:
@@ -397,7 +403,7 @@ class CodeGalleryWidget(QtWidgets.QWidget):
 
         self.lang_selector.set_button(lang)
         self.code_language = lang
-        logging.debug(f"Setting code language to {lang}")
+        logging.debug("Setting code language to {}".format(lang))
 
         # Clear scroll area
         utils.clear_layout(self.scroll_layout)

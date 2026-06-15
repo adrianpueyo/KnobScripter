@@ -29,18 +29,22 @@ except ImportError:
     IS_PYSIDE6 = False
 
 
-def exec_dialog(dialog):
+def exec_dialog(dialog, *args, **kwargs):
     """
-    Execute a QDialog using the appropriate method depending on the PySide version.
+    Calls `dialog.exec(...)` if it exists, falling back to `dialog.exec_(...)`
 
-    :param dialog: The QDialog instance to execute.
+    Qt6 moved to using `exec` instead of `exec_` after moving to python3
+    (`exec` was a reserved keyword in python2)
+
+    :param dialog: The Qt Object instance to execute.
     :return: The result of the dialog execution.
     """
-    if IS_PYSIDE6:
-        return dialog.exec()
-    else:
-        return dialog.exec_()
 
+    if hasattr(dialog, 'exec'):
+        exec_ = getattr(dialog, 'exec')
+    else:
+        exec_ = dialog.exec_
+    return exec_(*args, **kwargs)
 
 def ask(question, parent=None, default_yes=True):
     msgBox = QtWidgets.QMessageBox(parent=parent)
